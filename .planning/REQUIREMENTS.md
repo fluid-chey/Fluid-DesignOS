@@ -36,7 +36,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **SOCL-04**: Social posts include consistent footer structure (flag icon + We-Commerce wordmark left, Fluid dots right)
 - [ ] **SOCL-05**: Social posts use brushstroke textures from brand assets with proper blend mode (screen), opacity (0.10-0.25), and edge-bleed rules
 - [ ] **SOCL-06**: Social posts use circle sketch for word emphasis only (not decorative), hue-shifted to match accent color
-- [ ] **SOCL-07**: Social posts reference template library as 5-star examples but adapt, not copy verbatim
+- [x] **SOCL-07**: Social posts reference template library as 5-star examples but adapt, not copy verbatim
 
 ### Website Sections
 
@@ -56,8 +56,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Template Library
 
-- [ ] **TMPL-01**: Template library in Jonathan's format — live HTML preview + content slot specs + creation instructions
-- [ ] **TMPL-02**: Social post templates covering core archetypes (testimonial/quote, app highlight, partner alert, and 3+ more)
+- [x] **TMPL-01**: Template library in Jonathan's format — live HTML preview + content slot specs + creation instructions
+- [x] **TMPL-02**: Social post templates covering core archetypes (testimonial/quote, app highlight, partner alert, and 3+ more)
 - [ ] **TMPL-03**: One-pager templates with content slot specs
 - [ ] **TMPL-04**: Templates include per-element annotations (FIXED/FLEXIBLE/OPTIONAL)
 
@@ -162,9 +162,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SOCL-04 | Phase 2 | Pending |
 | SOCL-05 | Phase 2 | Pending |
 | SOCL-06 | Phase 2 | Pending |
-| SOCL-07 | Phase 2 | Pending |
-| TMPL-01 | Phase 2 | Pending |
-| TMPL-02 | Phase 2 | Pending |
+| SOCL-07 | Phase 2 | Complete |
+| TMPL-01 | Phase 2 | Complete |
+| TMPL-02 | Phase 2 | Complete |
 | SITE-01 | Phase 3 | Pending |
 | SITE-02 | Phase 3 | Pending |
 | SITE-03 | Phase 3 | Pending |
