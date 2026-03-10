@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluid Comparison Sheet — One-Pager</title>
+  <!--
+    TEMPLATE: Comparison Sheet One-Pager
+    LAYOUT: Display headline + comparison table + key differentiators
+    ACCENT: Orange (default — FLEXIBLE)
+
+    FIXED: Page dimensions (8.5x11"), @page rules, footer structure, brushstroke blend mode
+    FLEXIBLE: Headline text, comparison rows, competitor names, differentiators, accent color
+    OPTIONAL: Second brushstroke, number of comparison rows, differentiator strip
+  -->
+  <style>
+    /* ── Brand Fonts ── */
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'FLFont'; src: url('../../assets/fonts/flfontbold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #000000;
+      --white: #ffffff;
+      --blue: #42b1ff;
+      --green: #44b574;
+      --orange: #FF8B58;
+      --purple: #c985e5;
+      --gray-light: rgba(255,255,255,0.45);
+      --gray-dim: rgba(255,255,255,0.25);
+      --card-bg: rgba(255,255,255,0.03);
+      --card-border: rgba(255,255,255,0.06);
+      --font-display: 'NeueHaasDisplay', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-hand: 'FLFont', cursive;
+      --font-body: 'NeueHaasDisplay', Arial, system-ui, sans-serif;
+      --radius-sm: 6px;
+      --radius-md: 11px;
+      --radius-lg: 17px;
+      --accent: var(--orange);
+    }
+
+    @page { size: letter; margin: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--black);
+      color: var(--white);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      width: 8.5in;
+      min-height: 11in;
+      margin: 0 auto;
+      padding: 0.45in 0.55in 0.35in;
+      background: var(--black);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page > *:not(.brush):not(.side-label) { position: relative; z-index: 2; }
+
+    .brush {
+      position: absolute;
+      pointer-events: none;
+      z-index: 1;
+      mix-blend-mode: screen;
+      object-fit: contain;
+    }
+
+    .side-label {
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      transform: translateY(-50%) rotate(90deg);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      white-space: nowrap;
+      z-index: 5;
+    }
+
+    /* ── HEADER (Zone 1) ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25in;
+      padding-bottom: 0.1in;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .logo-area { display: flex; align-items: center; gap: 14px; }
+    .logo-area img { height: 22px; width: auto; }
+    .logo-area .separator { color: rgba(255,255,255,0.2); font-size: 1rem; font-weight: 300; }
+    .header-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gray-dim);
+    }
+
+    /* ── DISPLAY HEADLINE (Zone 2) ── */
+    .display-headline {
+      margin-bottom: 0.25in;
+    }
+    .display-eyebrow {
+      font-family: var(--font-hand);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .display-headline h1 {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 34px;
+      line-height: 1.0;
+      letter-spacing: -0.04em;
+      color: var(--white);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .display-headline h1 .accent { color: var(--accent); }
+    .display-sub {
+      font-weight: 300;
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--gray-light);
+      max-width: 5.5in;
+    }
+
+    /* ── COMPARISON TABLE (Zone 3) ── */
+    .compare-table {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 0.2in;
+    }
+    .compare-header {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1fr 1fr;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.04);
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-dim);
+    }
+    .compare-header .fluid-col {
+      color: var(--accent);
+    }
+    .compare-row {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1fr 1fr;
+      align-items: center;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 10.5px;
+    }
+    .compare-row:last-child { border-bottom: none; }
+    .compare-row .label {
+      color: var(--gray-light);
+      font-weight: 300;
+    }
+    .compare-row .check {
+      color: var(--green);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .compare-row .cross {
+      color: rgba(255,255,255,0.15);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .compare-row .partial {
+      color: var(--orange);
+      font-size: 9px;
+      font-weight: 500;
+    }
+    .compare-row .fluid-check {
+      color: var(--green);
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    /* ── KEY DIFFERENTIATORS (Zone 4) ── */
+    .differentiators {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 0.15in;
+      flex: 1;
+    }
+    .diff-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+    }
+    .diff-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      margin-bottom: 8px;
+      background: rgba(255,139,88,0.12);
+      color: var(--orange);
+      border: 1.5px solid rgba(255,139,88,0.4);
+    }
+    .diff-title {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+    .diff-desc {
+      font-weight: 300;
+      font-size: 9.5px;
+      line-height: 1.5;
+      color: var(--gray-light);
+    }
+
+    /* ── FOOTER (Zone 5) ── */
+    .footer {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.1in;
+      border-top: 1px solid var(--card-border);
+    }
+    .footer-left { display: flex; align-items: center; gap: 12px; }
+    .footer-left img { height: 16px; width: auto; }
+    .footer-left .sep { color: rgba(255,255,255,0.2); font-weight: 300; font-size: 13px; }
+    .footer-sub { font-size: 8px; color: var(--gray-dim); font-weight: 300; margin-top: 4px; }
+    .footer-cta { text-align: right; }
+    .footer-cta-label { font-size: 9px; color: var(--gray-light); font-weight: 300; margin-bottom: 5px; }
+    .footer-cta-btn {
+      display: inline-block;
+      padding: 7px 20px;
+      border-radius: 9999px;
+      background: var(--accent);
+      color: var(--white);
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+
+    @media print {
+      body { background: var(--black); }
+      .page { width: 100%; min-height: 100vh; padding: 0.4in; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- BRUSHSTROKE — right edge bleed (FIXED: blend mode; OPTIONAL: second brushstroke) -->
+    <img class="brush" src="../../assets/brushstrokes/brushstroke-horizontal-wide.png" alt="" style="top: 20%; right: -50px; width: 350px; opacity: 0.12; transform: rotate(-3deg);">
+
+    <!-- SIDE LABEL (FIXED) -->
+    <div class="side-label">Fluid Commerce</div>
+
+    <!-- SLOT: HEADER - Fluid logo + category label (Zone 1) -->
+    <!-- FIXED: Logo placement, border-bottom -->
+    <!-- FLEXIBLE: Category label text -->
+    <div class="header">
+      <div class="logo-area">
+        <img src="../../assets/logos/wecommerce-flags.png" alt="Fluid" />
+        <span class="separator">|</span>
+        <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce" />
+      </div>
+      <div class="header-label">Platform Comparison</div>
+    </div>
+
+    <!-- SLOT: DISPLAY_HEADLINE - Headline with FLFont tagline (Zone 2) -->
+    <!-- FLEXIBLE: Eyebrow, headline, sub-copy, accent color -->
+    <div class="display-headline">
+      <div class="display-eyebrow">Stop comparing apples to oranges</div>
+      <!-- SLOT: HEADLINE_TEXT -->
+      <h1>One platform.<br><span class="accent">Not six vendors.</span></h1>
+      <!-- SLOT: HEADLINE_SUB -->
+      <p class="display-sub">Other platforms make you stitch together a website builder, back office, payment processor, mobile app, commission engine, and reporting tool. Fluid ships all six in one system.</p>
+    </div>
+
+    <!-- SLOT: COMPARISON_TABLE - Feature comparison grid (Zone 3) -->
+    <!-- FLEXIBLE: Feature rows, competitor names, check/cross values -->
+    <!-- OPTIONAL: Number of rows (6-10), number of competitors (1-3) -->
+    <div class="compare-table">
+      <div class="compare-header">
+        <span>Feature</span>
+        <span class="fluid-col">Fluid</span>
+        <!-- SLOT: COMPETITOR_1_NAME -->
+        <span>Competitor A</span>
+        <!-- SLOT: COMPETITOR_2_NAME -->
+        <span>Competitor B</span>
+      </div>
+      <!-- SLOT: COMPARISON_ROWS - Feature comparison rows -->
+      <div class="compare-row">
+        <span class="label">Live Website Editor</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="cross">&#x2717;</span>
+        <span class="partial">Limited</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">Built-In Commissions</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="check">&#x2713;</span>
+        <span class="cross">&#x2717;</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">Native Mobile App</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="cross">&#x2717;</span>
+        <span class="cross">&#x2717;</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">Integrated Payments</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="partial">3rd Party</span>
+        <span class="check">&#x2713;</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">Real-Time Rank Tracking</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="cross">&#x2717;</span>
+        <span class="partial">Delayed</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">Multi-Language Support</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="check">&#x2713;</span>
+        <span class="partial">Limited</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">4-Day Blitz Launch</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="cross">&#x2717;</span>
+        <span class="cross">&#x2717;</span>
+      </div>
+      <div class="compare-row">
+        <span class="label">Open API + Webhooks</span>
+        <span class="fluid-check">&#x2713;</span>
+        <span class="check">&#x2713;</span>
+        <span class="check">&#x2713;</span>
+      </div>
+    </div>
+
+    <!-- SLOT: DIFFERENTIATORS - Key differentiator cards (Zone 4) -->
+    <!-- FLEXIBLE: Differentiator titles and descriptions -->
+    <!-- OPTIONAL: Entire strip can be removed or reduced to 2 cards -->
+    <div class="differentiators">
+      <div class="diff-card">
+        <div class="diff-icon">&#x2726;</div>
+        <!-- SLOT: DIFF_1 -->
+        <div class="diff-title">Purpose-Built</div>
+        <div class="diff-desc">Every feature was designed for direct selling. Not bolted on. Not adapted. Built from scratch.</div>
+      </div>
+      <div class="diff-card">
+        <div class="diff-icon" style="background: rgba(66,177,255,0.12); color: var(--blue); border-color: rgba(66,177,255,0.4);">&#x21BB;</div>
+        <!-- SLOT: DIFF_2 -->
+        <div class="diff-title">One Vendor</div>
+        <div class="diff-desc">One contract, one support team, one integration. No more managing 6 vendor relationships.</div>
+      </div>
+      <div class="diff-card">
+        <div class="diff-icon" style="background: rgba(68,181,116,0.12); color: var(--green); border-color: rgba(68,181,116,0.4);">&#x26A1;</div>
+        <!-- SLOT: DIFF_3 -->
+        <div class="diff-title">Launch in Days</div>
+        <div class="diff-desc">Blitz Week gets you live in 4 days. Others take 3-6 months for basic setup.</div>
+      </div>
+    </div>
+
+    <!-- SLOT: FOOTER - CTA with logo (Zone 5) -->
+    <!-- FIXED: Footer structure -->
+    <!-- FLEXIBLE: CTA text, button text -->
+    <div class="footer">
+      <div>
+        <div class="footer-left">
+          <img src="../../assets/logos/wecommerce-flags.png" alt="Fluid" />
+          <span class="sep">|</span>
+          <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce" />
+        </div>
+        <div class="footer-sub">Part of the We-Commerce platform. Connected to Fair Share, Payments, Mobile, and Sync.</div>
+      </div>
+      <div class="footer-cta">
+        <!-- SLOT: CTA_LABEL -->
+        <div class="footer-cta-label">See why companies switch to Fluid.</div>
+        <!-- SLOT: CTA_BUTTON -->
+        <span class="footer-cta-btn">Compare Plans &rarr;</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

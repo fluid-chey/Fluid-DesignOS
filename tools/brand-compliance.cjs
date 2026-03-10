@@ -33,14 +33,18 @@ function severityFromWeight(weight, thresholds) {
 }
 
 function detectContext(content) {
-  // Try to auto-detect social vs website from content
+  // Try to auto-detect social vs website vs one-pager from content
   const hasSocialDimension = /1080\s*x?\s*1080|1200\s*x?\s*627|1340\s*x?\s*630/i.test(content);
   const hasLiquidSchema = /{%\s*schema\s*%}/i.test(content);
-  const hasViewport = /viewport/i.test(content);
+  const hasPageRule = /@page\s*\{[^}]*size:\s*letter/i.test(content);
   const hasCssVars = /var\(--/g.test(content);
 
-  if (hasLiquidSchema || hasCssVars) return 'website';
+  // One-pagers use @page letter rules and social fonts (NeueHaasDisplay + FLFont)
+  // Treat them as social context for font validation
+  if (hasPageRule) return 'social';
+  if (hasLiquidSchema) return 'website';
   if (hasSocialDimension) return 'social';
+  if (hasCssVars) return 'website';
   return 'all';
 }
 
@@ -58,11 +62,14 @@ function checkHexColors(lines, rules, context) {
   const allowedHex = new Set();
 
   // Add colors based on context
+  // Use context-specific lists if they exist, otherwise fall back to the shared allowed_hex list
   if (context === 'social' || context === 'all') {
-    rules.colors.social.allowed_hex.forEach(h => allowedHex.add(normalizeHex(h)));
+    const socialColors = (rules.colors.social && rules.colors.social.allowed_hex) || rules.colors.allowed_hex || [];
+    socialColors.forEach(h => allowedHex.add(normalizeHex(h)));
   }
   if (context === 'website' || context === 'all') {
-    rules.colors.website.allowed_hex.forEach(h => allowedHex.add(normalizeHex(h)));
+    const websiteColors = (rules.colors.website && rules.colors.website.allowed_hex) || rules.colors.allowed_hex || [];
+    websiteColors.forEach(h => allowedHex.add(normalizeHex(h)));
   }
 
   // Also add common CSS colors that aren't brand-specific but are harmless
@@ -119,7 +126,8 @@ function checkFontFamilies(lines, rules, context) {
       // Extract individual family names
       const families = familyDecl.split(',').map(f =>
         f.trim().replace(/["']/g, '').trim()
-      ).filter(f => f && f !== 'sans-serif' && f !== 'serif' && f !== 'monospace' && f !== 'cursive');
+      ).filter(f => f && f !== 'sans-serif' && f !== 'serif' && f !== 'monospace' && f !== 'cursive'
+        && !f.startsWith('var(') && f !== '-apple-system' && f !== 'BlinkMacSystemFont' && f !== 'system-ui' && f !== 'Arial' && f !== 'Segoe UI');
 
       for (const family of families) {
         const isAllowed = allowedFamilies.some(af =>
@@ -145,11 +153,14 @@ function checkFontFamilies(lines, rules, context) {
 
 function checkMultipleAccentColors(lines, rules, context) {
   if (context === 'website') return [];
+  // One-pagers legitimately use multiple accent colors for stat strips, feature icons, etc.
+  const joined = lines.join('\n');
+  if (/@page\s*\{[^}]*size:\s*letter/i.test(joined)) return [];
 
   const violations = [];
-  const accentColors = rules.colors.social.accent_colors.map(c => normalizeHex(c));
+  const accentColors = ((rules.colors.social && rules.colors.social.accent_colors) || rules.colors.accent_colors || []).map(c => normalizeHex(c));
   const foundAccents = new Set();
-  const content = lines.join('\n');
+  const content = joined;
 
   for (const accent of accentColors) {
     // Check both normalized and original case

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluid Company Overview — One-Pager</title>
+  <!--
+    TEMPLATE: Company Overview One-Pager
+    LAYOUT: Giant stats + editorial text
+    ACCENT: Purple (default — FLEXIBLE)
+
+    FIXED: Page dimensions (8.5x11"), @page rules, footer structure, brushstroke blend mode
+    FLEXIBLE: Headline text, overview/vision/mission text, stat values, accent color
+    OPTIONAL: Team/values strip, second brushstroke
+  -->
+  <style>
+    /* ── Brand Fonts ── */
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'NeueHaasDisplay'; src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'FLFont'; src: url('../../assets/fonts/flfontbold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #000000;
+      --white: #ffffff;
+      --blue: #42b1ff;
+      --green: #44b574;
+      --orange: #FF8B58;
+      --purple: #c985e5;
+      --gray-light: rgba(255,255,255,0.45);
+      --gray-dim: rgba(255,255,255,0.25);
+      --card-bg: rgba(255,255,255,0.03);
+      --card-border: rgba(255,255,255,0.06);
+      --font-display: 'NeueHaasDisplay', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-hand: 'FLFont', cursive;
+      --font-body: 'NeueHaasDisplay', Arial, system-ui, sans-serif;
+      --radius-sm: 6px;
+      --radius-md: 11px;
+      --radius-lg: 17px;
+      --accent: var(--purple);
+    }
+
+    @page { size: letter; margin: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--black);
+      color: var(--white);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      width: 8.5in;
+      min-height: 11in;
+      margin: 0 auto;
+      padding: 0.45in 0.55in 0.35in;
+      background: var(--black);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page > *:not(.brush):not(.side-label) { position: relative; z-index: 2; }
+
+    .brush {
+      position: absolute;
+      pointer-events: none;
+      z-index: 1;
+      mix-blend-mode: screen;
+      object-fit: contain;
+    }
+
+    .side-label {
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      transform: translateY(-50%) rotate(90deg);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      white-space: nowrap;
+      z-index: 5;
+    }
+
+    /* ── HEADER (Zone 1) ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25in;
+      padding-bottom: 0.1in;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .logo-area { display: flex; align-items: center; gap: 14px; }
+    .logo-area img { height: 22px; width: auto; }
+    .logo-area .separator { color: rgba(255,255,255,0.2); font-size: 1rem; font-weight: 300; }
+    .header-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gray-dim);
+    }
+
+    /* ── HERO HEADLINE (Zone 2) ── */
+    .hero-headline {
+      margin-bottom: 0.3in;
+    }
+    .hero-eyebrow {
+      font-family: var(--font-hand);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .hero-headline h1 {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 38px;
+      line-height: 1.0;
+      letter-spacing: -0.04em;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+    .hero-headline h1 .accent { color: var(--accent); }
+
+    /* ── TWO-COLUMN BODY (Zone 3) ── */
+    .body-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 0.3in;
+      margin-bottom: 0.2in;
+      flex: 1;
+    }
+
+    .section-label {
+      font-family: var(--font-hand);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--card-border);
+      color: var(--accent);
+    }
+
+    .text-block {
+      margin-bottom: 16px;
+    }
+    .text-block-title {
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .text-block-body {
+      font-weight: 300;
+      font-size: 10.5px;
+      line-height: 1.55;
+      color: var(--gray-light);
+    }
+    .text-block-body strong { color: var(--white); font-weight: 700; }
+
+    /* Giant stats */
+    .giant-stats { display: flex; flex-direction: column; gap: 14px; }
+    .giant-stat {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .giant-stat-value {
+      font-family: var(--font-display);
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .giant-stat-label {
+      font-size: 8.5px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-dim);
+      line-height: 1.35;
+    }
+
+    /* ── TEAM/VALUES STRIP (Zone 4) ── */
+    .values-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 0.15in;
+    }
+    .value-item {
+      text-align: center;
+      padding: 10px 6px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+    }
+    .value-icon {
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+    .value-title {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 3px;
+    }
+    .value-desc {
+      font-size: 8px;
+      line-height: 1.4;
+      color: var(--gray-dim);
+      font-weight: 300;
+    }
+
+    /* ── FOOTER (Zone 5) ── */
+    .footer {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.1in;
+      border-top: 1px solid var(--card-border);
+    }
+    .footer-left { display: flex; align-items: center; gap: 12px; }
+    .footer-left img { height: 16px; width: auto; }
+    .footer-left .sep { color: rgba(255,255,255,0.2); font-weight: 300; font-size: 13px; }
+    .footer-sub { font-size: 8px; color: var(--gray-dim); font-weight: 300; margin-top: 4px; }
+    .footer-cta { text-align: right; }
+    .footer-cta-label { font-size: 9px; color: var(--gray-light); font-weight: 300; margin-bottom: 5px; }
+    .footer-cta-btn {
+      display: inline-block;
+      padding: 7px 20px;
+      border-radius: 9999px;
+      background: var(--accent);
+      color: var(--white);
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+
+    @media print {
+      body { background: var(--black); }
+      .page { width: 100%; min-height: 100vh; padding: 0.4in; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- BRUSHSTROKE — diagonal across middle (FIXED: blend mode; OPTIONAL: second brushstroke) -->
+    <img class="brush" src="../../assets/brushstrokes/brushstroke-diagonal-upward.png" alt="" style="top: 35%; left: -40px; width: 110%; opacity: 0.10; transform: rotate(-8deg);">
+
+    <!-- SIDE LABEL (FIXED) -->
+    <div class="side-label">Fluid Commerce</div>
+
+    <!-- SLOT: HEADER - Fluid logo + "Company Overview" label (Zone 1) -->
+    <!-- FIXED: Logo placement, border-bottom -->
+    <!-- FLEXIBLE: Label text -->
+    <div class="header">
+      <div class="logo-area">
+        <img src="../../assets/logos/wecommerce-flags.png" alt="Fluid" />
+        <span class="separator">|</span>
+        <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce" />
+      </div>
+      <div class="header-label">Company Overview</div>
+    </div>
+
+    <!-- SLOT: HERO_HEADLINE - Large headline spanning full width (Zone 2) -->
+    <!-- FLEXIBLE: Eyebrow text, headline text, accent color -->
+    <div class="hero-headline">
+      <div class="hero-eyebrow">The all-in-one commerce platform</div>
+      <!-- SLOT: HEADLINE_TEXT -->
+      <h1>Built for companies<br>that sell <span class="accent">through people.</span></h1>
+    </div>
+
+    <!-- SLOT: BODY_GRID - Overview/vision/mission left, giant stats right (Zone 3) -->
+    <!-- FLEXIBLE: All text content, stat values -->
+    <div class="body-grid">
+      <div>
+        <div class="section-label">Who We Are</div>
+        <!-- SLOT: OVERVIEW_TEXT -->
+        <div class="text-block">
+          <div class="text-block-title">Overview</div>
+          <div class="text-block-body">Fluid is the <strong>commerce platform built from the ground up for direct selling.</strong> While other platforms bolt on MLM features as afterthoughts, every line of our code was written for companies that sell through people — not just to them.</div>
+        </div>
+        <!-- SLOT: VISION_TEXT -->
+        <div class="text-block">
+          <div class="text-block-title">Vision</div>
+          <div class="text-block-body">A world where <strong>launching a direct selling company is as easy as opening a Shopify store.</strong> Where the technology disappears and the business model just works.</div>
+        </div>
+        <!-- SLOT: MISSION_TEXT -->
+        <div class="text-block">
+          <div class="text-block-title">Mission</div>
+          <div class="text-block-body">Replace the 6+ disconnected vendors every direct selling company struggles with — and give them <strong>one platform that handles everything.</strong></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">By the Numbers</div>
+        <!-- SLOT: GIANT_STATS - 3-4 large stat callouts -->
+        <!-- FLEXIBLE: Stat values and labels -->
+        <!-- OPTIONAL: Number of stats (2-4) -->
+        <div class="giant-stats">
+          <div class="giant-stat">
+            <div class="giant-stat-value" style="color: var(--purple);">$2B+</div>
+            <div class="giant-stat-label">Transaction volume<br>processed annually</div>
+          </div>
+          <div class="giant-stat">
+            <div class="giant-stat-value" style="color: var(--blue);">40+</div>
+            <div class="giant-stat-label">Countries<br>supported</div>
+          </div>
+          <div class="giant-stat">
+            <div class="giant-stat-value" style="color: var(--green);">6</div>
+            <div class="giant-stat-label">Products in<br>one platform</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLOT: VALUES_STRIP - Team values or key differentiators (Zone 4) -->
+    <!-- FLEXIBLE: Value titles and descriptions -->
+    <!-- OPTIONAL: Entire strip can be removed -->
+    <div class="values-strip">
+      <div class="value-item">
+        <div class="value-icon">&#x2726;</div>
+        <div class="value-title">Purpose-Built</div>
+        <div class="value-desc">Every feature designed for direct selling workflows.</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">&#x21BB;</div>
+        <div class="value-title">All-in-One</div>
+        <div class="value-desc">Replace 6 vendors with a single platform.</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">&#x2750;</div>
+        <div class="value-title">Blitz Week</div>
+        <div class="value-desc">Launch in days, not months. 4-day intensive setup.</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">&#x26A1;</div>
+        <div class="value-title">Global Scale</div>
+        <div class="value-desc">Multi-currency, multi-language, 40+ countries.</div>
+      </div>
+    </div>
+
+    <!-- SLOT: FOOTER - CTA with logo (Zone 5) -->
+    <!-- FIXED: Footer structure -->
+    <!-- FLEXIBLE: CTA text, button text -->
+    <div class="footer">
+      <div>
+        <div class="footer-left">
+          <img src="../../assets/logos/wecommerce-flags.png" alt="Fluid" />
+          <span class="sep">|</span>
+          <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce" />
+        </div>
+        <div class="footer-sub">Part of the We-Commerce platform. Connected to Fair Share, Payments, Mobile, and Sync.</div>
+      </div>
+      <div class="footer-cta">
+        <!-- SLOT: CTA_LABEL -->
+        <div class="footer-cta-label">See why leading direct sellers choose Fluid.</div>
+        <!-- SLOT: CTA_BUTTON -->
+        <span class="footer-cta-btn">Learn More &rarr;</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
