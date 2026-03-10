@@ -25,8 +25,9 @@ See [asset-usage.md](asset-usage.md) for detailed usage rules, blend modes, opac
 | circle-3 | `assets/circles/masks/circle-3.png` | Hand-drawn circle variant 3. More angular, energetic. | 90 |
 | circle-4 | `assets/circles/masks/circle-4.png` | Hand-drawn circle variant 4. Loose, expressive. | 90 |
 | circle-5 | `assets/circles/masks/circle-5.png` | Hand-drawn circle variant 5. Tighter, contained. | 90 |
-| circle-sketch-rough | `assets/circles/circle-sketch-rough.png` | Legacy rougher circle (original). Kept for backward compat. | 85 |
-| circle-sketch-clean | `assets/circles/circle-sketch-clean.png` | Legacy cleaner circle (original). Kept for backward compat. | 85 |
+| circle-6 | `assets/circles/masks/circle-6.png` | Original hand-drawn sketch circle, converted to white mask. Rougher, more textured. | 90 |
+| circle-sketch-rough | `assets/circles/circle-sketch-rough.png` | Original blue-tinted circle (source for circle-6 mask). | 85 |
+| circle-sketch-clean | `assets/circles/circle-sketch-clean.png` | Original cleaner blue-tinted circle. | 85 |
 
 ## Underline Masks (Emphasis)
 
