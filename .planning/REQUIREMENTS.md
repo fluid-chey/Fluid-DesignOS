@@ -85,9 +85,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Distribution
 
-- [ ] **DIST-01**: Git repo organized with clear directory structure for skills, docs, assets, tools
-- [ ] **DIST-02**: Installation script or clear setup instructions for both Claude Code and Cursor
-- [ ] **DIST-03**: Works via sync.sh pattern or equivalent for both platforms
+- [x] **DIST-01**: Git repo organized with clear directory structure for skills, docs, assets, tools
+- [x] **DIST-02**: Installation script or clear setup instructions for both Claude Code and Cursor
+- [x] **DIST-03**: Works via sync.sh pattern or equivalent for both platforms
 
 ## v2 Requirements
 
@@ -144,9 +144,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLI-02 | Phase 1 | Complete |
 | CLI-03 | Phase 1 | Complete |
 | CLI-04 | Phase 1 | Complete |
-| DIST-01 | Phase 1 | Pending |
-| DIST-02 | Phase 1 | Pending |
-| DIST-03 | Phase 1 | Pending |
+| DIST-01 | Phase 1 | Complete |
+| DIST-02 | Phase 1 | Complete |
+| DIST-03 | Phase 1 | Complete |
 | META-03 | Phase 1 | Complete (01-01) |
 | META-04 | Phase 1 | Complete (01-01) |
 | ORCH-01 | Phase 2 | Pending |

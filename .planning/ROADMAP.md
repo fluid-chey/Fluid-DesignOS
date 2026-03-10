@@ -12,7 +12,7 @@ This roadmap delivers a complete AI skill system that generates brand-correct Fl
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Brand Intelligence + Foundation** - Decomposed brand docs, asset repo, CLI validation tools, repo structure, and distribution scaffolding
+- [x] **Phase 1: Brand Intelligence + Foundation** - Decomposed brand docs, asset repo, CLI validation tools, repo structure, and distribution scaffolding (completed 2026-03-10)
 - [ ] **Phase 2: Orchestrator + Social Posts** - Orchestrator-subagent pattern proven end-to-end with social post generation
 - [ ] **Phase 3: Website Sections + One-Pagers** - Extend proven orchestrator to .liquid sections and sales collateral
 - [ ] **Phase 4: Canvas + Iteration** - React app for viewing, annotating, and comparing asset variations with MCP agent bridge
@@ -34,8 +34,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Repo structure, brand doc decomposition, and asset organization
-- [ ] 01-02-PLAN.md — CLI validation tools, compiled rules.json, and Brand Pattern Library
-- [ ] 01-03-PLAN.md — Distribution system (sync.sh), skills, hooks, and installation docs
+- [x] 01-02-PLAN.md — CLI validation tools, compiled rules.json, and Brand Pattern Library
+- [x] 01-03-PLAN.md — Distribution system (sync.sh), skills, hooks, and installation docs
 
 ### Phase 2: Orchestrator + Social Posts
 **Goal**: An operator can type a single prompt and receive a brand-correct social post (Instagram or LinkedIn) as validated HTML/CSS, generated through the full orchestrator-subagent pipeline
@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Brand Intelligence + Foundation | 1/3 | In progress | - |
+| 1. Brand Intelligence + Foundation | 3/3 | Complete   | 2026-03-10 |
 | 2. Orchestrator + Social Posts | 0/3 | Not started | - |
 | 3. Website Sections + One-Pagers | 0/2 | Not started | - |
 | 4. Canvas + Iteration | 0/2 | Not started | - |
