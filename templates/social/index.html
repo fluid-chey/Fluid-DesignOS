@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Social Post Template Library</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #fff;
+      padding: 48px 40px;
+    }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 48px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid #1c1c1c;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #44B2FF;
+      margin-bottom: 8px;
+    }
+    .header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    .header p  { font-size: 12px; color: #3a3a3a; }
+
+    /* ── Design System bar ── */
+    .ds-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid #1a1a1a;
+      margin-bottom: 52px;
+    }
+    .ds-block {
+      padding: 18px 20px;
+      border-right: 1px solid #1a1a1a;
+    }
+    .ds-block:last-child { border-right: none; }
+    .ds-block h4 {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #2d2d2d;
+      margin-bottom: 12px;
+    }
+    .color-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #222; flex-shrink: 0; }
+    .color-hex { font-size: 11px; font-weight: 600; color: #ccc; }
+    .color-role { font-size: 10px; color: #3a3a3a; }
+    .font-item { margin-bottom: 7px; }
+    .font-item .fn { font-size: 11px; font-weight: 600; color: #bbb; }
+    .font-item .fu { font-size: 10px; color: #3a3a3a; }
+    .stat { font-size: 11px; color: #444; margin-bottom: 5px; }
+    .stat b { color: #aaa; }
+    .rule { font-size: 11px; color: #3a3a3a; margin-bottom: 5px; padding-left: 8px; border-left: 2px solid #1e1e1e; }
+    .rule b { color: #666; }
+
+    /* ── Section heading ── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #2d2d2d;
+      margin-bottom: 32px;
+    }
+
+    /* ── Template row ── */
+    .template-row {
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      gap: 48px;
+      align-items: start;
+      margin-bottom: 72px;
+    }
+
+    .template-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .t-num  { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #44B2FF; text-transform: uppercase; }
+    .t-name { font-size: 15px; font-weight: 700; }
+
+    /* ── Live canvas frame (1080x1080 square) ── */
+    .canvas-outer {
+      width: 480px;
+      height: 480px;
+      overflow: hidden;
+      position: relative;
+      background: #000;
+      flex-shrink: 0;
+    }
+    .canvas-outer iframe {
+      width: 1080px;
+      height: 1080px;
+      border: none;
+      transform: scale(0.4444);
+      transform-origin: top left;
+      pointer-events: none;
+    }
+
+    /* ── Live canvas frame (1340x630 landscape) ── */
+    .canvas-outer-landscape {
+      width: 480px;
+      height: 226px;
+      overflow: hidden;
+      position: relative;
+      background: #000;
+      flex-shrink: 0;
+    }
+    .canvas-outer-landscape iframe {
+      width: 1340px;
+      height: 630px;
+      border: none;
+      transform: scale(0.3582);
+      transform-origin: top left;
+      pointer-events: none;
+    }
+
+    /* ── Spec panel ── */
+    .spec .desc { font-size: 12px; color: #444; line-height: 1.65; margin-bottom: 20px; }
+
+    .spec-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: #282828;
+      margin-bottom: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-bottom: 20px;
+    }
+    th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #222;
+      padding: 5px 8px;
+      border-bottom: 1px solid #161616;
+    }
+    td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #121212;
+      vertical-align: top;
+      line-height: 1.4;
+    }
+    td:first-child { color: #44B2FF; font-family: monospace; white-space: nowrap; }
+    td:nth-child(2){ color: #555; }
+    td:nth-child(3){ color: #444; }
+
+    .chip {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .chip-w { background: #1e1e1e; color: #888; }
+    .chip-b { background: #0c2233; color: #44B2FF; }
+    .chip-o { background: #2b1100; color: #FF8B58; }
+    .chip-g { background: #0b2216; color: #44b574; }
+    .chip-p { background: #1f0c2b; color: #c985e5; }
+    .chip-dim { background: #111; color: #555; }
+
+    hr { border: none; border-top: 1px solid #141414; margin: 56px 0; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="eyebrow">Fluid Creative OS &middot; Social Media</div>
+  <h1>Social Post Template Library</h1>
+  <p>7 archetype templates &middot; Live HTML/CSS previews &middot; flfontbold + NeueHaas (Inter proxy) &middot; Pure black backgrounds</p>
+</div>
+
+<!-- Design System -->
+<div class="ds-bar">
+  <div class="ds-block">
+    <h4>Accent Colors</h4>
+    <div class="color-row"><div class="swatch" style="background:#FF8B58"></div><div><div class="color-hex">#FF8B58</div><div class="color-role">Orange &mdash; Pain, urgency</div></div></div>
+    <div class="color-row"><div class="swatch" style="background:#42b1ff"></div><div><div class="color-hex">#42b1ff</div><div class="color-role">Blue &mdash; Trust, manifesto</div></div></div>
+    <div class="color-row"><div class="swatch" style="background:#44b574"></div><div><div class="color-hex">#44b574</div><div class="color-role">Green &mdash; Proof, success</div></div></div>
+    <div class="color-row"><div class="swatch" style="background:#c985e5"></div><div><div class="color-hex">#c985e5</div><div class="color-role">Purple &mdash; Premium, data</div></div></div>
+  </div>
+  <div class="ds-block">
+    <h4>Typography</h4>
+    <div class="font-item"><div class="fn">NeueHaas (Inter proxy)</div><div class="fu">Black 900 headlines, Light 300 body</div></div>
+    <div class="font-item"><div class="fn">FLFont Bold</div><div class="fu">Taglines, accent labels, handwritten feel</div></div>
+  </div>
+  <div class="ds-block">
+    <h4>Canvas</h4>
+    <div class="stat">Instagram: <b>1080 x 1080px</b></div>
+    <div class="stat">LinkedIn: <b>1340 x 630px</b></div>
+    <div class="stat">Background: <b>#000000</b> (pure black)</div>
+    <div class="stat">One accent color per post</div>
+  </div>
+  <div class="ds-block">
+    <h4>Brand Elements</h4>
+    <div class="rule"><b>Brushstrokes</b> &mdash; screen blend, 0.10-0.25 opacity, edge-bleed</div>
+    <div class="rule"><b>Circle sketches</b> &mdash; CSS mask, emphasis only, wrap words</div>
+    <div class="rule"><b>Footer</b> &mdash; flag + We-Commerce left, Fluid dots right</div>
+    <div class="rule"><b>FLFont tagline</b> &mdash; below content, before footer</div>
+  </div>
+</div>
+
+<!-- Templates -->
+<div class="section-label">Templates &mdash; Live HTML/CSS</div>
+
+<!-- ── TEMPLATE 01: QUOTE / TESTIMONIAL ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">01</span>
+      <span class="t-name">Quote / Testimonial</span>
+    </div>
+    <div class="canvas-outer">
+      <iframe src="quote.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Portrait photo top-left. Large white name overlapping right. FLFont title and handle in accent blue. Full-width bold quote in the lower half. Rotated category label on far right edge. Brushstrokes frame top-right and bottom-left.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>PHOTO</td><td>Portrait image &middot; 353x439px &middot; left:35 top:46</td><td>&mdash;</td></tr>
+        <tr><td>NAME</td><td>NeueHaas 900 &middot; 108px &middot; lh 0.8 &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span></td></tr>
+        <tr><td>TITLE</td><td>FLFont Bold &middot; 68px &middot; lh 1.0 &middot; sentence case</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+        <tr><td>HANDLE</td><td>FLFont Bold &middot; 36px &middot; sentence case</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+        <tr><td>CATEGORY</td><td>NeueHaas 700 &middot; 11px &middot; rotate 90deg &middot; ls 0.15em &middot; uppercase</td><td><span class="chip chip-dim">35% white</span></td></tr>
+        <tr><td>QUOTE</td><td>NeueHaas 900 &middot; 56px &middot; lh 1.0 &middot; width 921px &middot; hanging indent</td><td><span class="chip chip-w">White</span></td></tr>
+        <tr><td>TAGLINE</td><td>FLFont Bold &middot; 28px &middot; sentence case</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>quote.html</code></td></tr>
+        <tr><td>2.</td><td>Replace the portrait <code>&lt;img&gt;</code> src inside <code>.photo</code></td></tr>
+        <tr><td>3.</td><td>Edit <code>.name</code>, <code>.title</code>, and <code>.handle</code> text</td></tr>
+        <tr><td>4.</td><td>Replace the quote text inside <code>.quote</code></td></tr>
+        <tr><td>5.</td><td>Update <code>.tagline</code> with a relevant FLFont tagline</td></tr>
+        <tr><td>6.</td><td>To change accent color, find-replace <code>#42b1ff</code> with your chosen accent hex</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── TEMPLATE 02: APP HIGHLIGHT ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">02</span>
+      <span class="t-name">App Highlight</span>
+    </div>
+    <div class="canvas-outer">
+      <iframe src="app-highlight.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Massive bold headline fills top half. Product/app mockup bleeds into lower half. FLFont accent label overlaps at -29deg. Slide counter and rotated category label on right edge. Blue accent.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>HEADLINE</td><td>NeueHaas 900 &middot; 168px &middot; lh 0.75 &middot; centered &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span></td></tr>
+        <tr><td>MOCKUP</td><td>Product screenshot &middot; left:-1 top:450 &middot; bleeds full width</td><td>&mdash;</td></tr>
+        <tr><td>ACCENT_LABEL</td><td>FLFont Bold &middot; 46px &middot; rotate -29deg &middot; overlaps mockup</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+        <tr><td>SLIDE_NUM</td><td>NeueHaas 700 &middot; 13px &middot; top-right &middot; "01/12" format</td><td><span class="chip chip-dim">40% white</span></td></tr>
+        <tr><td>CATEGORY</td><td>NeueHaas 700 &middot; 11px &middot; rotate 90deg &middot; ls 0.15em &middot; uppercase</td><td><span class="chip chip-dim">35% white</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>app-highlight.html</code></td></tr>
+        <tr><td>2.</td><td>Edit <code>.headline</code> text (keep it short &mdash; 3-5 words max)</td></tr>
+        <tr><td>3.</td><td>Replace the <code>&lt;img&gt;</code> src inside <code>.mockup</code> with new app screenshot</td></tr>
+        <tr><td>4.</td><td>Edit <code>.accent-label</code> text (feature name, 2-3 words)</td></tr>
+        <tr><td>5.</td><td>Update <code>.slide-num</code> and <code>.category</code> text</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── TEMPLATE 03: PARTNER ALERT (LINKEDIN) ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">03</span>
+      <span class="t-name">Partner Alert (LinkedIn 1340x630)</span>
+    </div>
+    <div class="canvas-outer-landscape">
+      <iframe src="partner-alert.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Landscape LinkedIn banner. Massive headline bleeds across full width. Phone mockup fills canvas height. Blue circle sketch via CSS mask wraps keyword. FLFont accent label on right. Brushstrokes frame left and right edges.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>HEADLINE</td><td>NeueHaas 900 &middot; 175px &middot; lh 0.8 &middot; centered &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span></td></tr>
+        <tr><td>MOCKUP</td><td>App screenshot &middot; left:127 top:0 &middot; 945x630px &middot; full canvas height</td><td>&mdash;</td></tr>
+        <tr><td>CIRCLE_SKETCH</td><td>CSS mask circle &middot; circle-3.png &middot; 350x180px &middot; rotate -10deg</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+        <tr><td>ACCENT_LABEL</td><td>FLFont Bold &middot; 68px &middot; rotate -29deg &middot; lower-right area</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>partner-alert.html</code></td></tr>
+        <tr><td>2.</td><td>Edit <code>.headline</code> text (3-5 words, uppercase)</td></tr>
+        <tr><td>3.</td><td>Replace the <code>&lt;img&gt;</code> src inside <code>.phone</code> with new app screenshot</td></tr>
+        <tr><td>4.</td><td>Edit <code>.accent-label</code> text</td></tr>
+        <tr><td>5.</td><td>To change accent, find-replace <code>#42b1ff</code> with chosen hex</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── TEMPLATE 04: PROBLEM-FIRST / PAIN POST ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">04</span>
+      <span class="t-name">Problem-First / Pain Post</span>
+    </div>
+    <div class="canvas-outer">
+      <iframe src="problem-first.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Full-bleed headline states the pain directly. Orange accent. Circle sketch wraps the pain keyword. One sentence of body copy pivots to implication. FLFont tagline at bottom. Brushstrokes frame edges.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>HEADLINE</td><td>NeueHaas 900 &middot; 88px &middot; lh 0.95 &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span> + <span class="chip chip-o">Orange accent words</span></td></tr>
+        <tr><td>CIRCLE_EMPHASIS</td><td>CSS mask circle &middot; circle-2.png &middot; wraps pain keyword &middot; rotate 8deg</td><td><span class="chip chip-o">Orange #FF8B58</span></td></tr>
+        <tr><td>BODY</td><td>NeueHaas 300 &middot; 24px &middot; lh 1.45 &middot; max 2 sentences</td><td><span class="chip chip-dim">45% white</span></td></tr>
+        <tr><td>TAGLINE</td><td>FLFont Bold &middot; 30px &middot; sentence case</td><td><span class="chip chip-o">Orange #FF8B58</span></td></tr>
+        <tr><td>CATEGORY</td><td>NeueHaas 700 &middot; 11px &middot; rotate 90deg &middot; ls 0.15em &middot; uppercase</td><td><span class="chip chip-dim">35% white</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>problem-first.html</code></td></tr>
+        <tr><td>2.</td><td>Rewrite the headline &mdash; lead with the pain statement, not the feature</td></tr>
+        <tr><td>3.</td><td>Wrap the most painful word in <code>.circle-emphasis</code> span structure</td></tr>
+        <tr><td>4.</td><td>Write 1-2 sentences of body copy that pivot from pain to implication</td></tr>
+        <tr><td>5.</td><td>Update the FLFont tagline (pattern: [benefit]. [contrast].)</td></tr>
+        <tr><td>6.</td><td>Change <code>.category</code> text to match product area</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── TEMPLATE 05: STAT / PROOF POST ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">05</span>
+      <span class="t-name">Stat / Proof Post</span>
+    </div>
+    <div class="canvas-outer">
+      <iframe src="stat-proof.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Giant stat number dominates the top as hero element. Green accent. Circle sketch wraps the stat. Context label above, headline and body below provide framing. FLFont tagline at bottom.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>CONTEXT_LABEL</td><td>NeueHaas 500 &middot; 14px &middot; uppercase &middot; ls 0.1em</td><td><span class="chip chip-dim">25% white</span></td></tr>
+        <tr><td>STAT</td><td>NeueHaas 900 &middot; 260px &middot; lh 0.85 &middot; ls -0.04em</td><td><span class="chip chip-w">White</span></td></tr>
+        <tr><td>CIRCLE_EMPHASIS</td><td>CSS mask circle &middot; circle-4.png &middot; wraps stat &middot; rotate -5deg</td><td><span class="chip chip-g">Green #44b574</span></td></tr>
+        <tr><td>HEADLINE</td><td>NeueHaas 900 &middot; 82px &middot; lh 0.95 &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span> + <span class="chip chip-g">Green accent</span></td></tr>
+        <tr><td>BODY</td><td>NeueHaas 300 &middot; 24px &middot; lh 1.45 &middot; max 2 sentences</td><td><span class="chip chip-dim">45% white</span></td></tr>
+        <tr><td>TAGLINE</td><td>FLFont Bold &middot; 30px &middot; sentence case</td><td><span class="chip chip-g">Green #44b574</span></td></tr>
+        <tr><td>CATEGORY</td><td>NeueHaas 700 &middot; 11px &middot; rotate 90deg &middot; ls 0.15em &middot; uppercase</td><td><span class="chip chip-dim">35% white</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>stat-proof.html</code></td></tr>
+        <tr><td>2.</td><td>Replace <code>.stat-number .text</code> with a new percentage, dollar amount, or multiplier</td></tr>
+        <tr><td>3.</td><td>Update <code>.context-label</code> with what the stat measures</td></tr>
+        <tr><td>4.</td><td>Rewrite the headline to contextualize the stat (competitor comparison, industry benchmark)</td></tr>
+        <tr><td>5.</td><td>Write 1-2 sentences of body copy explaining the proof point</td></tr>
+        <tr><td>6.</td><td>Update tagline and category text</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── TEMPLATE 06: MANIFESTO / BRAND VOICE ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">06</span>
+      <span class="t-name">Manifesto / Brand Voice</span>
+    </div>
+    <div class="canvas-outer">
+      <iframe src="manifesto.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Centered bold statement. Blue accent. Ghost watermark text repeats at 4% opacity behind content. Heavy brushstroke framing on both sides (curtain effect). Circle sketch wraps key word. Emotional, declarative tone.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>WATERMARK</td><td>NeueHaas 900 &middot; 120px &middot; repeating text &middot; 4% opacity &middot; uppercase</td><td><span class="chip chip-dim">4% white</span></td></tr>
+        <tr><td>HEADLINE</td><td>NeueHaas 900 &middot; 82px &middot; lh 1.05 &middot; centered &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span> + <span class="chip chip-b">Blue accent</span></td></tr>
+        <tr><td>CIRCLE_EMPHASIS</td><td>CSS mask circle &middot; circle-5.png &middot; wraps key word &middot; rotate 6deg</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+        <tr><td>BODY</td><td>NeueHaas 300 &middot; 24px &middot; lh 1.50 &middot; centered &middot; max 2 sentences</td><td><span class="chip chip-dim">45% white</span></td></tr>
+        <tr><td>TAGLINE</td><td>FLFont Bold &middot; 32px &middot; centered &middot; sentence case</td><td><span class="chip chip-b">Blue #42b1ff</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>manifesto.html</code></td></tr>
+        <tr><td>2.</td><td>Replace <code>.watermark</code> repeating text with the campaign phrase</td></tr>
+        <tr><td>3.</td><td>Rewrite the headline &mdash; bold, declarative, emotional (not product features)</td></tr>
+        <tr><td>4.</td><td>Wrap the most important word in <code>.circle-emphasis</code> span structure</td></tr>
+        <tr><td>5.</td><td>Write 1-2 sentences of body copy that build on the emotional statement</td></tr>
+        <tr><td>6.</td><td>Update the FLFont tagline (brand north star: "Every transaction matters.")</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── TEMPLATE 07: FEATURE SPOTLIGHT ── -->
+<div class="template-row">
+  <div>
+    <div class="template-meta">
+      <span class="t-num">07</span>
+      <span class="t-name">Feature Spotlight</span>
+    </div>
+    <div class="canvas-outer">
+      <iframe src="feature-spotlight.html" scrolling="no"></iframe>
+    </div>
+  </div>
+  <div class="spec">
+    <p class="desc">Single feature capability with visual diagram card. Purple accent. Headline states the benefit in dramatic terms. Diagram card contains icon/stat area with circle sketch, feature name, description, and capability pills. FLFont tagline at bottom.</p>
+
+    <div class="spec-label">Content Slots</div>
+    <table>
+      <thead><tr><th>Slot</th><th>Spec</th><th>Color</th></tr></thead>
+      <tbody>
+        <tr><td>HEADLINE</td><td>NeueHaas 900 &middot; 82px &middot; lh 0.95 &middot; uppercase &middot; ls -0.03em</td><td><span class="chip chip-w">White</span> + <span class="chip chip-p">Purple accent</span></td></tr>
+        <tr><td>FEATURE_VISUAL</td><td>Icon/stat area &middot; 200x200px &middot; NeueHaas 900 96px</td><td><span class="chip chip-p">Purple #c985e5</span></td></tr>
+        <tr><td>CIRCLE_EMPHASIS</td><td>CSS mask circle &middot; circle-1.png &middot; wraps icon area &middot; rotate -12deg</td><td><span class="chip chip-p">Purple #c985e5</span></td></tr>
+        <tr><td>FEATURE_NAME</td><td>NeueHaas 900 &middot; 36px &middot; uppercase &middot; ls -0.02em</td><td><span class="chip chip-w">White</span></td></tr>
+        <tr><td>FEATURE_DESC</td><td>NeueHaas 300 &middot; 22px &middot; lh 1.45 &middot; sentence case</td><td><span class="chip chip-dim">45% white</span></td></tr>
+        <tr><td>FEATURE_POINTS</td><td>Pill tags &middot; 13px &middot; uppercase &middot; ls 0.08em &middot; border + background</td><td><span class="chip chip-p">Purple #c985e5</span></td></tr>
+        <tr><td>TAGLINE</td><td>FLFont Bold &middot; 30px &middot; sentence case</td><td><span class="chip chip-p">Purple #c985e5</span></td></tr>
+        <tr><td>CATEGORY</td><td>NeueHaas 700 &middot; 11px &middot; rotate 90deg &middot; ls 0.15em &middot; uppercase</td><td><span class="chip chip-dim">35% white</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="spec-label">To Create a New Version</div>
+    <table>
+      <tbody>
+        <tr><td>1.</td><td>Duplicate <code>feature-spotlight.html</code></td></tr>
+        <tr><td>2.</td><td>Rewrite the headline &mdash; state the benefit dramatically, not the feature name</td></tr>
+        <tr><td>3.</td><td>Replace the icon text inside <code>.icon-text</code> (e.g., "6x", "1-click", "7")</td></tr>
+        <tr><td>4.</td><td>Update <code>.feature-name</code> and <code>.feature-desc</code> with the capability details</td></tr>
+        <tr><td>5.</td><td>Edit the <code>.point</code> pill labels with 2-4 key capabilities</td></tr>
+        <tr><td>6.</td><td>To change accent, find-replace <code>#c985e5</code> with chosen hex and update pill backgrounds</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>
