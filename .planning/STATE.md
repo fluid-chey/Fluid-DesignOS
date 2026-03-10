@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02-03 Orchestrator Skill (Phase 2 complete)
-last_updated: "2026-03-10T20:47:05Z"
-last_activity: 2026-03-10 -- Completed 02-03 Orchestrator skill (/fluid-social pipeline + fix loop)
+status: in-progress
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-10T22:27:27Z"
+last_activity: 2026-03-10 -- Completed 03-01 Gold Standard research + decomposition
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 10
+  completed_plans: 7
   percent: 100
 ---
 
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** An agent using this system produces assets that look and sound like Fluid made them from the very first prompt
-**Current focus:** Phase 2 complete. Ready for Phase 3 or Phase 4.
+**Current focus:** Phase 3 in progress. Gold Standard research + decomposition complete. Next: hero PoC, section templates, one-pagers.
 
 ## Current Position
 
-Phase: 2 of 5 (Orchestrator + Social Posts) -- COMPLETE
-Plan: 3 of 3 in current phase (02-01, 02-02, 02-03 complete)
-Status: Phase 2 Complete
-Last activity: 2026-03-10 -- Completed 02-03 Orchestrator skill (/fluid-social pipeline + fix loop)
+Phase: 3 of 5 (Website Sections + One-Pagers)
+Plan: 1 of 4 in current phase (03-01 complete)
+Status: In Progress
+Last activity: 2026-03-10 -- Completed 03-01 Gold Standard research + decomposition
 
-Progress: [██████████] 100% (Overall: 6/6 plans)
+Progress: [███████░░░] 70% (Overall: 7/10 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 7min
-- Total execution time: 0.71 hours
+- Total execution time: 0.85 hours
 
 **By Phase:**
 
@@ -45,9 +45,10 @@ Progress: [██████████] 100% (Overall: 6/6 plans)
 |-------|-------|-------|----------|
 | 01-brand-intelligence | 3 | 22min | 7min |
 | 02-orchestrator-social-posts | 3 | 20min | 7min |
+| 03-website-sections-one-pagers | 1 | 8min | 8min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (9min), 01-03 (8min), 02-02 (5min), 02-01 (7min), 02-03 (8min)
+- Last 5 plans: 01-03 (8min), 02-02 (5min), 02-01 (7min), 02-03 (8min), 03-01 (8min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -79,6 +80,10 @@ Recent decisions affecting current work:
 - [02-03]: Session-based working directory (.fluid/working/{sessionId}/) instead of flat .fluid-working/ for lineage tracking and concurrent session support.
 - [02-03]: Lineage.json tracks full prompt-to-result chain per session for downstream Phase 5 feedback loop.
 - [02-03]: Non-debug cleanup preserves lineage.json and styled.html; deletes only intermediate artifacts.
+- [03-01]: Utility classes (text-xs through text-9xl, py-xs through py-3xl) defined in frontend theme CSS, not backend SCSS -- confirmed by section usage.
+- [03-01]: Section-css snippet resolves through DAM VirtualFileSystem (database-stored), not filesystem.
+- [03-01]: Gold Standard specifies exactly 5 font weights (no font-black) despite existing sections using 6.
+- [03-01]: Gold Standard color names (text-accent, text-muted, text-inherit) differ from existing section names (text-quaternary, text-neutral-light).
 
 ### Pending Todos
 
@@ -86,12 +91,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Gold Standard decomposition needs audit of 111 existing .liquid sections before Phase 3
+- RESOLVED: Gold Standard decomposition complete -- 6 docs in docs/fluid-themes-gold-standard/, existing sections audited and confirmed non-compliant
 - RESOLVED: Multiple brand sources reconciled into 8 role-specific docs with single source of truth per domain
 - Claude Code vs Cursor orchestration parity needs platform-agnostic design
 
 ## Session Continuity
 
-Last session: 2026-03-10T20:47:05Z
-Stopped at: Completed 02-03 Orchestrator Skill (Phase 2 complete)
-Resume file: .planning/phases/02-orchestrator-social-posts/02-03-SUMMARY.md
+Last session: 2026-03-10T22:27:27Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-website-sections-one-pagers/03-01-SUMMARY.md

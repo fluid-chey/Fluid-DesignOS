@@ -41,7 +41,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Website Sections
 
 - [ ] **SITE-01**: Website section skill generates valid .liquid files with proper schema structure
-- [ ] **SITE-02**: Gold Standard documentation decomposed into focused .md files (schema-rules, template-patterns, button-system, validation, theme-tokens)
+- [x] **SITE-02**: Gold Standard documentation decomposed into focused .md files (schema-rules, template-patterns, button-system, validation, theme-tokens)
 - [ ] **SITE-03**: Every text element in schema has 6 settings (family, size mobile, size desktop, weight, color, content)
 - [ ] **SITE-04**: Every button has 7 settings (show, text, url, style, color, size, weight) using btn utility class system
 - [ ] **SITE-05**: Section and container settings complete (background, padding, border radius)
@@ -166,7 +166,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TMPL-01 | Phase 2 | Complete |
 | TMPL-02 | Phase 2 | Complete |
 | SITE-01 | Phase 3 | Pending |
-| SITE-02 | Phase 3 | Pending |
+| SITE-02 | Phase 3 | Complete |
 | SITE-03 | Phase 3 | Pending |
 | SITE-04 | Phase 3 | Pending |
 | SITE-05 | Phase 3 | Pending |

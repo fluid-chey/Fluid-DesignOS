@@ -50,9 +50,10 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Social post template library (7 archetypes + index in Jonathan's format)
-- [ ] 02-02-PLAN.md — Subagent contracts (copy, layout, styling, spec-check agents)
-- [ ] 02-03-PLAN.md — Orchestrator skill (/fluid-social pipeline + fix loop + verification)
+- [x] 02-01-PLAN.md — Social post template library (7 archetypes + index in Jonathan's format)
+- [x] 02-02-PLAN.md — Subagent contracts (copy, layout, styling, spec-check agents)
+- [x] 02-03-PLAN.md — Orchestrator skill (/fluid-social pipeline + fix loop + verification)
+
 ### Phase 3: Website Sections + One-Pagers
 **Goal**: The proven orchestrator pattern extends to generate Gold Standard compliant .liquid website sections and print-ready one-pager sales collateral
 **Depends on**: Phase 2
@@ -62,11 +63,13 @@ Plans:
   2. The generated .liquid section passes the Gold Standard validation checklist and the schema validation CLI hook without errors
   3. Running the one-pager skill produces a self-contained HTML/CSS file that renders at letter size with proper margins, uses Fluid brand elements (brushstrokes, side labels, FLFont taglines), and is ready for PDF export
   4. One-pager and website section templates exist with content slot specs and per-element FIXED/FLEXIBLE/OPTIONAL annotations
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Empirical research of Fluid theme pipeline + Gold Standard doc decomposition
+- [ ] 03-02-PLAN.md — Mode-aware agent upgrades (section + one-pager) + hero section proof-of-concept
+- [ ] 03-03-PLAN.md — 11 remaining section templates + section gallery + /fluid-theme-section orchestrator
+- [ ] 03-04-PLAN.md — 5 one-pager templates + one-pager gallery + /fluid-one-pager orchestrator
 
 ### Phase 4: Canvas + Iteration
 **Goal**: The team can view, compare, annotate, and document the iteration path from first prompt to final output for any generated asset
@@ -105,6 +108,6 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 5
 |-------|----------------|--------|-----------|
 | 1. Brand Intelligence + Foundation | 3/3 | Complete   | 2026-03-10 |
 | 2. Orchestrator + Social Posts | 3/3 | Complete   | 2026-03-10 |
-| 3. Website Sections + One-Pagers | 0/2 | Not started | - |
+| 3. Website Sections + One-Pagers | 1/4 | In Progress|  |
 | 4. Canvas + Iteration | 0/2 | Not started | - |
 | 5. Learning Loop | 0/1 | Not started | - |
