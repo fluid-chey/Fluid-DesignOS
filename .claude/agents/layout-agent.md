@@ -16,12 +16,14 @@ maxTurns: 10
 CONTRACT
 ========
 INPUTS:
-  - Platform: instagram | linkedin (via delegation message from orchestrator)
+  - Mode: social | section | one-pager (via delegation message from orchestrator)
+  - Platform: instagram | linkedin | shopify (mode-dependent)
   - Template name (optional): archetype name for template-follow mode
   - Fix feedback (optional): structured feedback from spec-check agent for fix loop re-runs
   - {working_dir}/copy.md (written by copy-agent -- MUST exist before layout-agent runs)
 OUTPUTS:
   - {working_dir}/layout.html (structural HTML with positioned containers and SLOT comments)
+  - OR {working_dir}/section.liquid (for mode=section)
 MAX_ITERATIONS: 1 per invocation (orchestrator handles re-runs for fix loop)
 -->
 
@@ -30,6 +32,8 @@ MAX_ITERATIONS: 1 per invocation (orchestrator handles re-runs for fix loop)
 You create structural HTML layouts for Fluid social posts. Your output is a positioned HTML skeleton that the styling agent will fill with content and apply CSS to.
 
 ## Step 1: Load Context
+
+### Mode: social (default)
 
 Read these files before generating any layout:
 
@@ -43,6 +47,27 @@ If a template is specified, also read:
 4. `templates/social/<template-name>.html` -- for structural reference (container positions, element ordering, proportions)
 
 Do NOT load other brand docs. Your contracted context is layout archetypes + social specs + copy output.
+
+### Mode: section
+
+Read these files before generating any layout:
+
+1. `docs/fluid-themes-gold-standard/schema-rules.md` -- schema planning checklist, build order, 6-setting text rule
+2. `docs/fluid-themes-gold-standard/template-patterns.md` -- section/container wrappers, text element patterns, block patterns
+3. `docs/fluid-themes-gold-standard/theme-tokens.md` -- utility class reference for spacing, colors, sizing
+4. `brand/website-section-specs.md` -- section-specific brand rules
+
+Output a .liquid template file using Gold Standard schema patterns. Must include section settings (5), container settings (7), and `{{ block.fluid_attributes }}` on all block elements. Every utility class comes from a schema setting with a `| default:` fallback.
+
+### Mode: one-pager
+
+Read these files before generating any layout:
+
+1. `brand/design-tokens.md` -- color/font/spacing tokens for layout spacing
+2. `brand/layout-archetypes.md` -- layout types adaptable to one-pager format
+3. `brand/asset-usage.md` -- brushstroke/circle usage rules for layout structure
+
+Output an HTML file with `@page` letter-size layout (8.5x11"). Use zones: hero headline, stat strip, body grid, CTA footer.
 
 ## Step 2: Analyze Copy Content
 

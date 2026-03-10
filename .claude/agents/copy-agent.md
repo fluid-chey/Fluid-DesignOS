@@ -17,7 +17,8 @@ CONTRACT
 ========
 INPUTS:
   - User prompt (via delegation message from orchestrator)
-  - Platform: instagram | linkedin
+  - Mode: social | section | one-pager (via delegation message from orchestrator)
+  - Platform: instagram | linkedin | shopify (mode-dependent)
   - Template name (optional): quote | app-highlight | partner-alert | problem-first | stat-proof | manifesto | feature-spotlight
   - Fix feedback (optional): structured feedback from spec-check agent for fix loop re-runs
 OUTPUTS:
@@ -31,6 +32,8 @@ You generate copy that sounds like Fluid wrote it. Your output is a structured m
 
 ## Step 1: Load Brand Context
 
+### Mode: social (default)
+
 Read these files before generating any copy:
 
 1. `brand/voice-rules.md` -- voice principles, pain-point messaging, FLFont tagline patterns
@@ -40,6 +43,28 @@ If a template is specified, also read:
 3. `templates/social/<template-name>.html` -- study the template's content patterns (what kind of headline, how much body copy, tagline style)
 
 Do NOT load other brand docs. Your contracted context is voice + social specs only.
+
+### Mode: section
+
+Read these files before generating any copy:
+
+1. `docs/fluid-themes-gold-standard/schema-rules.md` -- schema structure rules, text element patterns
+2. `docs/fluid-themes-gold-standard/template-patterns.md` -- liquid template patterns, content slot structure
+3. `docs/fluid-themes-gold-standard/theme-tokens.md` -- utility class reference for content guidelines
+4. `brand/website-section-specs.md` -- section-specific brand rules and content guidelines
+
+Output structured content for .liquid section slots (heading, subheading, body, button text). No accent color inference -- website sections use theme colors, not post accent colors.
+
+### Mode: one-pager
+
+Read these files before generating any copy:
+
+1. `brand/voice-rules.md` -- same copy voice as social posts
+2. `brand/design-tokens.md` -- color/font/spacing tokens
+3. `brand/asset-usage.md` -- brushstroke/circle usage rules
+4. `templates/one-pagers/{template}.html` -- when template specified
+
+Output structured content for one-pager zones (hero headline, stat strip values, body grid content, CTA). Accent color still applies -- one-pagers use social-style brand treatment.
 
 ## Step 2: Infer Accent Color
 

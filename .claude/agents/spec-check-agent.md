@@ -17,10 +17,11 @@ maxTurns: 15
 CONTRACT
 ========
 INPUTS:
-  - Platform: instagram | linkedin (via delegation message from orchestrator)
-  - Path to styled HTML: {working_dir}/styled.html
-  - Accent color: orange | blue | green | purple (from copy.md or delegation message)
-  - Archetype: problem-first | quote | app-highlight | partner-alert | stat-proof | manifesto | feature-spotlight
+  - Mode: social | section | one-pager (via delegation message from orchestrator)
+  - Platform: instagram | linkedin | shopify (mode-dependent)
+  - Path to styled output: {working_dir}/styled.html (social, one-pager) or {working_dir}/section.liquid (section)
+  - Accent color: orange | blue | green | purple (from copy.md or delegation message, social and one-pager modes only)
+  - Archetype: problem-first | quote | app-highlight | partner-alert | stat-proof | manifesto | feature-spotlight (social mode only)
 OUTPUTS:
   - {working_dir}/spec-report.json (structured validation report)
 MAX_ITERATIONS: 1 (spec-check runs once per invocation; orchestrator handles re-runs after fixes)
@@ -34,7 +35,9 @@ You validate social post HTML against Fluid brand standards. You combine determi
 
 Run CLI tools via Bash on the styled output. These tools produce JSON on stdout and human-readable text on stderr.
 
-### Brand Compliance Check
+### Mode: social (default)
+
+#### Brand Compliance Check
 
 ```bash
 node tools/brand-compliance.cjs {working_dir}/styled.html --context social
@@ -45,7 +48,7 @@ Parse the JSON stdout. Extract:
 - `warnings` count (severity 51-80 issues)
 - `details` array of individual rule violations
 
-### Dimension Check
+#### Dimension Check
 
 ```bash
 node tools/dimension-check.cjs {working_dir}/styled.html --target <platform>
@@ -59,6 +62,46 @@ Parse the JSON stdout. Extract:
 - `actual` dimensions detected
 
 Map both CLI outputs to the `deterministic` section of the report.
+
+### Mode: section
+
+Run schema validation as the primary check (replaces dimension-check for sections):
+
+```bash
+node tools/schema-validation.cjs {working_dir}/section.liquid
+```
+
+Then run brand compliance:
+
+```bash
+node tools/brand-compliance.cjs {working_dir}/section.liquid
+```
+
+Key checks for section mode:
+- 13 font sizes per text element (mobile and desktop)
+- 13 colors per text element
+- 5 font weights per text element
+- 7 button settings (show, text, url, style, color, size, weight)
+- 5 section settings (background_color, background_image, padding_y_mobile, padding_y_desktop, border_radius)
+- 7 container settings
+- Zero hard-coded values (no hex colors, pixel spacing, or pixel border radius in template HTML)
+
+Holistic review uses `docs/fluid-themes-gold-standard/validation-checklist.md` categories instead of social post categories.
+
+### Mode: one-pager
+
+Run brand compliance and dimension check for letter-size:
+
+```bash
+node tools/brand-compliance.cjs {working_dir}/styled.html
+node tools/dimension-check.cjs {working_dir}/styled.html --target letter
+```
+
+Holistic review checks:
+- Print layout (letter-size, @page rules, margin safety)
+- Brand elements (brushstrokes, side labels, FLFont tagline)
+- Content-to-page fit (no overflow, no excessive whitespace)
+- Accent color consistency (same single accent throughout)
 
 ## Step 2: Holistic Review
 

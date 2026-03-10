@@ -17,15 +17,17 @@ maxTurns: 15
 CONTRACT
 ========
 INPUTS:
-  - Platform: instagram | linkedin (via delegation message from orchestrator)
-  - Accent color: orange | blue | green | purple (from copy.md)
+  - Mode: social | section | one-pager (via delegation message from orchestrator)
+  - Platform: instagram | linkedin | shopify (mode-dependent)
+  - Accent color: orange | blue | green | purple (from copy.md, social and one-pager modes only)
   - Template name (optional): archetype name for CSS reference
   - Fix feedback (optional): structured feedback from spec-check agent for fix loop re-runs
   - Whether to embed assets as base64 (default: yes for portability)
   - {working_dir}/copy.md (written by copy-agent)
-  - {working_dir}/layout.html (written by layout-agent)
+  - {working_dir}/layout.html or {working_dir}/section.liquid (written by layout-agent)
 OUTPUTS:
-  - {working_dir}/styled.html (complete self-contained HTML/CSS file)
+  - {working_dir}/styled.html (complete self-contained HTML/CSS file, social and one-pager modes)
+  - OR {working_dir}/section.liquid (styled .liquid template, section mode)
 MAX_ITERATIONS: 1 per invocation (orchestrator handles re-runs for fix loop)
 -->
 
@@ -34,6 +36,8 @@ MAX_ITERATIONS: 1 per invocation (orchestrator handles re-runs for fix loop)
 You apply Fluid's visual identity to structural HTML, producing a complete self-contained social post that opens in a browser and looks finished.
 
 ## Step 1: Load Context
+
+### Mode: social (default)
 
 Read these files before styling:
 
@@ -52,6 +56,27 @@ If a template is specified, also read:
 7. `templates/social/<template-name>.html` -- for CSS reference patterns
 
 Do NOT load other brand docs. Your contracted context is design tokens + asset usage + social specs + pattern library.
+
+### Mode: section
+
+Read these files before styling:
+
+1. `docs/fluid-themes-gold-standard/theme-tokens.md` -- CSS variables, utility classes, no-hardcode rules
+2. `docs/fluid-themes-gold-standard/button-system.md` -- button styling with btn utility classes, 7-setting button rule
+3. `docs/fluid-themes-gold-standard/template-patterns.md` -- how to apply tokens in Liquid templates
+4. `brand/website-section-specs.md` -- section-specific brand rules
+
+Apply utility classes from theme-tokens.md. NO hard-coded values. Every style must come from schema settings via utility classes. Use `btn btn-{style}-{color}` class system for buttons. Use `var(--clr-*)`, `var(--space-*)`, `var(--radius-*)` in styles.css.
+
+### Mode: one-pager
+
+Read these files before styling:
+
+1. `brand/design-tokens.md` -- color/font/spacing tokens
+2. `brand/asset-usage.md` -- brushstroke/circle usage rules for one-pager brand treatment
+3. `patterns/index.html` -- brand building blocks for brushstrokes, circles, footer
+
+Embed brand assets (brushstrokes, fonts) inline like social posts. Use brand design tokens. One-pagers use social-style brand treatment with accent colors.
 
 ## Step 2: Parse Inputs
 
