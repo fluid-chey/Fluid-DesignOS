@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!-- target: 1340x630 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @font-face {
+    font-family: 'flfontbold';
+    src: url('../../assets/fonts/flfontbold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'NeueHaas';
+    src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1340px;
+    height: 630px;
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    font-family: 'NeueHaas', sans-serif;
+  }
+
+  /* ── Brushstroke texture: top-left, rotated ── */
+  .brush-bg {
+    position: absolute;
+    top: -80px;
+    left: -60px;
+    width: 700px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.12;
+    pointer-events: none;
+    transform: rotate(90deg);
+  }
+
+  /* ── Brushstroke texture: right edge ── */
+  .brush-right {
+    position: absolute;
+    top: -20px;
+    right: -50px;
+    width: 350px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.10;
+    pointer-events: none;
+  }
+
+  /* ── SLOT: HEADLINE ── */
+  .headline {
+    position: absolute;
+    left: 50%;
+    top: 105px;
+    transform: translateX(-50%);
+    width: 1340px;
+    font-weight: 900;
+    font-size: 175px;
+    line-height: 0.8;
+    color: #ffffff;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    z-index: 1;
+  }
+
+  /* ── Circle sketch: emphasis on keyword ── */
+  .circle-sketch {
+    position: absolute;
+    left: 545px;
+    top: 77px;
+    width: 367px;
+    height: 200px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .circle-sketch-inner {
+    width: 350px;
+    height: 180px;
+    background-color: #42b1ff;
+    -webkit-mask-image: url('../../assets/circles/masks/circle-3.png');
+    mask-image: url('../../assets/circles/masks/circle-3.png');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.6;
+    transform: rotate(-10deg);
+  }
+
+  /* ── SLOT: MOCKUP ── */
+  .phone {
+    position: absolute;
+    left: 127px;
+    top: 0;
+    width: 945px;
+    height: 630px;
+    overflow: hidden;
+    z-index: 3;
+  }
+  .phone img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  /* ── SLOT: ACCENT_LABEL ── */
+  .accent-label {
+    position: absolute;
+    left: calc(50% + 140px);
+    top: 342px;
+    width: 367px;
+    height: 267px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .accent-label p {
+    font-family: 'flfontbold', sans-serif;
+    font-size: 68px;
+    line-height: 0.8;
+    color: #42b1ff;
+    transform: rotate(-28.61deg);
+    white-space: nowrap;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 72px;
+    z-index: 10;
+  }
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-left img {
+    height: 16px;
+    opacity: 0.8;
+  }
+  .footer-separator {
+    width: 1px;
+    height: 12px;
+    background: rgba(255,255,255,0.15);
+  }
+  .footer-right img {
+    height: 20px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Brushstroke: top-left background texture, edge-bleed -->
+  <img class="brush-bg" src="../../assets/brushstrokes/brushstroke-vertical-double-block.png" alt="">
+
+  <!-- Brushstroke: right edge -->
+  <img class="brush-right" src="../../assets/brushstrokes/brushstroke-vertical-edge-sweep.png" alt="">
+
+  <!-- SLOT: HEADLINE -->
+  <p class="headline">YOUR ONE STOP SHOP FOR REPS</p>
+
+  <!-- Circle sketch: wrapping keyword via CSS mask -->
+  <div class="circle-sketch">
+    <div class="circle-sketch-inner"></div>
+  </div>
+
+  <!-- SLOT: MOCKUP -->
+  <div class="phone">
+    <img src="" alt="App screenshot">
+  </div>
+
+  <!-- SLOT: ACCENT_LABEL -->
+  <div class="accent-label">
+    <p>App Feature Highlight</p>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      <img src="../../assets/logos/wecommerce-flags.png" alt="We-Commerce">
+      <div class="footer-separator"></div>
+      <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce">
+    </div>
+    <div class="footer-right">
+      <img src="../../assets/logos/frame-3-fluid-dots.png" alt="Fluid">
+    </div>
+  </footer>
+
+</body>
+</html>

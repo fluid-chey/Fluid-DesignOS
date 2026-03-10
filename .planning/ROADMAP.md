@@ -47,13 +47,12 @@ Plans:
   3. The orchestrator spawns separate subagents for copy, layout, styling, and spec-check -- each loading only its contracted context files -- and the spec-check subagent returns a structured pass/fail report
   4. When spec-check finds issues, the fix subagent corrects them and re-validates, with a hard cap of 3 fix iterations before escalating to the operator
   5. Social post templates exist in Jonathan's format (live HTML preview + content slot specs + creation instructions) covering at least 6 archetypes
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
-
+- [ ] 02-01-PLAN.md — Social post template library (7 archetypes + index in Jonathan's format)
+- [ ] 02-02-PLAN.md — Subagent contracts (copy, layout, styling, spec-check agents)
+- [ ] 02-03-PLAN.md — Orchestrator skill (/fluid-social pipeline + fix loop + verification)
 ### Phase 3: Website Sections + One-Pagers
 **Goal**: The proven orchestrator pattern extends to generate Gold Standard compliant .liquid website sections and print-ready one-pager sales collateral
 **Depends on**: Phase 2
