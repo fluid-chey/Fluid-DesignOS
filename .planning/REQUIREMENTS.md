@@ -50,15 +50,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### One-Pagers
 
-- [ ] **PAGE-01**: One-pager skill generates sales collateral as self-contained HTML/CSS
-- [ ] **PAGE-02**: One-pagers use Fluid brand elements (brushstrokes, side labels, FLFont taglines, comparison tables, stat strips)
-- [ ] **PAGE-03**: One-pagers are print-ready (letter size, proper margins, @page rules)
+- [x] **PAGE-01**: One-pager skill generates sales collateral as self-contained HTML/CSS
+- [x] **PAGE-02**: One-pagers use Fluid brand elements (brushstrokes, side labels, FLFont taglines, comparison tables, stat strips)
+- [x] **PAGE-03**: One-pagers are print-ready (letter size, proper margins, @page rules)
 
 ### Template Library
 
 - [x] **TMPL-01**: Template library in Jonathan's format — live HTML preview + content slot specs + creation instructions
 - [x] **TMPL-02**: Social post templates covering core archetypes (testimonial/quote, app highlight, partner alert, and 3+ more)
-- [ ] **TMPL-03**: One-pager templates with content slot specs
+- [x] **TMPL-03**: One-pager templates with content slot specs
 - [x] **TMPL-04**: Templates include per-element annotations (FIXED/FLEXIBLE/OPTIONAL)
 
 ### Canvas & Iteration
@@ -172,10 +172,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SITE-05 | Phase 3 | Complete |
 | SITE-06 | Phase 3 | Complete |
 | SITE-07 | Phase 3 | Complete |
-| PAGE-01 | Phase 3 | Pending |
-| PAGE-02 | Phase 3 | Pending |
-| PAGE-03 | Phase 3 | Pending |
-| TMPL-03 | Phase 3 | Pending |
+| PAGE-01 | Phase 3 | Complete |
+| PAGE-02 | Phase 3 | Complete |
+| PAGE-03 | Phase 3 | Complete |
+| TMPL-03 | Phase 3 | Complete |
 | TMPL-04 | Phase 3 | Complete |
 | CANV-01 | Phase 4 | Pending |
 | CANV-02 | Phase 4 | Pending |
