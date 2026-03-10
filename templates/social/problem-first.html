@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<!-- target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @font-face {
+    font-family: 'flfontbold';
+    src: url('../../assets/fonts/flfontbold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'NeueHaas';
+    src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    font-family: 'NeueHaas', sans-serif;
+  }
+
+  /* ── Brushstroke: top-right edge-bleed ── */
+  .brush-top-right {
+    position: absolute;
+    top: -25px;
+    right: -45px;
+    width: 500px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.18;
+    pointer-events: none;
+    transform: rotate(-8deg);
+    z-index: 0;
+  }
+
+  /* ── Brushstroke: bottom-left edge-bleed ── */
+  .brush-bottom-left {
+    position: absolute;
+    bottom: -30px;
+    left: -40px;
+    width: 550px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Category label: rotated right edge ── */
+  .category {
+    position: absolute;
+    right: 28px;
+    top: 45px;
+    z-index: 5;
+  }
+  .category span {
+    font-weight: 700;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    white-space: nowrap;
+    transform: rotate(90deg);
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  /* ── SLOT: HEADLINE ── */
+  .headline {
+    position: absolute;
+    left: 68px;
+    top: 140px;
+    width: 920px;
+    font-weight: 900;
+    font-size: 88px;
+    line-height: 0.95;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    z-index: 2;
+  }
+  .headline .accent {
+    color: #FF8B58;
+  }
+
+  /* ── Circle sketch: wrapping pain keyword ── */
+  .circle-emphasis {
+    position: relative;
+    display: inline-block;
+    isolation: isolate;
+  }
+  .circle-emphasis .text {
+    position: relative;
+    z-index: 1;
+  }
+  .circle-emphasis .circle-mask {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    left: -20%;
+    top: -30%;
+    width: 140%;
+    height: 160%;
+    background-color: #FF8B58;
+    -webkit-mask-image: url('../../assets/circles/masks/circle-2.png');
+    mask-image: url('../../assets/circles/masks/circle-2.png');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.6;
+    transform: rotate(8deg);
+  }
+
+  /* ── SLOT: BODY ── */
+  .body-copy {
+    position: absolute;
+    left: 68px;
+    top: 580px;
+    width: 750px;
+    font-weight: 300;
+    font-size: 24px;
+    line-height: 1.45;
+    color: rgba(255,255,255,0.45);
+    z-index: 2;
+  }
+
+  /* ── SLOT: TAGLINE ── */
+  .tagline {
+    position: absolute;
+    left: 68px;
+    bottom: 110px;
+    font-family: 'flfontbold', sans-serif;
+    font-size: 30px;
+    color: #FF8B58;
+    z-index: 2;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 68px;
+    z-index: 10;
+  }
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-left img {
+    height: 18px;
+    opacity: 0.8;
+  }
+  .footer-separator {
+    width: 1px;
+    height: 14px;
+    background: rgba(255,255,255,0.15);
+  }
+  .footer-right img {
+    height: 22px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Brushstroke: top-right edge-bleed -->
+  <img class="brush-top-right" src="../../assets/brushstrokes/brushstroke-diagonal-sweep.png" alt="">
+
+  <!-- Brushstroke: bottom-left edge-bleed -->
+  <img class="brush-bottom-left" src="../../assets/brushstrokes/brushstroke-bottom-grounding.png" alt="">
+
+  <!-- SLOT: CATEGORY -->
+  <div class="category">
+    <span>Fluid Connect</span>
+  </div>
+
+  <!-- SLOT: HEADLINE -->
+  <div class="headline">
+    THE ORDER WENT THROUGH.<br>
+    IT NEVER REACHED THE<br>
+    <span class="circle-emphasis">
+      <span class="text accent">COMMISSION</span>
+      <span class="circle-mask"></span>
+    </span>
+    <span class="accent">ENGINE.</span>
+  </div>
+
+  <!-- SLOT: BODY -->
+  <p class="body-copy">That rep just lost credit for a sale they made. And they'll never know why they stopped sharing.</p>
+
+  <!-- SLOT: TAGLINE -->
+  <p class="tagline">One connection. Zero 3am calls.</p>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      <img src="../../assets/logos/wecommerce-flags.png" alt="We-Commerce">
+      <div class="footer-separator"></div>
+      <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce">
+    </div>
+    <div class="footer-right">
+      <img src="../../assets/logos/frame-3-fluid-dots.png" alt="Fluid">
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<!-- target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @font-face {
+    font-family: 'flfontbold';
+    src: url('../../assets/fonts/flfontbold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'NeueHaas';
+    src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    font-family: 'NeueHaas', sans-serif;
+  }
+
+  /* ── Brushstroke: bottom grounding ── */
+  .brush-bottom {
+    position: absolute;
+    bottom: -20px;
+    left: -30px;
+    width: 600px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Brushstroke: right edge ── */
+  .brush-right {
+    position: absolute;
+    top: -40px;
+    right: -30px;
+    width: 300px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.10;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Category label ── */
+  .category {
+    position: absolute;
+    right: 28px;
+    top: 45px;
+    z-index: 5;
+  }
+  .category span {
+    font-weight: 700;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    white-space: nowrap;
+    transform: rotate(90deg);
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  /* ── Context label above stat ── */
+  .context-label {
+    position: absolute;
+    left: 68px;
+    top: 160px;
+    font-weight: 500;
+    font-size: 14px;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    z-index: 2;
+  }
+
+  /* ── SLOT: STAT (giant hero number) ── */
+  .stat-hero {
+    position: absolute;
+    left: 68px;
+    top: 190px;
+    z-index: 2;
+  }
+  .stat-number {
+    font-weight: 900;
+    font-size: 260px;
+    line-height: 0.85;
+    color: #ffffff;
+    letter-spacing: -0.04em;
+    position: relative;
+    display: inline-block;
+    isolation: isolate;
+  }
+  .stat-number .circle-mask {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    left: -15%;
+    top: -20%;
+    width: 130%;
+    height: 140%;
+    background-color: #44b574;
+    -webkit-mask-image: url('../../assets/circles/masks/circle-4.png');
+    mask-image: url('../../assets/circles/masks/circle-4.png');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.55;
+    transform: rotate(-5deg);
+  }
+  .stat-number .text {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── SLOT: HEADLINE ── */
+  .headline {
+    position: absolute;
+    left: 68px;
+    top: 520px;
+    width: 900px;
+    font-weight: 900;
+    font-size: 82px;
+    line-height: 0.95;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    z-index: 2;
+  }
+  .headline .accent {
+    color: #44b574;
+  }
+
+  /* ── SLOT: BODY ── */
+  .body-copy {
+    position: absolute;
+    left: 68px;
+    top: 740px;
+    width: 750px;
+    font-weight: 300;
+    font-size: 24px;
+    line-height: 1.45;
+    color: rgba(255,255,255,0.45);
+    z-index: 2;
+  }
+
+  /* ── SLOT: TAGLINE ── */
+  .tagline {
+    position: absolute;
+    left: 68px;
+    bottom: 110px;
+    font-family: 'flfontbold', sans-serif;
+    font-size: 30px;
+    color: #44b574;
+    z-index: 2;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 68px;
+    z-index: 10;
+  }
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-left img {
+    height: 18px;
+    opacity: 0.8;
+  }
+  .footer-separator {
+    width: 1px;
+    height: 14px;
+    background: rgba(255,255,255,0.15);
+  }
+  .footer-right img {
+    height: 22px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Brushstroke: bottom grounding, edge-bleed -->
+  <img class="brush-bottom" src="../../assets/brushstrokes/brushstroke-bottom-grounding.png" alt="">
+
+  <!-- Brushstroke: right edge -->
+  <img class="brush-right" src="../../assets/brushstrokes/brushstroke-vertical-edge-sweep.png" alt="">
+
+  <!-- SLOT: CATEGORY -->
+  <div class="category">
+    <span>Fluid Payments</span>
+  </div>
+
+  <!-- SLOT: CONTEXT_LABEL -->
+  <p class="context-label">Acceptance rate</p>
+
+  <!-- SLOT: STAT -->
+  <div class="stat-hero">
+    <span class="stat-number">
+      <span class="text">94%</span>
+      <span class="circle-mask"></span>
+    </span>
+  </div>
+
+  <!-- SLOT: HEADLINE -->
+  <p class="headline">WHILE YOUR COMPETITORS <span class="accent">LEAVE MONEY ON THE TABLE</span></p>
+
+  <!-- SLOT: BODY -->
+  <p class="body-copy">Seven PSPs. Third-party tokenization. Automatic retry logic. Every transaction gets its best shot at clearing.</p>
+
+  <!-- SLOT: TAGLINE -->
+  <p class="tagline">Every transaction gets its best shot.</p>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      <img src="../../assets/logos/wecommerce-flags.png" alt="We-Commerce">
+      <div class="footer-separator"></div>
+      <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce">
+    </div>
+    <div class="footer-right">
+      <img src="../../assets/logos/frame-3-fluid-dots.png" alt="Fluid">
+    </div>
+  </footer>
+
+</body>
+</html>

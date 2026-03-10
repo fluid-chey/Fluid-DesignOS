@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<!-- target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @font-face {
+    font-family: 'flfontbold';
+    src: url('../../assets/fonts/flfontbold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'NeueHaas';
+    src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    font-family: 'NeueHaas', sans-serif;
+  }
+
+  /* ── Brushstroke: top-right edge-bleed ── */
+  .brush-top-right {
+    position: absolute;
+    top: -30px;
+    right: -40px;
+    width: 450px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.14;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Brushstroke: bottom-left edge-bleed ── */
+  .brush-bottom-left {
+    position: absolute;
+    bottom: -25px;
+    left: -35px;
+    width: 500px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.12;
+    pointer-events: none;
+    transform: rotate(5deg);
+    z-index: 0;
+  }
+
+  /* ── Category label ── */
+  .category {
+    position: absolute;
+    right: 28px;
+    top: 45px;
+    z-index: 5;
+  }
+  .category span {
+    font-weight: 700;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    white-space: nowrap;
+    transform: rotate(90deg);
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  /* ── SLOT: HEADLINE ── */
+  .headline {
+    position: absolute;
+    left: 68px;
+    top: 120px;
+    width: 900px;
+    font-weight: 900;
+    font-size: 82px;
+    line-height: 0.95;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    z-index: 2;
+  }
+  .headline .accent {
+    color: #c985e5;
+  }
+
+  /* ── Feature diagram card ── */
+  .diagram-card {
+    position: absolute;
+    left: 68px;
+    top: 440px;
+    width: 944px;
+    height: 380px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 40px 48px;
+    z-index: 2;
+  }
+
+  /* ── SLOT: FEATURE_VISUAL ── */
+  .feature-visual {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    height: 100%;
+  }
+
+  .feature-icon-area {
+    width: 200px;
+    height: 200px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .feature-icon-area .icon-text {
+    font-weight: 900;
+    font-size: 96px;
+    color: #c985e5;
+    letter-spacing: -0.04em;
+    position: relative;
+    z-index: 1;
+  }
+  .feature-icon-area .circle-mask {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    left: -10%;
+    top: -10%;
+    width: 120%;
+    height: 120%;
+    background-color: #c985e5;
+    -webkit-mask-image: url('../../assets/circles/masks/circle-1.png');
+    mask-image: url('../../assets/circles/masks/circle-1.png');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.35;
+    transform: rotate(-12deg);
+  }
+
+  .feature-details {
+    flex: 1;
+  }
+  .feature-details .feature-name {
+    font-weight: 900;
+    font-size: 36px;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .feature-details .feature-desc {
+    font-weight: 300;
+    font-size: 22px;
+    line-height: 1.45;
+    color: rgba(255,255,255,0.45);
+  }
+  .feature-details .feature-points {
+    margin-top: 20px;
+    display: flex;
+    gap: 16px;
+  }
+  .feature-details .point {
+    padding: 6px 14px;
+    background: rgba(201,133,229,0.08);
+    border: 1px solid rgba(201,133,229,0.15);
+    font-size: 13px;
+    font-weight: 500;
+    color: #c985e5;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── SLOT: TAGLINE ── */
+  .tagline {
+    position: absolute;
+    left: 68px;
+    bottom: 110px;
+    font-family: 'flfontbold', sans-serif;
+    font-size: 30px;
+    color: #c985e5;
+    z-index: 2;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 68px;
+    z-index: 10;
+  }
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-left img {
+    height: 18px;
+    opacity: 0.8;
+  }
+  .footer-separator {
+    width: 1px;
+    height: 14px;
+    background: rgba(255,255,255,0.15);
+  }
+  .footer-right img {
+    height: 22px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Brushstroke: top-right edge-bleed -->
+  <img class="brush-top-right" src="../../assets/brushstrokes/brushstroke-diagonal-upward.png" alt="">
+
+  <!-- Brushstroke: bottom-left edge-bleed -->
+  <img class="brush-bottom-left" src="../../assets/brushstrokes/brushstroke-compact-burst.png" alt="">
+
+  <!-- SLOT: CATEGORY -->
+  <div class="category">
+    <span>Fluid Payments</span>
+  </div>
+
+  <!-- SLOT: HEADLINE -->
+  <p class="headline">A TRANSACTION FAILS.<br><span class="accent">WE RETRY IT SIX WAYS</span><br>BEFORE YOU BLINK.</p>
+
+  <!-- Feature diagram card -->
+  <div class="diagram-card">
+    <!-- SLOT: FEATURE_VISUAL -->
+    <div class="feature-visual">
+      <div class="feature-icon-area">
+        <span class="icon-text">6x</span>
+        <span class="circle-mask"></span>
+      </div>
+      <div class="feature-details">
+        <!-- SLOT: FEATURE_NAME -->
+        <p class="feature-name">Intelligent Retry</p>
+        <!-- SLOT: FEATURE_DESC -->
+        <p class="feature-desc">Seven PSPs with automatic failover. If one path declines, we route through another. Sub-second, invisible to the customer.</p>
+        <div class="feature-points">
+          <span class="point">7 PSPs</span>
+          <span class="point">Auto-Retry</span>
+          <span class="point">Sub-Second</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLOT: TAGLINE -->
+  <p class="tagline">Every transaction gets its best shot.</p>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      <img src="../../assets/logos/wecommerce-flags.png" alt="We-Commerce">
+      <div class="footer-separator"></div>
+      <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce">
+    </div>
+    <div class="footer-right">
+      <img src="../../assets/logos/frame-3-fluid-dots.png" alt="Fluid">
+    </div>
+  </footer>
+
+</body>
+</html>

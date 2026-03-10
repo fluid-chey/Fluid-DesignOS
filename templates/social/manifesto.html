@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<!-- target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @font-face {
+    font-family: 'flfontbold';
+    src: url('../../assets/fonts/flfontbold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'NeueHaas';
+    src: url('../../assets/fonts/Inter-VariableFont.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    font-family: 'NeueHaas', sans-serif;
+  }
+
+  /* ── Ghost watermark text ── */
+  .watermark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-weight: 900;
+    font-size: 120px;
+    line-height: 1.1;
+    color: rgba(255,255,255,0.04);
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    text-align: center;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Brushstroke: left curtain, edge-bleed ── */
+  .brush-left {
+    position: absolute;
+    top: -40px;
+    left: -60px;
+    width: 350px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.20;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ── Brushstroke: right curtain, edge-bleed ── */
+  .brush-right {
+    position: absolute;
+    top: -30px;
+    right: -50px;
+    width: 350px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.20;
+    pointer-events: none;
+    transform: scaleX(-1);
+    z-index: 1;
+  }
+
+  /* ── Brushstroke: bottom accent ── */
+  .brush-bottom {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: auto;
+    mix-blend-mode: screen;
+    opacity: 0.10;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ── SLOT: HEADLINE ── */
+  .headline {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -60%);
+    width: 860px;
+    font-weight: 900;
+    font-size: 82px;
+    line-height: 1.05;
+    color: #ffffff;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    z-index: 3;
+  }
+  .headline .accent {
+    color: #42b1ff;
+  }
+
+  /* ── Circle sketch: wrapping key phrase ── */
+  .circle-emphasis {
+    position: relative;
+    display: inline-block;
+    isolation: isolate;
+  }
+  .circle-emphasis .text {
+    position: relative;
+    z-index: 1;
+  }
+  .circle-emphasis .circle-mask {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    left: -18%;
+    top: -25%;
+    width: 136%;
+    height: 150%;
+    background-color: #42b1ff;
+    -webkit-mask-image: url('../../assets/circles/masks/circle-5.png');
+    mask-image: url('../../assets/circles/masks/circle-5.png');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.55;
+    transform: rotate(6deg);
+  }
+
+  /* ── SLOT: BODY ── */
+  .body-copy {
+    position: absolute;
+    left: 50%;
+    top: 62%;
+    transform: translateX(-50%);
+    width: 700px;
+    font-weight: 300;
+    font-size: 24px;
+    line-height: 1.50;
+    color: rgba(255,255,255,0.45);
+    text-align: center;
+    z-index: 3;
+  }
+
+  /* ── SLOT: TAGLINE ── */
+  .tagline {
+    position: absolute;
+    left: 50%;
+    bottom: 120px;
+    transform: translateX(-50%);
+    font-family: 'flfontbold', sans-serif;
+    font-size: 32px;
+    color: #42b1ff;
+    white-space: nowrap;
+    z-index: 3;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 68px;
+    z-index: 10;
+  }
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-left img {
+    height: 18px;
+    opacity: 0.8;
+  }
+  .footer-separator {
+    width: 1px;
+    height: 14px;
+    background: rgba(255,255,255,0.15);
+  }
+  .footer-right img {
+    height: 22px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Ghost watermark text -->
+  <div class="watermark">
+    EVERY TRANSACTION<br>
+    EVERY TRANSACTION<br>
+    EVERY TRANSACTION<br>
+    EVERY TRANSACTION<br>
+    EVERY TRANSACTION
+  </div>
+
+  <!-- Brushstroke: left curtain, edge-bleed -->
+  <img class="brush-left" src="../../assets/brushstrokes/brushstroke-vertical-double-block.png" alt="">
+
+  <!-- Brushstroke: right curtain, edge-bleed -->
+  <img class="brush-right" src="../../assets/brushstrokes/brushstroke-vertical-edge-sweep.png" alt="">
+
+  <!-- Brushstroke: bottom accent -->
+  <img class="brush-bottom" src="../../assets/brushstrokes/brushstroke-horizontal-wide.png" alt="">
+
+  <!-- SLOT: HEADLINE -->
+  <div class="headline">
+    WHEN REPS<br>
+    <span class="circle-emphasis">
+      <span class="text accent">TRUST</span>
+      <span class="circle-mask"></span>
+    </span>
+    <span class="accent">THE SYSTEM,</span><br>
+    THEY SHARE.
+  </div>
+
+  <!-- SLOT: BODY -->
+  <p class="body-copy">When they share, you get traffic. When you get traffic, you grow. It all starts with trust.</p>
+
+  <!-- SLOT: TAGLINE -->
+  <p class="tagline">Every transaction matters.</p>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      <img src="../../assets/logos/wecommerce-flags.png" alt="We-Commerce">
+      <div class="footer-separator"></div>
+      <img src="../../assets/logos/wecommerce-logos.png" alt="We-Commerce">
+    </div>
+    <div class="footer-right">
+      <img src="../../assets/logos/frame-3-fluid-dots.png" alt="Fluid">
+    </div>
+  </footer>
+
+</body>
+</html>
