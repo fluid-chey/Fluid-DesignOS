@@ -20,7 +20,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Orchestrator Architecture
 
-- [ ] **ORCH-01**: Orchestrator skill pattern established — one slash command per asset type, spawns specialized subagents with fresh context
+- [x] **ORCH-01**: Orchestrator skill pattern established — one slash command per asset type, spawns specialized subagents with fresh context
 - [x] **ORCH-02**: Copy subagent loads only voice rules and messaging docs, produces copy in Fluid brand voice
 - [x] **ORCH-03**: Layout subagent loads only layout archetypes and dimensions, produces structural arrangement
 - [x] **ORCH-04**: Styling subagent loads only design tokens and asset-specific specs, implements against tokens (no aesthetic guessing)
@@ -30,12 +30,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Social Posts
 
-- [ ] **SOCL-01**: Social post skill generates Instagram posts (1080x1080px) as self-contained HTML/CSS
-- [ ] **SOCL-02**: Social post skill generates LinkedIn posts (1200x627px and 1340x630px) as self-contained HTML/CSS
-- [ ] **SOCL-03**: Social posts use one accent color per post (orange for pain, blue for trust, green for success, purple for premium)
-- [ ] **SOCL-04**: Social posts include consistent footer structure (flag icon + We-Commerce wordmark left, Fluid dots right)
-- [ ] **SOCL-05**: Social posts use brushstroke textures from brand assets with proper blend mode (screen), opacity (0.10-0.25), and edge-bleed rules
-- [ ] **SOCL-06**: Social posts use circle sketch for word emphasis only (not decorative), hue-shifted to match accent color
+- [x] **SOCL-01**: Social post skill generates Instagram posts (1080x1080px) as self-contained HTML/CSS
+- [x] **SOCL-02**: Social post skill generates LinkedIn posts (1200x627px and 1340x630px) as self-contained HTML/CSS
+- [x] **SOCL-03**: Social posts use one accent color per post (orange for pain, blue for trust, green for success, purple for premium)
+- [x] **SOCL-04**: Social posts include consistent footer structure (flag icon + We-Commerce wordmark left, Fluid dots right)
+- [x] **SOCL-05**: Social posts use brushstroke textures from brand assets with proper blend mode (screen), opacity (0.10-0.25), and edge-bleed rules
+- [x] **SOCL-06**: Social posts use circle sketch for word emphasis only (not decorative), hue-shifted to match accent color
 - [x] **SOCL-07**: Social posts reference template library as 5-star examples but adapt, not copy verbatim
 
 ### Website Sections
@@ -149,19 +149,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIST-03 | Phase 1 | Complete |
 | META-03 | Phase 1 | Complete (01-01) |
 | META-04 | Phase 1 | Complete (01-01) |
-| ORCH-01 | Phase 2 | Pending |
+| ORCH-01 | Phase 2 | Complete |
 | ORCH-02 | Phase 2 | Complete |
 | ORCH-03 | Phase 2 | Complete |
 | ORCH-04 | Phase 2 | Complete |
 | ORCH-05 | Phase 2 | Complete |
 | ORCH-06 | Phase 2 | Complete |
 | ORCH-07 | Phase 2 | Complete |
-| SOCL-01 | Phase 2 | Pending |
-| SOCL-02 | Phase 2 | Pending |
-| SOCL-03 | Phase 2 | Pending |
-| SOCL-04 | Phase 2 | Pending |
-| SOCL-05 | Phase 2 | Pending |
-| SOCL-06 | Phase 2 | Pending |
+| SOCL-01 | Phase 2 | Complete |
+| SOCL-02 | Phase 2 | Complete |
+| SOCL-03 | Phase 2 | Complete |
+| SOCL-04 | Phase 2 | Complete |
+| SOCL-05 | Phase 2 | Complete |
+| SOCL-06 | Phase 2 | Complete |
 | SOCL-07 | Phase 2 | Complete |
 | TMPL-01 | Phase 2 | Complete |
 | TMPL-02 | Phase 2 | Complete |
