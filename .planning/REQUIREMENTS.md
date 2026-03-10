@@ -40,13 +40,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Website Sections
 
-- [ ] **SITE-01**: Website section skill generates valid .liquid files with proper schema structure
+- [x] **SITE-01**: Website section skill generates valid .liquid files with proper schema structure
 - [x] **SITE-02**: Gold Standard documentation decomposed into focused .md files (schema-rules, template-patterns, button-system, validation, theme-tokens)
-- [ ] **SITE-03**: Every text element in schema has 6 settings (family, size mobile, size desktop, weight, color, content)
-- [ ] **SITE-04**: Every button has 7 settings (show, text, url, style, color, size, weight) using btn utility class system
-- [ ] **SITE-05**: Section and container settings complete (background, padding, border radius)
-- [ ] **SITE-06**: No hard-coded colors, spacing, or border radius — all use CSS variables/utility classes
-- [ ] **SITE-07**: Generated sections pass Gold Standard validation checklist
+- [x] **SITE-03**: Every text element in schema has 6 settings (family, size mobile, size desktop, weight, color, content)
+- [x] **SITE-04**: Every button has 7 settings (show, text, url, style, color, size, weight) using btn utility class system
+- [x] **SITE-05**: Section and container settings complete (background, padding, border radius)
+- [x] **SITE-06**: No hard-coded colors, spacing, or border radius — all use CSS variables/utility classes
+- [x] **SITE-07**: Generated sections pass Gold Standard validation checklist
 
 ### One-Pagers
 
@@ -59,7 +59,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TMPL-01**: Template library in Jonathan's format — live HTML preview + content slot specs + creation instructions
 - [x] **TMPL-02**: Social post templates covering core archetypes (testimonial/quote, app highlight, partner alert, and 3+ more)
 - [ ] **TMPL-03**: One-pager templates with content slot specs
-- [ ] **TMPL-04**: Templates include per-element annotations (FIXED/FLEXIBLE/OPTIONAL)
+- [x] **TMPL-04**: Templates include per-element annotations (FIXED/FLEXIBLE/OPTIONAL)
 
 ### Canvas & Iteration
 
@@ -165,18 +165,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SOCL-07 | Phase 2 | Complete |
 | TMPL-01 | Phase 2 | Complete |
 | TMPL-02 | Phase 2 | Complete |
-| SITE-01 | Phase 3 | Pending |
+| SITE-01 | Phase 3 | Complete |
 | SITE-02 | Phase 3 | Complete |
-| SITE-03 | Phase 3 | Pending |
-| SITE-04 | Phase 3 | Pending |
-| SITE-05 | Phase 3 | Pending |
-| SITE-06 | Phase 3 | Pending |
-| SITE-07 | Phase 3 | Pending |
+| SITE-03 | Phase 3 | Complete |
+| SITE-04 | Phase 3 | Complete |
+| SITE-05 | Phase 3 | Complete |
+| SITE-06 | Phase 3 | Complete |
+| SITE-07 | Phase 3 | Complete |
 | PAGE-01 | Phase 3 | Pending |
 | PAGE-02 | Phase 3 | Pending |
 | PAGE-03 | Phase 3 | Pending |
 | TMPL-03 | Phase 3 | Pending |
-| TMPL-04 | Phase 3 | Pending |
+| TMPL-04 | Phase 3 | Complete |
 | CANV-01 | Phase 4 | Pending |
 | CANV-02 | Phase 4 | Pending |
 | CANV-03 | Phase 4 | Pending |
