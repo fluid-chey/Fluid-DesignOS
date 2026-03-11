@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-02-PLAN.md — learning loop slash commands
-last_updated: "2026-03-11T17:39:43.309Z"
+stopped_at: Completed 06-02-PLAN.md — orchestrator pipeline wiring
+last_updated: "2026-03-11T18:01:50.630Z"
 last_activity: 2026-03-11 -- Completed 04.1-02 session-aware prompt sidebar with iterate mode
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
   percent: 89
 ---
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 89% (Overall: 16/18 plans)
 | Phase 04.1 P01 | 3min | 2 tasks | 7 files |
 | Phase 05-learning-loop P01 | 4min | 2 tasks | 2 files |
 | Phase 05 P02 | 20min | 3 tasks | 2 files |
+| Phase 06-marketing-skills-integration P02 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ Recent decisions affecting current work:
 - [Phase 05-02]: AskUserQuestion is not a real Claude Code tool — both skills use conversational prompts instead of AskUserQuestion
 - [Phase 05-02]: Audit-trail-first: engine writes proposal file BEFORE walkthrough begins (full run, no --dry-run)
 - [Phase 05-02]: Batch-apply pattern: collect ALL decisions then apply ALL approved changes atomically — no partial state mid-walkthrough
+- [Phase 06-marketing-skills-integration]: Marketing skills embedded as hardcoded defaults in orchestrator skills (no runtime skill-map.json reads)
+- [Phase 06-marketing-skills-integration]: Brand docs listed first (PRIMARY), marketing skills second (SECONDARY) with explicit precedence framing in all delegation messages
+- [Phase 06-marketing-skills-integration]: --skills flag is a full override (not additive) -- resolved_skills replaces defaults for ALL subagent delegation
 
 ### Pending Todos
 
@@ -153,6 +157,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T17:39:43.307Z
-Stopped at: Completed 05-02-PLAN.md — learning loop slash commands
+Last session: 2026-03-11T18:01:50.628Z
+Stopped at: Completed 06-02-PLAN.md — orchestrator pipeline wiring
 Resume file: None
