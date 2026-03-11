@@ -1,6 +1,7 @@
 ---
 name: fluid-theme-section
 description: "Generate Gold Standard compliant .liquid website sections. Orchestrates copy, layout, styling, and spec-check agents to produce sections with complete schema settings."
+invoke: slash
 context: fork
 disable-model-invocation: true
 argument-hint: '"section description" [--type hero|features-grid|testimonials|cta-banner|image-text|statistics|faq-accordion|logo-showcase|pricing|content-richtext|video|newsletter] [--template name] [--debug]'
@@ -38,7 +39,28 @@ If `--type` is not set but the prompt contains natural language hints, match aga
 - "newsletter", "email", "subscribe", "signup" -> `newsletter`
 - "hero", "banner", "landing", "above the fold" -> `hero`
 
-# 2. Working Directory Setup
+# 2. Output Path
+
+**When canvas is active** (`.fluid/canvas-active` file exists):
+- Create a session directory: `.fluid/working/YYYYMMDD-HHMMSS/`
+- Write ALL output files to that session directory
+- Write `lineage.json` to the session directory
+- Do NOT write to `./templates/sections/`
+
+**When canvas is NOT active** (no `.fluid/canvas-active` file):
+- Write output to `./templates/sections/` as before
+- Optionally also write to `.fluid/working/` for future canvas review
+
+**Check canvas status:**
+```bash
+if [ -f .fluid/canvas-active ]; then
+  # Canvas is running -- use .fluid/working/{sessionId}/
+else
+  # Canvas not running -- use ./templates/sections/
+fi
+```
+
+# 3. Working Directory Setup
 
 Each run gets a unique session directory under `.fluid/working/`:
 
@@ -81,7 +103,7 @@ Initialize at session start:
 
 Update `lineage.json` after each pipeline completion.
 
-# 3. Pipeline Execution
+# 4. Pipeline Execution
 
 Print the run header:
 
@@ -93,7 +115,7 @@ Generating Fluid theme section...
 
 Execute the 4-stage pipeline sequentially using the session directory path.
 
-## Step 3a: Copy Agent
+## Step 4a: Copy Agent
 
 Delegate to `copy-agent` via the Agent tool:
 
@@ -104,7 +126,7 @@ Wait for completion. Read `{working_dir}/copy.md`.
 
 Print: `[1/4] Copy...        done`
 
-## Step 3b: Layout Agent
+## Step 4b: Layout Agent
 
 Delegate to `layout-agent` via the Agent tool:
 
@@ -115,7 +137,7 @@ Wait for completion.
 
 Print: `[2/4] Layout...      done`
 
-## Step 3c: Styling Agent
+## Step 4c: Styling Agent
 
 Delegate to `styling-agent` via the Agent tool:
 
@@ -126,7 +148,7 @@ Wait for completion.
 
 Print: `[3/4] Styling...     done`
 
-## Step 3d: Spec-Check Agent
+## Step 4d: Spec-Check Agent
 
 Delegate to `spec-check-agent` via the Agent tool:
 
@@ -142,7 +164,7 @@ If `overall` is `"fail"`:
   Print: `[4/4] Spec-check...  FAIL ({N} blocking issues)`
   Proceed to the Fix Loop (Section 4).
 
-# 4. Fix Loop
+# 5. Fix Loop
 
 Only entered when `spec-report.json` has `"overall": "fail"`.
 
@@ -181,7 +203,7 @@ For iteration 1 to 3:
   ```
 - Continue to output (the section is saved but marked as a draft).
 
-# 5. Output and Cleanup
+# 6. Output and Cleanup
 
 Copy the final .liquid file to `./templates/sections/`:
 
@@ -202,7 +224,7 @@ Copy `{working_dir}/styled.liquid` to the output path.
 Saved: ./templates/sections/{type}.liquid
 ```
 
-# 6. Validation
+# 7. Validation
 
 After saving, run the validation tool to confirm Gold Standard compliance:
 

@@ -1,6 +1,7 @@
 ---
 name: fluid-social
 description: "Generate brand-correct Fluid social posts from a simple prompt. Creates Instagram (1080x1080) or LinkedIn (1200x627/1340x630) posts with the full brand treatment -- copy, layout, styling, and spec-check."
+invoke: slash
 context: fork
 disable-model-invocation: true
 argument-hint: '"topic or brief" [--platform instagram|linkedin] [--product connect|payments] [--template archetype] [--variations N] [--ref path] [--debug]'
@@ -42,7 +43,28 @@ If `--template` is not set but the prompt contains natural language template hin
 **Natural language reference matching:**
 If `--ref` is not set but the prompt references a known post (e.g., "make it like the 3AM server fire post"), use Glob to search `templates/social/*.html` and `output/*.html` for matching content.
 
-# 2. Working Directory Setup
+# 2. Output Path
+
+**When canvas is active** (`.fluid/canvas-active` file exists):
+- Create a session directory: `.fluid/working/YYYYMMDD-HHMMSS/`
+- Write ALL output files to that session directory
+- Write `lineage.json` to the session directory
+- Do NOT write to `./output/`
+
+**When canvas is NOT active** (no `.fluid/canvas-active` file):
+- Write output to `./output/` as before
+- Optionally also write to `.fluid/working/` for future canvas review
+
+**Check canvas status:**
+```bash
+if [ -f .fluid/canvas-active ]; then
+  # Canvas is running -- use .fluid/working/{sessionId}/
+else
+  # Canvas not running -- use ./output/
+fi
+```
+
+# 3. Working Directory Setup
 
 Each run gets a unique session directory under `.fluid/working/`:
 
@@ -97,7 +119,7 @@ When the user follows up with changes (e.g., "make it more urgent", "try a linke
 
 Update `lineage.json` after each pipeline completion (after output is saved).
 
-# 3. Pipeline Execution
+# 4. Pipeline Execution
 
 Print the run header:
 
@@ -113,7 +135,7 @@ For each variation (default: 1), execute the 4-stage pipeline sequentially.
 
 Use the session directory path. For single variation: `.fluid/working/{sessionId}/`. For multiple: `.fluid/working/{sessionId}/v{N}/`.
 
-## Step 3a: Copy Agent
+## Step 4a: Copy Agent
 
 Delegate to `copy-agent` via the Agent tool:
 
@@ -124,7 +146,7 @@ Wait for completion. Then read `{working_dir}/copy.md` and extract the accent co
 
 Print: `[1/4] Copy...        done (accent: {color}, archetype: {archetype})`
 
-## Step 3b: Layout Agent
+## Step 4b: Layout Agent
 
 Delegate to `layout-agent` via the Agent tool:
 
@@ -135,7 +157,7 @@ Wait for completion.
 
 Print: `[2/4] Layout...      done (archetype: {archetype})`
 
-## Step 3c: Styling Agent
+## Step 4c: Styling Agent
 
 Delegate to `styling-agent` via the Agent tool:
 
@@ -146,7 +168,7 @@ Wait for completion.
 
 Print: `[3/4] Styling...     done`
 
-## Step 3d: Spec-Check Agent
+## Step 4d: Spec-Check Agent
 
 Read `{working_dir}/copy.md` to get the accent color and archetype values.
 
@@ -164,7 +186,7 @@ If `overall` is `"fail"`:
   Print: `[4/4] Spec-check...  FAIL ({N} blocking issues)`
   Proceed to the Fix Loop (Section 4).
 
-# 4. Fix Loop
+# 5. Fix Loop
 
 Only entered when `spec-report.json` has `"overall": "fail"`.
 
@@ -207,7 +229,7 @@ For iteration 1 to 3:
   ```
 - Continue to output (the post is saved but marked as a draft in the filename).
 
-# 5. Output and Cleanup
+# 6. Output and Cleanup
 
 Copy the final styled HTML to `./output/`:
 
@@ -232,7 +254,7 @@ Saved: ./output/fluid-social-{platform}-{archetype}-{YYYYMMDD}.html
 
 For variations, print each output path on its own line.
 
-# 6. Status Reporting Format
+# 7. Status Reporting Format
 
 Throughout execution, print clear status updates using this format:
 

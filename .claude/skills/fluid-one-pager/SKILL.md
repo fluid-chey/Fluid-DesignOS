@@ -1,6 +1,7 @@
 ---
 name: fluid-one-pager
 description: "Generate print-ready Fluid one-pager sales collateral from a simple prompt. Creates letter-size HTML/CSS with brushstrokes, side labels, and FLFont taglines."
+invoke: slash
 context: fork
 disable-model-invocation: true
 argument-hint: '"topic or brief" [--type product-feature|partner|company|case-study|comparison] [--product connect|payments] [--template name] [--ref path] [--debug]'
@@ -38,7 +39,28 @@ If `--type` is not set but the prompt contains natural language hints, match aga
 **Natural language reference matching:**
 If `--ref` is not set but the prompt references a known one-pager (e.g., "make it like the live editor one-pager"), use Glob to search `templates/one-pagers/*.html` and `output/*.html` for matching content.
 
-# 2. Working Directory Setup
+# 2. Output Path
+
+**When canvas is active** (`.fluid/canvas-active` file exists):
+- Create a session directory: `.fluid/working/YYYYMMDD-HHMMSS/`
+- Write ALL output files to that session directory
+- Write `lineage.json` to the session directory
+- Do NOT write to `./output/`
+
+**When canvas is NOT active** (no `.fluid/canvas-active` file):
+- Write output to `./output/` as before
+- Optionally also write to `.fluid/working/` for future canvas review
+
+**Check canvas status:**
+```bash
+if [ -f .fluid/canvas-active ]; then
+  # Canvas is running -- use .fluid/working/{sessionId}/
+else
+  # Canvas not running -- use ./output/
+fi
+```
+
+# 3. Working Directory Setup
 
 Each run gets a unique session directory under `.fluid/working/`:
 
@@ -83,7 +105,7 @@ Initialize at session start:
 
 Update `lineage.json` after each pipeline completion.
 
-# 3. Pipeline Execution
+# 4. Pipeline Execution
 
 Print the run header:
 
@@ -96,7 +118,7 @@ Generating Fluid one-pager...
 
 Execute the 4-stage pipeline sequentially.
 
-## Step 3a: Copy Agent
+## Step 4a: Copy Agent
 
 Delegate to `copy-agent` via the Agent tool:
 
@@ -107,7 +129,7 @@ Wait for completion. Then read `{working_dir}/copy.md` and extract the accent co
 
 Print: `[1/4] Copy...        done (accent: {color}, type: {type})`
 
-## Step 3b: Layout Agent
+## Step 4b: Layout Agent
 
 Delegate to `layout-agent` via the Agent tool:
 
@@ -118,7 +140,7 @@ Wait for completion.
 
 Print: `[2/4] Layout...      done (type: {type})`
 
-## Step 3c: Styling Agent
+## Step 4c: Styling Agent
 
 Delegate to `styling-agent` via the Agent tool:
 
@@ -129,7 +151,7 @@ Wait for completion.
 
 Print: `[3/4] Styling...     done`
 
-## Step 3d: Spec-Check Agent
+## Step 4d: Spec-Check Agent
 
 Read `{working_dir}/copy.md` to get the accent color and type values.
 
@@ -147,7 +169,7 @@ If `overall` is `"fail"`:
   Print: `[4/4] Spec-check...  FAIL ({N} blocking issues)`
   Proceed to the Fix Loop (Section 4).
 
-# 4. Fix Loop
+# 5. Fix Loop
 
 Only entered when `spec-report.json` has `"overall": "fail"`.
 
@@ -186,7 +208,7 @@ For iteration 1 to 3:
   ```
 - Continue to output (saved as draft).
 
-# 5. Output and Cleanup
+# 6. Output and Cleanup
 
 Copy the final styled HTML to `./output/`:
 
@@ -211,7 +233,7 @@ Open in browser and use Print to PDF (File > Print > Save as PDF) for the final 
 Letter size (8.5 x 11") with zero margins.
 ```
 
-# 6. Status Reporting Format
+# 7. Status Reporting Format
 
 Throughout execution, print clear status updates:
 
