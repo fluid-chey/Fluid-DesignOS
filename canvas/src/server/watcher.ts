@@ -1,7 +1,10 @@
 import type { Plugin, ViteDevServer } from 'vite';
 import { watch } from 'chokidar';
+import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
 
 /**
  * Vite plugin that watches .fluid/working/ and pushes HMR custom events
@@ -10,6 +13,7 @@ import fs from 'node:fs/promises';
 export function fluidWatcherPlugin(workingDir: string): Plugin {
   let server: ViteDevServer | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let activeChild: ChildProcess | null = null;
 
   return {
     name: 'fluid-watcher',
@@ -70,6 +74,126 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
         if (!req.url?.startsWith('/api/')) return next();
 
         try {
+          // POST /api/generate -- spawn claude CLI and stream SSE
+          if (req.url === '/api/generate' && req.method === 'POST') {
+            // Concurrent generation lock
+            if (activeChild) {
+              res.writeHead(409, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Generation already in progress' }));
+              return;
+            }
+
+            const body = JSON.parse(await readBody(req));
+            const { prompt, template, customization, skillType } = body;
+
+            // Generate session ID: YYYYMMDD-HHMMSS
+            const now = new Date();
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const sessionId = [
+              now.getFullYear(),
+              pad(now.getMonth() + 1),
+              pad(now.getDate()),
+              '-',
+              pad(now.getHours()),
+              pad(now.getMinutes()),
+              pad(now.getSeconds()),
+            ].join('');
+
+            // Create session directory
+            const sessionDir = path.join(absDir, sessionId);
+            await fs.mkdir(sessionDir, { recursive: true });
+
+            // Build the prompt with output path instructions
+            const parts: string[] = [];
+            if (template) parts.push(`Template: ${template}`);
+            if (customization) parts.push(`Customization: ${JSON.stringify(customization)}`);
+            parts.push(prompt || 'Generate a marketing asset');
+            parts.push(`\nWrite all generated files to ${sessionDir}/`);
+            parts.push(`Write lineage.json to ${sessionDir}/`);
+            const fullPrompt = parts.join('\n');
+
+            // Build spawn args
+            const args = [
+              '-p', fullPrompt,
+              '--output-format', 'stream-json',
+              '--verbose',
+              '--allowedTools', 'Read,Write,Bash,Glob,Grep,Edit,Agent',
+            ];
+
+            // Add skill system prompt if available
+            if (skillType) {
+              const skillPath = path.resolve(
+                srv.config.root,
+                `skills/${skillType}/SKILL.md`,
+              );
+              try {
+                await fs.access(skillPath);
+                args.push('--append-system-prompt-file', skillPath);
+              } catch { /* skill file not found, skip */ }
+            }
+
+            // Resolve project root (parent of .fluid/)
+            const projectRoot = path.resolve(srv.config.root, '..');
+
+            // CRITICAL: stdin MUST be 'inherit', not 'pipe'
+            // Piped stdin causes claude to hang indefinitely (GitHub #771)
+            const child = spawn('claude', args, {
+              cwd: projectRoot,
+              stdio: ['inherit', 'pipe', 'pipe'],
+              env: { ...process.env },
+            });
+
+            activeChild = child;
+
+            // Set SSE headers
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+            });
+            (res as any).flushHeaders?.();
+
+            // Send session ID immediately
+            res.write(`data: ${JSON.stringify({ type: 'session', sessionId })}\n\n`);
+
+            // Stream stdout line by line as SSE data events
+            if (child.stdout) {
+              const rl = createInterface({ input: child.stdout });
+              rl.on('line', (line: string) => {
+                if (line.trim()) {
+                  res.write(`data: ${line}\n\n`);
+                }
+              });
+            }
+
+            // Forward stderr as event: stderr
+            if (child.stderr) {
+              const stderrRl = createInterface({ input: child.stderr });
+              stderrRl.on('line', (line: string) => {
+                if (line.trim()) {
+                  res.write(`event: stderr\ndata: ${JSON.stringify({ text: line })}\n\n`);
+                }
+              });
+            }
+
+            // Send done event on close
+            child.on('close', (code: number | null) => {
+              activeChild = null;
+              res.write(`event: done\ndata: ${JSON.stringify({ code: code ?? 1, sessionId })}\n\n`);
+              res.end();
+            });
+
+            // Kill child if client disconnects
+            req.on('close', () => {
+              if (activeChild === child) {
+                child.kill('SIGTERM');
+                activeChild = null;
+              }
+            });
+
+            return;
+          }
+
           if (req.url === '/api/sessions') {
             const sessions = await discoverSessionsFromDir(absDir);
             res.writeHead(200, { 'Content-Type': 'application/json' });
