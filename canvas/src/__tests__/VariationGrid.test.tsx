@@ -1,7 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { VariationGrid } from '../components/VariationGrid';
 import type { VariationFile } from '../lib/types';
+
+const noop = vi.fn();
+
+const defaultProps = {
+  platform: 'instagram' as const,
+  statuses: {},
+  annotations: [],
+  activePin: null,
+  onPinClick: noop,
+  onAddPin: noop,
+  onReply: noop,
+  onStatusChange: noop,
+};
 
 describe('VariationGrid', () => {
   it('renders the correct number of AssetFrame components for given variations', () => {
@@ -12,7 +25,7 @@ describe('VariationGrid', () => {
     ];
 
     const { container } = render(
-      <VariationGrid variations={variations} platform="instagram" statuses={{}} />
+      <VariationGrid variations={variations} {...defaultProps} />
     );
 
     const frames = container.querySelectorAll('[data-testid="asset-frame"]');
@@ -21,7 +34,7 @@ describe('VariationGrid', () => {
 
   it('shows empty state message when no variations are provided', () => {
     render(
-      <VariationGrid variations={[]} platform="instagram" statuses={{}} />
+      <VariationGrid variations={[]} {...defaultProps} />
     );
 
     expect(screen.getByText(/no variations/i)).toBeInTheDocument();

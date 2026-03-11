@@ -1,13 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { SessionSidebar } from './components/SessionSidebar';
 import { VariationGrid } from './components/VariationGrid';
+import { Timeline } from './components/Timeline';
+import { IteratePanel } from './components/IteratePanel';
+import { SidebarNotes } from './components/SidebarNotes';
 import { useSessionStore } from './store/sessions';
+import { useAnnotationStore } from './store/annotations';
+import { useAnnotations } from './hooks/useAnnotations';
 import { useFileWatcher } from './hooks/useFileWatcher';
+import type { VariationStatus } from './lib/types';
 
 export function App() {
   const refreshSessions = useSessionStore((s) => s.refreshSessions);
   const activeSessionData = useSessionStore((s) => s.activeSessionData);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const loading = useSessionStore((s) => s.loading);
+
+  const {
+    annotations,
+    statuses,
+    activePin,
+    setActivePin,
+    setStatus,
+    sidebarNotes,
+    addPin,
+    addNote,
+    addReply,
+  } = useAnnotations();
+
+  const [showNotes, setShowNotes] = useState(false);
 
   // Auto-refresh on filesystem changes
   useFileWatcher();
@@ -16,6 +37,38 @@ export function App() {
   useEffect(() => {
     refreshSessions();
   }, [refreshSessions]);
+
+  // Winner selection: auto-reject others in same round
+  const handleStatusChange = useCallback(
+    (variationPath: string, newStatus: VariationStatus) => {
+      setStatus(variationPath, newStatus);
+
+      if (newStatus === 'winner' && activeSessionData) {
+        // Auto-reject all other variations (unless they are already "final")
+        for (const v of activeSessionData.variations) {
+          if (v.path !== variationPath) {
+            const current = statuses[v.path] ?? 'unmarked';
+            if (current !== 'final') {
+              setStatus(v.path, 'rejected');
+            }
+          }
+        }
+      }
+    },
+    [setStatus, activeSessionData, statuses]
+  );
+
+  const handlePinClick = useCallback(
+    (id: string) => {
+      setActivePin(activePin === id ? null : id);
+    },
+    [activePin, setActivePin]
+  );
+
+  // Determine current round number
+  const currentRound = activeSessionData?.lineage.rounds
+    ? Math.max(...activeSessionData.lineage.rounds.map((r) => r.roundNumber), 0)
+    : 0;
 
   return (
     <div style={{
@@ -55,38 +108,102 @@ export function App() {
               {activeSessionData.id}
             </span>
           )}
+          <div style={{ flex: 1 }} />
+          {activeSessionData && (
+            <button
+              onClick={() => setShowNotes(!showNotes)}
+              style={{
+                background: showNotes ? '#3b82f622' : 'none',
+                border: '1px solid #333',
+                borderRadius: 4,
+                color: showNotes ? '#3b82f6' : '#888',
+                padding: '4px 10px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
+            >
+              Notes {sidebarNotes.length > 0 && `(${sidebarNotes.length})`}
+            </button>
+          )}
         </header>
 
         {/* Main content area */}
         <div style={{
           flex: 1,
-          overflowY: 'auto',
+          display: 'flex',
+          overflow: 'hidden',
         }}>
-          {loading && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
-              Loading session...
-            </div>
-          )}
+          {/* Center: variations + iterate */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {loading && (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                  Loading session...
+                </div>
+              )}
 
-          {!loading && !activeSessionData && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: '#555',
-              fontSize: '0.95rem',
-            }}>
-              Select a session to view variations
-            </div>
-          )}
+              {!loading && !activeSessionData && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  color: '#555',
+                  fontSize: '0.95rem',
+                }}>
+                  Select a session to view variations
+                </div>
+              )}
 
+              {!loading && activeSessionData && (
+                <VariationGrid
+                  variations={activeSessionData.variations}
+                  platform={activeSessionData.lineage.platform}
+                  statuses={statuses}
+                  annotations={annotations}
+                  activePin={activePin}
+                  onPinClick={handlePinClick}
+                  onAddPin={addPin}
+                  onReply={addReply}
+                  onStatusChange={handleStatusChange}
+                />
+              )}
+            </div>
+
+            {/* Iterate panel (below grid) */}
+            {!loading && activeSessionData && activeSessionId && (
+              <IteratePanel
+                sessionId={activeSessionId}
+                annotations={annotations}
+                statuses={statuses}
+                currentRound={currentRound}
+              />
+            )}
+          </div>
+
+          {/* Right sidebar: Timeline + Notes */}
           {!loading && activeSessionData && (
-            <VariationGrid
-              variations={activeSessionData.variations}
-              platform={activeSessionData.lineage.platform}
-              statuses={activeSessionData.annotations?.statuses ?? {}}
-            />
+            <div style={{
+              width: showNotes ? 560 : 280,
+              display: 'flex',
+              borderLeft: '1px solid #2a2a3e',
+              flexShrink: 0,
+            }}>
+              <div style={{ width: 280, overflow: 'hidden' }}>
+                <Timeline
+                  lineage={activeSessionData.lineage}
+                  statuses={statuses}
+                />
+              </div>
+              {showNotes && (
+                <SidebarNotes
+                  notes={sidebarNotes}
+                  variations={activeSessionData.variations}
+                  onAddNote={addNote}
+                  onClose={() => setShowNotes(false)}
+                />
+              )}
+            </div>
           )}
         </div>
       </main>

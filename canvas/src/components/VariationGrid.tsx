@@ -1,13 +1,29 @@
-import type { VariationFile, VariationStatus } from '../lib/types';
+import type { Annotation, VariationFile, VariationStatus } from '../lib/types';
 import { AssetFrame } from './AssetFrame';
 
 interface VariationGridProps {
   variations: VariationFile[];
   platform: string;
   statuses: Record<string, VariationStatus>;
+  annotations: Annotation[];
+  activePin: string | null;
+  onPinClick: (id: string) => void;
+  onAddPin: (variationPath: string, x: number, y: number, text: string) => void;
+  onReply: (annotationId: string, text: string) => void;
+  onStatusChange: (variationPath: string, status: VariationStatus) => void;
 }
 
-export function VariationGrid({ variations, platform, statuses }: VariationGridProps) {
+export function VariationGrid({
+  variations,
+  platform,
+  statuses,
+  annotations,
+  activePin,
+  onPinClick,
+  onAddPin,
+  onReply,
+  onStatusChange,
+}: VariationGridProps) {
   if (variations.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
@@ -23,15 +39,27 @@ export function VariationGrid({ variations, platform, statuses }: VariationGridP
       gap: '1.5rem',
       padding: '1.5rem',
     }}>
-      {variations.map((v) => (
-        <AssetFrame
-          key={v.path}
-          html={v.html}
-          name={v.name}
-          platform={platform}
-          status={statuses[v.path] ?? 'unmarked'}
-        />
-      ))}
+      {variations.map((v) => {
+        const pins = annotations.filter(
+          (a) => a.variationPath === v.path && a.type === 'pin'
+        );
+        return (
+          <AssetFrame
+            key={v.path}
+            html={v.html}
+            name={v.name}
+            path={v.path}
+            platform={platform}
+            status={statuses[v.path] ?? 'unmarked'}
+            pins={pins}
+            activePin={activePin}
+            onPinClick={onPinClick}
+            onAddPin={onAddPin}
+            onReply={onReply}
+            onStatusChange={onStatusChange}
+          />
+        );
+      })}
     </div>
   );
 }
