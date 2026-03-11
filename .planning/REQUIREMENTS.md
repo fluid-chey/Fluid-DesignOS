@@ -66,7 +66,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CANV-01**: Bare MVP canvas tool — React app that displays multiple HTML asset variations side-by-side on one page
 - [ ] **CANV-02**: Canvas supports text annotations/comments on each variation
 - [ ] **CANV-03**: Canvas documents iteration trajectory (initial → variations → selected winner → further iterations → final)
-- [ ] **CANV-04**: MCP server so agents can push generated assets to canvas and receive annotations back
+- [x] **CANV-04**: MCP server so agents can push generated assets to canvas and receive annotations back
 - [x] **CANV-05**: Variation generation — skill that produces multiple variations of an asset for comparison in canvas
 
 ### Meta / System Development
@@ -180,7 +180,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CANV-01 | Phase 4 | Complete |
 | CANV-02 | Phase 4 | Pending |
 | CANV-03 | Phase 4 | Pending |
-| CANV-04 | Phase 4 | Pending |
+| CANV-04 | Phase 4 | Complete |
 | CANV-05 | Phase 4 | Complete |
 | META-01 | Phase 5 | Pending |
 | META-02 | Phase 5 | Pending |
