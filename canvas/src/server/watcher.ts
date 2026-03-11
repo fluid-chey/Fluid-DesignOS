@@ -66,6 +66,49 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             return;
           }
 
+          // GET /api/annotations/:sessionId
+          const annotGetMatch = req.url.match(/^\/api\/annotations\/([^/]+)$/);
+          if (annotGetMatch && req.method === 'GET') {
+            const sessionId = annotGetMatch[1];
+            const annotPath = path.join(absDir, sessionId, 'annotations.json');
+            try {
+              const raw = await fs.readFile(annotPath, 'utf-8');
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(raw);
+            } catch {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'No annotations' }));
+            }
+            return;
+          }
+
+          // POST /api/annotations/:sessionId
+          if (annotGetMatch && req.method === 'POST') {
+            const sessionId = annotGetMatch[1];
+            const annotDir = path.join(absDir, sessionId);
+            await fs.mkdir(annotDir, { recursive: true });
+            const annotPath = path.join(annotDir, 'annotations.json');
+            const body = await readBody(req);
+            await fs.writeFile(annotPath, body, 'utf-8');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+
+          // POST /api/iterate/:sessionId
+          const iterateMatch = req.url.match(/^\/api\/iterate\/([^/]+)$/);
+          if (iterateMatch && req.method === 'POST') {
+            const sessionId = iterateMatch[1];
+            const sessionDir = path.join(absDir, sessionId);
+            await fs.mkdir(sessionDir, { recursive: true });
+            const iterPath = path.join(sessionDir, 'iterate-request.json');
+            const body = await readBody(req);
+            await fs.writeFile(iterPath, body, 'utf-8');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+
           next();
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -74,6 +117,18 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
       });
     },
   };
+}
+
+/**
+ * Read the full request body as a string.
+ */
+function readBody(req: import('http').IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    req.on('error', reject);
+  });
 }
 
 /**
