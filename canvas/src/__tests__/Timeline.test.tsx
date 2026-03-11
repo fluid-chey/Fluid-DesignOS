@@ -84,13 +84,14 @@ describe('IteratePanel', () => {
     vi.restoreAllMocks();
   });
 
-  it('disables Iterate button when no winner is marked', () => {
+  it('disables Iterate button when multi-variation and no winner is marked', () => {
     render(
       <IteratePanel
         sessionId="test"
         annotations={[]}
-        statuses={{ 'v1/styled.html': 'unmarked' }}
+        statuses={{ 'v1/styled.html': 'unmarked', 'v2/styled.html': 'unmarked' }}
         currentRound={1}
+        variationCount={2}
       />
     );
 
@@ -106,6 +107,7 @@ describe('IteratePanel', () => {
         annotations={[]}
         statuses={{ 'v1/styled.html': 'winner', 'v2/styled.html': 'rejected' }}
         currentRound={1}
+        variationCount={2}
       />
     );
 
