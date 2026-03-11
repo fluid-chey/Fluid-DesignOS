@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-01-PLAN.md — skill library copy and skill-map.json curation
-last_updated: "2026-03-11T17:55:36.292Z"
+stopped_at: Completed 06-02-PLAN.md — orchestrator pipeline wiring
+last_updated: "2026-03-11T18:01:50.630Z"
 last_activity: 2026-03-11 -- Completed 04.1-02 session-aware prompt sidebar with iterate mode
 progress:
   total_phases: 7
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 17
+  completed_phases: 4
+  total_plans: 22
+  completed_plans: 19
   percent: 89
 ---
 
@@ -63,7 +63,8 @@ Progress: [█████████░] 89% (Overall: 16/18 plans)
 | Phase 04.1 P03 | 3min | 2 tasks | 6 files |
 | Phase 04.1 P01 | 3min | 2 tasks | 7 files |
 | Phase 05-learning-loop P01 | 4min | 2 tasks | 2 files |
-| Phase 06 P01 | 12 | 2 tasks | 111 files |
+| Phase 05 P02 | 20min | 3 tasks | 2 files |
+| Phase 06-marketing-skills-integration P02 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -132,9 +133,12 @@ Recent decisions affecting current work:
 - [Phase 05-01]: Pattern clustering uses (asset_type, topic) tuples with keyword extraction — covers 9 signal topics without NLP dependencies
 - [Phase 05-01]: Directive bypass uses DIRECTIVE_KEYWORDS list (never, always, don't, stop using, avoid) — pragmatic approach, zero-dependency
 - [Phase 05-01]: Confidence scoring: HIGH=5+ sessions or feedback file, MEDIUM=3-4 sessions, LOW=threshold bypass (1 session)
-- [Phase 06]: analytics-tracking dropped from social-post spec-check per operator decision — that slot is now empty
-- [Phase 06]: Layout-agent and styling-agent get no marketing skills for any asset type — brand docs govern those layers
-- [Phase 06]: skill-map.json schema: 3 asset types x 4 subagent roles = 12 slots, 1-2 skills max per slot, repo-relative file paths
+- [Phase 05-02]: AskUserQuestion is not a real Claude Code tool — both skills use conversational prompts instead of AskUserQuestion
+- [Phase 05-02]: Audit-trail-first: engine writes proposal file BEFORE walkthrough begins (full run, no --dry-run)
+- [Phase 05-02]: Batch-apply pattern: collect ALL decisions then apply ALL approved changes atomically — no partial state mid-walkthrough
+- [Phase 06-marketing-skills-integration]: Marketing skills embedded as hardcoded defaults in orchestrator skills (no runtime skill-map.json reads)
+- [Phase 06-marketing-skills-integration]: Brand docs listed first (PRIMARY), marketing skills second (SECONDARY) with explicit precedence framing in all delegation messages
+- [Phase 06-marketing-skills-integration]: --skills flag is a full override (not additive) -- resolved_skills replaces defaults for ALL subagent delegation
 
 ### Pending Todos
 
@@ -153,6 +157,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T17:55:36.291Z
-Stopped at: Completed 06-01-PLAN.md — skill library copy and skill-map.json curation
+Last session: 2026-03-11T18:01:50.628Z
+Stopped at: Completed 06-02-PLAN.md — orchestrator pipeline wiring
 Resume file: None
