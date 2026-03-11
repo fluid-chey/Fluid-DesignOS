@@ -22,4 +22,8 @@ else
   echo "Canvas dev server was not running (stale PID $PID)"
 fi
 
+# Clean up canvas-active sentinel
+PROJECT_DIR="$(cd "$CANVAS_DIR/.." && pwd)"
+rm -f "$PROJECT_DIR/.fluid/canvas-active"
+
 rm -f "$PID_FILE"

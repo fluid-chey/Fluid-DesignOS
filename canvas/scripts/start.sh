@@ -20,9 +20,15 @@ if [ -f "$PID_FILE" ]; then
   fi
 fi
 
-# Start the dev server
+# Ensure working directory and canvas-active sentinel exist
+PROJECT_DIR="$(cd "$CANVAS_DIR/.." && pwd)"
+mkdir -p "$PROJECT_DIR/.fluid/working"
+touch "$PROJECT_DIR/.fluid/canvas-active"
+export FLUID_CANVAS_ACTIVE=true
+
+# Start the dev server (use npx to avoid npm PATH issues with pnpm-style .npmrc)
 cd "$CANVAS_DIR"
-npm run dev > /dev/null 2>&1 &
+npx vite --port "$PORT" > /dev/null 2>&1 &
 echo $! > "$PID_FILE"
 
 # Wait for server to be ready (max 10 seconds)

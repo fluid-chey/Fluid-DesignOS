@@ -22,7 +22,12 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
 
       const watcher = watch(absDir, {
         ignoreInitial: true,
-        depth: 3,
+        depth: 4,
+        persistent: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 200,
+          pollInterval: 100,
+        },
       });
 
       const sendUpdate = () => {
@@ -39,6 +44,26 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
       watcher.on('add', sendUpdate);
       watcher.on('change', sendUpdate);
       watcher.on('unlink', sendUpdate);
+      watcher.on('addDir', sendUpdate);
+
+      // Periodic re-scan fallback: catches edge cases chokidar misses
+      let lastKnownMtime = 0;
+      const rescanInterval = setInterval(async () => {
+        try {
+          const stat = await fs.stat(absDir);
+          const mtime = stat.mtimeMs;
+          if (mtime > lastKnownMtime) {
+            lastKnownMtime = mtime;
+            sendUpdate();
+          }
+        } catch { /* dir may not exist yet */ }
+      }, 5000);
+
+      // Cleanup on server close
+      srv.httpServer?.on('close', () => {
+        watcher.close();
+        clearInterval(rescanInterval);
+      });
 
       // API middleware for session discovery
       srv.middlewares.use(async (req, res, next) => {
