@@ -1,4 +1,5 @@
 .planning/
 canvas/node_modules/
+canvas/.pid
 .fluid/working/
 .DS_Store

@@ -12,7 +12,7 @@ CURSOR_DIR="$HOME/.cursor"
 NAMESPACE="fluid"
 
 # Skills to distribute (relative to .claude/skills/)
-SKILLS=("brand-intelligence" "brand-compliance-check" "scaffold-section")
+SKILLS=("brand-intelligence" "brand-compliance-check" "scaffold-section" "fluid-social" "fluid-one-pager" "fluid-theme-section" "fluid-design-os")
 
 # Parse arguments
 TARGET="both"
