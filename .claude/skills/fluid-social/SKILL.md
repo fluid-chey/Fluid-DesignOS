@@ -4,7 +4,7 @@ description: "Generate brand-correct Fluid social posts from a simple prompt. Cr
 invoke: slash
 context: fork
 disable-model-invocation: true
-argument-hint: '"topic or brief" [--platform instagram|linkedin] [--product connect|payments] [--template archetype] [--variations N] [--ref path] [--skills skill1,skill2] [--debug]'
+argument-hint: '"topic or brief" [--platform instagram|linkedin] [--product connect|payments] [--template archetype] [--variations N] [--ref path] [--debug]'
 allowed-tools: Agent, Bash, Read, Write, Glob, Grep, Edit
 ---
 
@@ -26,28 +26,6 @@ Parse `$ARGUMENTS` for the following flags and values:
 | `--variations` | integer N | `1` | Number of distinct takes to generate. Each variation runs the full pipeline independently. |
 | `--ref` | file path | (none) | Explicit reference file for style matching. |
 | `--debug` | (flag, no value) | off | Preserve full session directory (all intermediate artifacts) after completion. |
-| `--skills` | comma-separated skill names | (none) | Override default marketing skills. Full override, not additive. e.g., `--skills copywriting,pricing-strategy` |
-
-**Marketing skill resolution (--skills flag):**
-
-If `--skills` flag present:
-```
-resolved_skills = []
-for name in split($skills_arg, ","):
-  path = "skills/marketing/" + trim(name) + "/SKILL.md"
-  if file_exists(path):
-    append resolved_skills, path
-  else:
-    print "WARNING: Unknown skill '{name}' (resolved to {path}) -- skipping"
-
-if resolved_skills is empty:
-  print "WARNING: No valid skills found in --skills argument. Using defaults."
-  (fall through to defaults below)
-else:
-  use resolved_skills for ALL subagent delegation (replaces defaults)
-```
-
-If `--skills` flag NOT present, use hardcoded defaults (embedded below in delegation messages).
 
 **Natural language template matching:**
 If `--template` is not set but the prompt contains natural language template hints (e.g., "use the pain post template", "make it a manifesto", "stat post about..."), match against templates:
@@ -65,28 +43,7 @@ If `--template` is not set but the prompt contains natural language template hin
 **Natural language reference matching:**
 If `--ref` is not set but the prompt references a known post (e.g., "make it like the 3AM server fire post"), use Glob to search `templates/social/*.html` and `output/*.html` for matching content.
 
-# 2. Output Path
-
-**When canvas is active** (`.fluid/canvas-active` file exists):
-- Create a session directory: `.fluid/working/YYYYMMDD-HHMMSS/`
-- Write ALL output files to that session directory
-- Write `lineage.json` to the session directory
-- Do NOT write to `./output/`
-
-**When canvas is NOT active** (no `.fluid/canvas-active` file):
-- Write output to `./output/` as before
-- Optionally also write to `.fluid/working/` for future canvas review
-
-**Check canvas status:**
-```bash
-if [ -f .fluid/canvas-active ]; then
-  # Canvas is running -- use .fluid/working/{sessionId}/
-else
-  # Canvas not running -- use ./output/
-fi
-```
-
-# 3. Working Directory Setup
+# 2. Working Directory Setup
 
 Each run gets a unique session directory under `.fluid/working/`:
 
@@ -141,7 +98,7 @@ When the user follows up with changes (e.g., "make it more urgent", "try a linke
 
 Update `lineage.json` after each pipeline completion (after output is saved).
 
-# 4. Pipeline Execution
+# 3. Pipeline Execution
 
 Print the run header:
 
@@ -158,32 +115,18 @@ For each variation (default: 1), execute the 4-stage pipeline sequentially.
 
 Use the session directory path. For single variation: `.fluid/working/{sessionId}/`. For multiple: `.fluid/working/{sessionId}/v{N}/`.
 
-## Step 4a: Copy Agent
+## Step 3a: Copy Agent
 
 Delegate to `copy-agent` via the Agent tool with `model: "sonnet"`:
 
 **Delegation message:**
-"Generate Fluid brand copy for a social post. Topic: {prompt}. Platform: {platform}. {If product: Product context: {product} -- use product-specific features, terminology, and pain points from Fluid {product}.} {If template: Follow the structure of templates/social/{template}.html closely.} {If ref: Reference the style and tone of {ref}.}
-
-Brand context (PRIMARY -- must follow):
-- brand/voice-rules.md
-- brand/social-post-specs.md
-
-Marketing expertise (SECONDARY -- reference only, brand docs take precedence in any conflict):
-- {If --skills provided: resolved_skills[0] (if exists)}
-- {If --skills provided: resolved_skills[1] (if exists)}
-- {If --skills NOT provided: skills/marketing/copywriting/SKILL.md}
-- {If --skills NOT provided: skills/marketing/social-content/SKILL.md}
-
-Apply marketing expertise to strengthen persuasion, specificity, and psychological hooks -- while staying within Fluid brand voice constraints.
-
-Write output to {working_dir}/copy.md"
+"Generate Fluid brand copy for a social post. Topic: {prompt}. Platform: {platform}. {If product: Product context: {product} -- use product-specific features, terminology, and pain points from Fluid {product}.} {If template: Follow the structure of templates/social/{template}.html closely.} {If ref: Reference the style and tone of {ref}.} Write output to {working_dir}/copy.md"
 
 Wait for completion. Then read `{working_dir}/copy.md` and extract the accent color and archetype.
 
 Print: `[1/4] Copy...        done (accent: {color}, archetype: {archetype})`
 
-## Step 4b: Layout Agent
+## Step 3b: Layout Agent
 
 Delegate to `layout-agent` via the Agent tool with `model: "haiku"`:
 
@@ -194,7 +137,7 @@ Wait for completion.
 
 Print: `[2/4] Layout...      done (archetype: {archetype})`
 
-## Step 4c: Styling Agent
+## Step 3c: Styling Agent
 
 Delegate to `styling-agent` via the Agent tool with `model: "sonnet"`:
 
@@ -205,16 +148,14 @@ Wait for completion.
 
 Print: `[3/4] Styling...     done`
 
-## Step 4d: Spec-Check Agent
+## Step 3d: Spec-Check Agent
 
 Read `{working_dir}/copy.md` to get the accent color and archetype values.
 
 Delegate to `spec-check-agent` via the Agent tool with `model: "sonnet"`:
 
 **Delegation message:**
-"Validate the Fluid social post. Platform: {platform}. Accent color: {color}. Archetype: {archetype}. Read {working_dir}/styled.html. Run CLI tools and holistic review.
-
-Write report to {working_dir}/spec-report.json"
+"Validate the Fluid social post. Platform: {platform}. Accent color: {color}. Archetype: {archetype}. Read {working_dir}/styled.html. Run CLI tools and holistic review. Write report to {working_dir}/spec-report.json"
 
 Wait for completion. Read `{working_dir}/spec-report.json`.
 
@@ -225,7 +166,7 @@ If `overall` is `"fail"`:
   Print: `[4/4] Spec-check...  FAIL ({N} blocking issues)`
   Proceed to the Fix Loop (Section 4).
 
-# 5. Fix Loop
+# 4. Fix Loop
 
 Only entered when `spec-report.json` has `"overall": "fail"`.
 
@@ -268,7 +209,7 @@ For iteration 1 to 3:
   ```
 - Continue to output (the post is saved but marked as a draft in the filename).
 
-# 6. Output and Cleanup
+# 5. Output and Cleanup
 
 Copy the final styled HTML to `./output/`:
 
@@ -293,7 +234,7 @@ Saved: ./output/fluid-social-{platform}-{archetype}-{YYYYMMDD}.html
 
 For variations, print each output path on its own line.
 
-# 7. Status Reporting Format
+# 6. Status Reporting Format
 
 Throughout execution, print clear status updates using this format:
 
@@ -302,7 +243,6 @@ Generating Fluid social post...
   Platform: instagram (1080x1080)
   Product: connect (or: inferred from prompt)
   Template: (none / problem-first / etc.)
-  Models: copy=sonnet, layout=haiku, styling=sonnet, spec-check=sonnet
 
 [1/4] Copy...        done (accent: orange, archetype: problem-first)
 [2/4] Layout...      done
@@ -337,8 +277,6 @@ Saved: ./output/fluid-social-instagram-problem-first-20260310.html
 - Layout agent: `brand/layout-archetypes.md` + `brand/social-post-specs.md`
 - Styling agent: `brand/design-tokens.md` + `brand/asset-usage.md` + `brand/social-post-specs.md` + `patterns/index.html`
 - Spec-check agent: loads relevant brand docs per check category (scoped reads)
-
-**NEVER load more than 2 marketing skills per subagent.** Marketing skills are secondary reference -- brand docs always take precedence.
 
 **NEVER regenerate from scratch in fix loops.** Fix loops make targeted, surgical edits to existing output. Only the specific issues identified by spec-check are addressed.
 

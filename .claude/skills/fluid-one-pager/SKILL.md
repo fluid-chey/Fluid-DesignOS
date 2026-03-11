@@ -4,7 +4,7 @@ description: "Generate print-ready Fluid one-pager sales collateral from a simpl
 invoke: slash
 context: fork
 disable-model-invocation: true
-argument-hint: '"topic or brief" [--type product-feature|partner|company|case-study|comparison] [--product connect|payments] [--template name] [--ref path] [--skills skill1,skill2] [--debug]'
+argument-hint: '"topic or brief" [--type product-feature|partner|company|case-study|comparison] [--product connect|payments] [--template name] [--ref path] [--debug]'
 allowed-tools: Agent, Bash, Read, Write, Glob, Grep, Edit
 ---
 
@@ -25,28 +25,6 @@ Parse `$ARGUMENTS` for the following flags and values:
 | `--template` | template name | (none) | Use specific template as starting point. |
 | `--ref` | file path | (none) | Explicit reference file for style matching. |
 | `--debug` | (flag, no value) | off | Preserve full session directory after completion. |
-| `--skills` | comma-separated skill names | (none) | Override default marketing skills. Full override, not additive. e.g., `--skills copywriting,pricing-strategy` |
-
-**Marketing skill resolution (--skills flag):**
-
-If `--skills` flag present:
-```
-resolved_skills = []
-for name in split($skills_arg, ","):
-  path = "skills/marketing/" + trim(name) + "/SKILL.md"
-  if file_exists(path):
-    append resolved_skills, path
-  else:
-    print "WARNING: Unknown skill '{name}' (resolved to {path}) -- skipping"
-
-if resolved_skills is empty:
-  print "WARNING: No valid skills found in --skills argument. Using defaults."
-  (fall through to defaults below)
-else:
-  use resolved_skills for ALL subagent delegation (replaces defaults)
-```
-
-If `--skills` flag NOT present, use hardcoded defaults (embedded below in delegation messages).
 
 **Natural language type matching:**
 If `--type` is not set but the prompt contains natural language hints, match against types:
@@ -61,28 +39,7 @@ If `--type` is not set but the prompt contains natural language hints, match aga
 **Natural language reference matching:**
 If `--ref` is not set but the prompt references a known one-pager (e.g., "make it like the live editor one-pager"), use Glob to search `templates/one-pagers/*.html` and `output/*.html` for matching content.
 
-# 2. Output Path
-
-**When canvas is active** (`.fluid/canvas-active` file exists):
-- Create a session directory: `.fluid/working/YYYYMMDD-HHMMSS/`
-- Write ALL output files to that session directory
-- Write `lineage.json` to the session directory
-- Do NOT write to `./output/`
-
-**When canvas is NOT active** (no `.fluid/canvas-active` file):
-- Write output to `./output/` as before
-- Optionally also write to `.fluid/working/` for future canvas review
-
-**Check canvas status:**
-```bash
-if [ -f .fluid/canvas-active ]; then
-  # Canvas is running -- use .fluid/working/{sessionId}/
-else
-  # Canvas not running -- use ./output/
-fi
-```
-
-# 3. Working Directory Setup
+# 2. Working Directory Setup
 
 Each run gets a unique session directory under `.fluid/working/`:
 
@@ -127,7 +84,7 @@ Initialize at session start:
 
 Update `lineage.json` after each pipeline completion.
 
-# 4. Pipeline Execution
+# 3. Pipeline Execution
 
 Print the run header:
 
@@ -141,31 +98,18 @@ Generating Fluid one-pager...
 
 Execute the 4-stage pipeline sequentially.
 
-## Step 4a: Copy Agent
+## Step 3a: Copy Agent
 
 Delegate to `copy-agent` via the Agent tool with `model: "sonnet"`:
 
 **Delegation message:**
-"Generate Fluid brand copy for a one-pager. Mode: one-pager. Topic: {prompt}. Type: {type or 'infer from topic'}. {If product: Product context: {product} -- use product-specific features, terminology, and pain points from Fluid {product}.} {If template: Follow the content structure of templates/one-pagers/{template}.html closely.} {If ref: Reference the style and tone of {ref}.}
-
-Brand context (PRIMARY -- must follow):
-- brand/voice-rules.md
-
-Marketing expertise (SECONDARY -- reference only, brand docs take precedence in any conflict):
-- {If --skills provided: resolved_skills[0] (if exists)}
-- {If --skills provided: resolved_skills[1] (if exists)}
-- {If --skills NOT provided: skills/marketing/copywriting/SKILL.md}
-- {If --skills NOT provided: skills/marketing/sales-enablement/SKILL.md}
-
-Apply marketing expertise to strengthen persuasion, specificity, and psychological hooks -- while staying within Fluid brand voice constraints.
-
-Write output to {working_dir}/copy.md"
+"Generate Fluid brand copy for a one-pager. Mode: one-pager. Topic: {prompt}. Type: {type or 'infer from topic'}. {If product: Product context: {product} -- use product-specific features, terminology, and pain points from Fluid {product}.} {If template: Follow the content structure of templates/one-pagers/{template}.html closely.} {If ref: Reference the style and tone of {ref}.} Write output to {working_dir}/copy.md"
 
 Wait for completion. Then read `{working_dir}/copy.md` and extract the accent color and type.
 
 Print: `[1/4] Copy...        done (accent: {color}, type: {type})`
 
-## Step 4b: Layout Agent
+## Step 3b: Layout Agent
 
 Delegate to `layout-agent` via the Agent tool with `model: "haiku"`:
 
@@ -176,7 +120,7 @@ Wait for completion.
 
 Print: `[2/4] Layout...      done (type: {type})`
 
-## Step 4c: Styling Agent
+## Step 3c: Styling Agent
 
 Delegate to `styling-agent` via the Agent tool with `model: "sonnet"`:
 
@@ -187,7 +131,7 @@ Wait for completion.
 
 Print: `[3/4] Styling...     done`
 
-## Step 4d: Spec-Check Agent
+## Step 3d: Spec-Check Agent
 
 Read `{working_dir}/copy.md` to get the accent color and type values.
 
@@ -205,7 +149,7 @@ If `overall` is `"fail"`:
   Print: `[4/4] Spec-check...  FAIL ({N} blocking issues)`
   Proceed to the Fix Loop (Section 4).
 
-# 5. Fix Loop
+# 4. Fix Loop
 
 Only entered when `spec-report.json` has `"overall": "fail"`.
 
@@ -244,7 +188,7 @@ For iteration 1 to 3:
   ```
 - Continue to output (saved as draft).
 
-# 6. Output and Cleanup
+# 5. Output and Cleanup
 
 Copy the final styled HTML to `./output/`:
 
@@ -269,7 +213,7 @@ Open in browser and use Print to PDF (File > Print > Save as PDF) for the final 
 Letter size (8.5 x 11") with zero margins.
 ```
 
-# 7. Status Reporting Format
+# 6. Status Reporting Format
 
 Throughout execution, print clear status updates:
 
@@ -278,7 +222,6 @@ Generating Fluid one-pager...
   Type: product-feature
   Product: connect (or: inferred from prompt)
   Template: (none / product-feature / etc.)
-  Models: copy=sonnet, layout=haiku, styling=sonnet, spec-check=sonnet
 
 [1/4] Copy...        done (accent: blue, type: product-feature)
 [2/4] Layout...      done
@@ -315,8 +258,6 @@ Saved: ./output/fluid-one-pager-product-feature-20260310.html
 - Layout agent: `brand/layout-archetypes.md` + template file for structure reference
 - Styling agent: `brand/design-tokens.md` + `brand/asset-usage.md` + `patterns/index.html`
 - Spec-check agent: loads relevant brand docs per check category
-
-**NEVER load more than 2 marketing skills per subagent.** Marketing skills are secondary reference -- brand docs always take precedence.
 
 **NEVER regenerate from scratch in fix loops.** Fix loops make targeted, surgical edits to existing output.
 
