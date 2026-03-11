@@ -165,6 +165,7 @@ export function App() {
                 annotations={annotations}
                 statuses={statuses}
                 currentRound={currentRound}
+                variationCount={activeSessionData.variations.length}
               />
             )}
           </div>

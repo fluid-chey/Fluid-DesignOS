@@ -7,28 +7,33 @@ interface IteratePanelProps {
   annotations: Annotation[];
   statuses: Record<string, VariationStatus>;
   currentRound: number;
+  variationCount: number;
 }
 
 /**
  * Feedback input panel with Iterate button.
- * Disabled when no winner is marked for the current round.
+ * Smart unblock: single-variation sessions can iterate without a winner;
+ * multi-variation sessions require a starred winner.
+ * Textarea is always writable.
  */
-export function IteratePanel({ sessionId, annotations, statuses, currentRound }: IteratePanelProps) {
+export function IteratePanel({ sessionId, annotations, statuses, currentRound, variationCount }: IteratePanelProps) {
   const [feedback, setFeedback] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
   const hasWinner = Object.values(statuses).includes('winner');
-  const disabled = !hasWinner || sending;
+  const needsWinner = variationCount > 1;
+  const canIterate = !needsWinner || hasWinner;
 
   const handleIterate = async () => {
-    if (disabled) return;
+    if (!canIterate || sending) return;
     const text = feedback.trim();
     if (!text) return;
 
     setSending(true);
     try {
-      await bundleContext(sessionId, text, annotations, statuses, currentRound);
+      const variationPaths = Object.keys(statuses);
+      await bundleContext(sessionId, text, annotations, statuses, currentRound, variationPaths);
       setSent(true);
       setFeedback('');
     } catch {
@@ -71,7 +76,7 @@ export function IteratePanel({ sessionId, annotations, statuses, currentRound }:
 
   return (
     <div data-testid="iterate-panel" style={panelStyle}>
-      {!hasWinner && (
+      {needsWinner && !hasWinner && (
         <p style={{
           margin: '0 0 0.5rem',
           fontSize: '0.8rem',
@@ -86,7 +91,6 @@ export function IteratePanel({ sessionId, annotations, statuses, currentRound }:
           placeholder="Describe what to change in the next round..."
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          disabled={!hasWinner}
           style={{
             flex: 1,
             backgroundColor: '#252540',
@@ -98,22 +102,21 @@ export function IteratePanel({ sessionId, annotations, statuses, currentRound }:
             resize: 'vertical',
             minHeight: 60,
             outline: 'none',
-            opacity: hasWinner ? 1 : 0.5,
           }}
         />
         <button
           data-testid="iterate-button"
           onClick={handleIterate}
-          disabled={disabled || !feedback.trim()}
+          disabled={!canIterate || sending || !feedback.trim()}
           style={{
-            backgroundColor: disabled ? '#333' : '#3b82f6',
-            color: disabled ? '#666' : '#fff',
+            backgroundColor: (!canIterate || sending) ? '#333' : '#3b82f6',
+            color: (!canIterate || sending) ? '#666' : '#fff',
             border: 'none',
             borderRadius: 6,
             padding: '0.5rem 1.25rem',
             fontSize: '0.85rem',
             fontWeight: 600,
-            cursor: disabled ? 'not-allowed' : 'pointer',
+            cursor: (!canIterate || sending) ? 'not-allowed' : 'pointer',
             whiteSpace: 'nowrap',
           }}
         >

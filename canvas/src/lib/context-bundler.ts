@@ -18,18 +18,25 @@ export interface IterateRequest {
  * @param annotations - All annotations in the session
  * @param statuses - Variation status map
  * @param currentRound - The current round number (next will be +1)
+ * @param variationPaths - All variation paths in the session (used for single-variation auto-infer)
  */
 export async function bundleContext(
   sessionId: string,
   feedback: string,
   annotations: Annotation[],
   statuses: Record<string, VariationStatus>,
-  currentRound: number
+  currentRound: number,
+  variationPaths: string[] = []
 ): Promise<IterateRequest> {
   // Find winner
-  const winnerPath = Object.entries(statuses).find(
+  let winnerPath = Object.entries(statuses).find(
     ([, status]) => status === 'winner'
   )?.[0];
+
+  // Auto-infer winner for single-variation sessions
+  if (!winnerPath && variationPaths.length === 1) {
+    winnerPath = variationPaths[0];
+  }
 
   if (!winnerPath) {
     throw new Error('No winner selected. Mark a variation as winner before iterating.');
