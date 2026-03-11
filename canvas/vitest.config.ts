@@ -13,5 +13,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
     globals: true,
+    environmentMatchGlobs: [
+      ['mcp/**/*.test.ts', 'node'],
+    ],
   },
 });
