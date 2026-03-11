@@ -132,5 +132,5 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 5
 | 2. Orchestrator + Social Posts | 3/3 | Complete   | 2026-03-10 |
 | 3. Website Sections + One-Pagers | 1/4 | In Progress|  |
 | 4. Canvas + Iteration | 3/4 | In Progress | - |
-| 4.1 Canvas Polish & Integration Hardening | 1/4 | In Progress | - |
+| 4.1 Canvas Polish & Integration Hardening | 3/4 | In Progress|  |
 | 5. Learning Loop | 0/1 | Not started | - |
