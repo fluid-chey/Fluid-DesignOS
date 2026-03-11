@@ -88,6 +88,26 @@ Plans:
 - [x] 04-03-PLAN.md — Annotation system (spatial pins + sidebar notes) and iteration timeline
 - [ ] 04-04-PLAN.md — Launcher skill (/fluid-design-OS), scripts, and end-to-end verification
 
+### Phase 04.1: Canvas Polish & Integration Hardening (INSERTED)
+
+**Goal:** Transform the canvas from a passive viewer into a self-contained creative workspace: star-based winner UX, headless CLI generation via `claude -p` with streaming output, template gallery with live previews and customization, prompt sidebar with real-time agent stream display, hardened file watcher auto-discovery, and skill path routing audit
+**Depends on:** Phase 4
+**Requirements**: POL-01, POL-02, POL-03, POL-04, POL-05, POL-06, POL-07, POL-08, POL-09
+**Success Criteria** (what must be TRUE):
+  1. Star icon toggles winner status without auto-rejecting other variations
+  2. Single-variation sessions can iterate without explicit winner selection; multi-variation requires a starred winner
+  3. New sessions appear in canvas automatically without browser refresh
+  4. Canvas drives generation via headless `claude -p` CLI with streaming output displayed in left sidebar
+  5. Template gallery shows live HTML previews; user can customize and generate from templates
+  6. All skills route output to .fluid/working/{sessionId}/ when canvas is active, preserving backward-compatible ./output/ copying when canvas is inactive
+**Plans**: 4 plans
+
+Plans:
+- [x] 04.1-01-PLAN.md — Winner UX overhaul (star toggle, auto-reject removal, smart iterate unblock)
+- [ ] 04.1-02-PLAN.md — File watcher hardening + skill path audit + canvas-active sentinel
+- [ ] 04.1-03-PLAN.md — Generation engine (CLI spawn + SSE streaming + stream parser + generation store)
+- [ ] 04.1-04-PLAN.md — Canvas control plane UI (template gallery, customizer, prompt sidebar, App layout)
+
 ### Phase 5: Learning Loop
 **Goal**: The system improves over time by reading documented iteration trajectories and updating brand rules, templates, and skills accordingly
 **Depends on**: Phase 4 (needs trajectory data from canvas)
@@ -103,7 +123,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 > 2 > 3 > 4 > 5
+Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 5
 (Phase 4 depends on Phase 2, not Phase 3 -- Phases 3 and 4 could run in parallel)
 
 | Phase | Plans Complete | Status | Completed |
@@ -112,4 +132,5 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 5
 | 2. Orchestrator + Social Posts | 3/3 | Complete   | 2026-03-10 |
 | 3. Website Sections + One-Pagers | 1/4 | In Progress|  |
 | 4. Canvas + Iteration | 3/4 | In Progress | - |
+| 4.1 Canvas Polish & Integration Hardening | 1/4 | In Progress | - |
 | 5. Learning Loop | 0/1 | Not started | - |

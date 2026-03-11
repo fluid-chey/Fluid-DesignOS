@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03 annotations and iteration timeline
-last_updated: "2026-03-11T00:17:52Z"
-last_activity: 2026-03-11 -- Completed 04-03 annotations system with spatial pins, timeline, and iterate workflow
+stopped_at: Completed 04.1-02 watcher hardening and skill path routing
+last_updated: "2026-03-11T12:46:57.170Z"
+last_activity: 2026-03-11 -- Completed 04.1-01 winner UX overhaul (star toggle, smart iterate unblock)
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 3
-  total_plans: 14
-  completed_plans: 13
-  percent: 93
+  total_plans: 18
+  completed_plans: 15
+  percent: 82
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Phase: 4 of 5 (Canvas + Iteration)
-Plan: 3 of 4 in current phase (04-03 complete)
+Phase: 4.1 of 5 (Canvas Polish & Integration Hardening)
+Plan: 1 of 4 in current phase (04.1-01 complete)
 Status: In Progress
-Last activity: 2026-03-11 -- Completed 04-03 annotations system with spatial pins, timeline, and iterate workflow
+Last activity: 2026-03-11 -- Completed 04.1-01 winner UX overhaul (star toggle, smart iterate unblock)
 
-Progress: [█████████░] 93% (Overall: 13/14 plans)
+Progress: [████████░░] 82% (Overall: 14/17 plans)
 
 ## Performance Metrics
 
@@ -58,6 +58,8 @@ Progress: [█████████░] 93% (Overall: 13/14 plans)
 | Phase 04 P01 | 4min | 3 tasks | 20 files |
 | Phase 04 P02 | 5min | 2 tasks | 12 files |
 | Phase 04 P03 | 6min | 2 tasks | 17 files |
+| Phase 04.1 P01 | 3min | 2 tasks | 7 files |
+| Phase 04.1 P02 | 4min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -109,10 +111,19 @@ Recent decisions affecting current work:
 - [04-03]: Pin positions stored as percentage (0-100) of native asset dimensions for scale-independent rendering
 - [04-03]: Auto-reject logic lives in App.tsx callback, not in the store, to keep store actions pure
 - [04-03]: API endpoints for annotations and iterate-request added to existing Vite middleware plugin
+- [04.1-01]: Star toggle uses inline SVG (no dependency) with filled gold #facc15 for winner, stroke #666 for unmarked
+- [04.1-01]: variationCount prop drives smart unblock logic -- single-variation skips winner requirement
+- [04.1-01]: bundleContext accepts optional variationPaths param for single-variation auto-infer
+- [Phase 04.1]: Sentinel file (.fluid/canvas-active) gates skill output routing -- simple file check, no env var dependency
+- [Phase 04.1]: 5-second re-scan interval catches chokidar edge cases without excessive I/O
 
 ### Pending Todos
 
 None yet.
+
+### Roadmap Evolution
+
+- Phase 04.1 inserted after Phase 4: Canvas Polish & Integration Hardening (URGENT) — addresses permissions, file watcher auto-discovery, MCP→agent triggering, canvas UX overhaul (star/favorite, remove aggressive blocking, infer winner), generation speed optimization, skill path hardening
 
 ### Blockers/Concerns
 
@@ -122,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T00:17:52Z
-Stopped at: Completed 04-03 annotations and iteration timeline
-Resume file: .planning/phases/04-canvas-iteration/04-03-SUMMARY.md
+Last session: 2026-03-11T12:46:57.169Z
+Stopped at: Completed 04.1-02 watcher hardening and skill path routing
+Resume file: None
