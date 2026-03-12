@@ -12,6 +12,7 @@ import { useEditorStore } from './store/editor';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import type { Asset, Frame, Iteration } from './lib/campaign-types';
 import { TEMPLATE_METADATA, type TemplateMetadata } from './lib/template-configs';
+import { buildAssetPreview, buildFramePreview } from './lib/preview-utils';
 
 type CreationFlow = null | 'gallery' | 'customizer';
 
@@ -24,6 +25,7 @@ export function App() {
   const assets = useCampaignStore((s) => s.assets);
   const frames = useCampaignStore((s) => s.frames);
   const iterations = useCampaignStore((s) => s.iterations);
+  const latestIterationByAssetId = useCampaignStore((s) => s.latestIterationByAssetId);
   const loading = useCampaignStore((s) => s.loading);
   const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
   const navigateToAsset = useCampaignStore((s) => s.navigateToAsset);
@@ -122,26 +124,16 @@ export function App() {
     : null;
 
   // ── DrillDownGrid renderPreview helpers ─────────────────────────────────
-  // For assets: show asset type and frame count as metadata
-  const renderAssetPreview = (item: DrillDownItem<Asset>): PreviewDescriptor | null => ({
-    width: 320,
-    height: 180,
-    meta: {
-      icon: 'asset',
-      badges: [item.data.assetType],
-      detail: `${item.data.frameCount} frame${item.data.frameCount !== 1 ? 's' : ''}`,
-    },
-  });
+  // For assets: show iframe preview when a complete iteration exists, else metadata fallback
+  const renderAssetPreview = (item: DrillDownItem<Asset>): PreviewDescriptor | null =>
+    buildAssetPreview(item.data, latestIterationByAssetId[item.id]) as PreviewDescriptor;
 
-  // For frames: show frame index
-  const renderFramePreview = (item: DrillDownItem<Frame>): PreviewDescriptor | null => ({
-    width: 320,
-    height: 180,
-    meta: {
-      icon: 'frame',
-      detail: `Frame ${item.data.frameIndex + 1}`,
-    },
-  });
+  // For frames: show iframe preview for latest complete iteration, else metadata fallback
+  const renderFramePreview = (item: DrillDownItem<Frame>): PreviewDescriptor | null => {
+    const frameIterations = iterations.filter((i) => i.frameId === item.id);
+    const parentAsset = assets.find((a) => a.id === item.data.assetId);
+    return buildFramePreview(item.data, frameIterations, parentAsset) as PreviewDescriptor;
+  };
 
   // For iterations: serve the actual HTML via the API endpoint
   const renderIterationPreview = (item: DrillDownItem<Iteration>): PreviewDescriptor | null => {
