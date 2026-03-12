@@ -1,7 +1,8 @@
 .planning/
 canvas/node_modules/
 canvas/.pid
-.fluid/working/
+.fluid/
+dogfood-output/
 .DS_Store
 # SQLite database files
 canvas/fluid.db
