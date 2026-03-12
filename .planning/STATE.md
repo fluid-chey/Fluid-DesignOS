@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-12T16:16:43.538Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-03-12T17:01:06.113Z"
 last_activity: 2026-03-11 -- Completed 04.1-02 session-aware prompt sidebar with iterate mode
 progress:
   total_phases: 11
   completed_phases: 7
-  total_plans: 26
-  completed_plans: 23
+  total_plans: 33
+  completed_plans: 24
   percent: 73
 ---
 
@@ -66,6 +66,7 @@ Progress: [███████░░░] 73% (Overall: 19/26 plans)
 | Phase 05 P02 | 20min | 3 tasks | 2 files |
 | Phase 06-marketing-skills-integration P02 | 4min | 2 tasks | 5 files |
 | Phase 07 P01 | 4min | 4 tasks | 5 files |
+| Phase 07-merge-jonathan-s-codebase-into-fluid-designos P01 | 6min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -145,6 +146,9 @@ Recent decisions affecting current work:
 - [Phase 04]: Iteration lineage.json is server-owned — LLM never reads or writes it. Server updates atomically on child.close via updateLineageAfterGeneration()
 - [Phase 04]: Each iteration round writes to isolated round-{N}/ subdirectory — prevents cross-round file overwrites that corrupted previous iterations
 - [Phase 04]: Lineage updates are append-only for iterations — server pushes to rounds[] array, never modifies existing round entries
+- [Phase 07-01]: FLUID_DB_PATH env var overrides default DB path for test isolation — no ORM, no in-memory DB complexity
+- [Phase 07-01]: JSON serialization pattern for array/object SQLite columns (channels, slotSchema, aiBaseline, userState)
+- [Phase 07-01]: vite.config.ts optimizeDeps.exclude prevents Vite bundling native better-sqlite3 .node addon
 
 ### Pending Todos
 
@@ -166,6 +170,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T16:16:43.535Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-merge-jonathan-s-codebase-into-fluid-designos/07-CONTEXT.md
+Last session: 2026-03-12T17:01:06.111Z
+Stopped at: Completed 07-01-PLAN.md
+Resume file: None
