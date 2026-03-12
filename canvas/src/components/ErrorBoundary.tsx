@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
           gap: '1rem',
           padding: '2rem',
           color: '#e0e0e0',
-          backgroundColor: '#1a1a2e',
+          backgroundColor: '#1e1e1e',
         }}>
           <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Something went wrong</div>
           <div style={{ fontSize: '0.8rem', color: '#888', maxWidth: 400, textAlign: 'center' }}>
@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button
             onClick={this.handleReset}
             style={{
-              backgroundColor: '#3b82f6',
+              backgroundColor: '#44B2FF',
               color: '#fff',
               border: 'none',
               borderRadius: 6,

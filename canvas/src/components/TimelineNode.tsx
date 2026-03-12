@@ -32,8 +32,8 @@ export function TimelineNode({ round, isActive, onVariationClick }: TimelineNode
         width: 10,
         height: 10,
         borderRadius: '50%',
-        backgroundColor: isActive ? '#3b82f6' : '#555',
-        border: '2px solid #1a1a2e',
+        backgroundColor: isActive ? '#44B2FF' : '#555',
+        border: '2px solid #1e1e1e',
       }} />
 
       {/* Round header */}

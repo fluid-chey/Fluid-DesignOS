@@ -115,16 +115,16 @@ export function PromptSidebar() {
     <div
       style={{
         width: 320,
-        borderRight: '1px solid #2a2a3e',
+        borderRight: '1px solid #2a2a2e',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#16162a',
+        backgroundColor: '#111111',
         flexShrink: 0,
         height: '100%',
       }}
     >
       {/* Prompt input area */}
-      <div style={{ padding: '0.75rem', borderBottom: '1px solid #2a2a3e' }}>
+      <div style={{ padding: '0.75rem', borderBottom: '1px solid #2a2a2e' }}>
         {/* Header with optional + New button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -136,7 +136,7 @@ export function PromptSidebar() {
                 style={{
                   fontSize: '0.6rem',
                   color: '#a78bfa',
-                  backgroundColor: '#2d2050',
+                  backgroundColor: '#1e1e1e',
                   padding: '0.1rem 0.35rem',
                   borderRadius: 8,
                   fontWeight: 600,
@@ -151,7 +151,7 @@ export function PromptSidebar() {
               onClick={handleNewSession}
               style={{
                 background: 'none',
-                border: '1px solid #3a3a52',
+                border: '1px solid #2a2a2e',
                 color: '#888',
                 fontSize: '0.68rem',
                 padding: '0.15rem 0.4rem',
@@ -172,8 +172,8 @@ export function PromptSidebar() {
           placeholder={placeholderText}
           style={{
             width: '100%',
-            backgroundColor: '#252540',
-            border: '1px solid #3a3a52',
+            backgroundColor: '#1a1a1e',
+            border: '1px solid #2a2a2e',
             borderRadius: 6,
             color: '#e0e0e0',
             padding: '0.5rem 0.6rem',
@@ -191,7 +191,7 @@ export function PromptSidebar() {
           style={{
             width: '100%',
             marginTop: '0.35rem',
-            backgroundColor: isGenerating ? '#333' : '#3b82f6',
+            backgroundColor: isGenerating ? '#333' : '#44B2FF',
             color: isGenerating ? '#666' : '#fff',
             border: 'none',
             borderRadius: 6,
@@ -260,7 +260,7 @@ export function PromptSidebar() {
       </div>
 
       {/* Recent sessions */}
-      <div style={{ borderTop: '1px solid #2a2a3e', maxHeight: 200, overflowY: 'auto' }}>
+      <div style={{ borderTop: '1px solid #2a2a2e', maxHeight: 200, overflowY: 'auto' }}>
         <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#555', fontWeight: 600 }}>
           Recent Sessions
         </div>
@@ -272,9 +272,9 @@ export function PromptSidebar() {
               display: 'block',
               width: '100%',
               textAlign: 'left',
-              background: s.id === activeSessionId ? '#252540' : 'none',
+              background: s.id === activeSessionId ? '#1a1a1e' : 'none',
               border: 'none',
-              borderBottom: '1px solid #1e1e36',
+              borderBottom: '1px solid #1e1e1e',
               color: s.id === activeSessionId ? '#e0e0e0' : '#888',
               padding: '0.4rem 0.75rem',
               fontSize: '0.75rem',

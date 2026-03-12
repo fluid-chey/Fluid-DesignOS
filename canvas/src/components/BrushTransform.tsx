@@ -244,13 +244,13 @@ const styles: Record<string, React.CSSProperties> = {
   label: {
     fontSize: '0.65rem',
     fontWeight: 600,
-    color: '#666',
+    color: '#888',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
+    letterSpacing: '0.08em',
   },
   numberInput: {
-    backgroundColor: '#1e1e30',
-    border: '1px solid #2a2a42',
+    backgroundColor: '#1a1a1e',
+    border: '1px solid #2a2a2e',
     borderRadius: 4,
     color: '#e0e0e0',
     padding: '4px 6px',

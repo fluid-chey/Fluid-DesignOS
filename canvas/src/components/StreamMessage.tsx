@@ -15,7 +15,7 @@ export function StreamMessage({ message }: StreamMessageProps) {
         <div
           data-msg-type="text"
           style={{
-            backgroundColor: '#2a2a3e',
+            backgroundColor: '#2a2a2e',
             color: '#e0e0e0',
             padding: '0.5rem 0.75rem',
             borderRadius: '8px 8px 8px 2px',

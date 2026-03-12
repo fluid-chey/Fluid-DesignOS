@@ -200,7 +200,7 @@ function statusColor(status: Iteration['status']): string {
   switch (status) {
     case 'winner': return 'rgba(34, 197, 94, 0.2)';
     case 'rejected': return 'rgba(239, 68, 68, 0.2)';
-    case 'final': return 'rgba(59, 130, 246, 0.2)';
+    case 'final': return 'rgba(68, 178, 255, 0.2)';
     default: return 'rgba(100, 100, 120, 0.2)';
   }
 }
@@ -214,7 +214,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflowY: 'auto',
     padding: '0.75rem',
     boxSizing: 'border-box',
-    backgroundColor: '#0d0d1a',
+    backgroundColor: '#111111',
   },
   header: {
     display: 'flex',
@@ -222,7 +222,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'flex-start',
     marginBottom: '1rem',
     paddingBottom: '0.75rem',
-    borderBottom: '1px solid #1a1a2e',
+    borderBottom: '1px solid #1e1e1e',
   },
   headerInfo: {
     display: 'flex',
@@ -230,11 +230,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '0.2rem',
   },
   iterationLabel: {
-    fontSize: '0.75rem',
+    fontSize: '0.68rem',
     fontWeight: 600,
-    color: '#aaa',
+    color: '#888',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
+    letterSpacing: '0.1em',
   },
   templateId: {
     fontSize: '0.65rem',
@@ -252,14 +252,14 @@ const styles: Record<string, React.CSSProperties> = {
   section: {
     marginBottom: '1rem',
     paddingBottom: '1rem',
-    borderBottom: '1px solid #1a1a2e',
+    borderBottom: '1px solid #1e1e1e',
   },
   sectionLabel: {
     fontSize: '0.65rem',
-    fontWeight: 700,
+    fontWeight: 600,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
-    color: '#555',
+    color: '#888',
     marginBottom: '0.5rem',
   },
   fieldsContainer: {
@@ -283,20 +283,22 @@ const styles: Record<string, React.CSSProperties> = {
   saveBar: {
     position: 'sticky',
     bottom: 0,
-    backgroundColor: '#0d0d1a',
+    backgroundColor: '#111111',
     paddingTop: '0.75rem',
     paddingBottom: '0.5rem',
   },
   saveButton: {
     width: '100%',
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#44B2FF',
     color: '#fff',
     border: 'none',
     borderRadius: 4,
     padding: '8px 16px',
-    fontSize: '0.8rem',
+    fontSize: '0.78rem',
     fontWeight: 600,
     cursor: 'pointer',
     fontFamily: 'inherit',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
   },
 };

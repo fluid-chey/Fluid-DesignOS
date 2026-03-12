@@ -21,7 +21,9 @@ const CHANNEL_OPTIONS = [
 
 function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
   const [title, setTitle] = useState('');
+  const [brief, setBrief] = useState('');
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [refLinks, setRefLinks] = useState<string[]>(['']);
 
   const toggleChannel = (ch: string) => {
     setSelectedChannels((prev) =>
@@ -36,6 +38,34 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
     onClose();
   };
 
+  const addLink = () => setRefLinks((prev) => [...prev, '']);
+  const removeLink = (i: number) => setRefLinks((prev) => prev.filter((_, idx) => idx !== i));
+  const updateLink = (i: number, val: string) =>
+    setRefLinks((prev) => prev.map((l, idx) => (idx === i ? val : l)));
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: '0.7rem',
+    color: '#888',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    marginBottom: '0.5rem',
+    display: 'block',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    backgroundColor: '#141414',
+    border: '1px solid #2a2a2e',
+    borderRadius: 6,
+    color: '#e0e0e0',
+    padding: '8px 12px',
+    fontSize: '0.875rem',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    fontFamily: "'Inter', sans-serif",
+  };
+
   return (
     /* Backdrop */
     <div
@@ -43,7 +73,7 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.7)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -54,34 +84,36 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 420,
-          backgroundColor: '#13131f',
-          border: '1px solid #2a2a3e',
+          width: 580,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          backgroundColor: '#1a1a1e',
+          border: '1px solid #2a2a2e',
           borderRadius: 10,
-          padding: '1.5rem',
+          padding: '1.75rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1.25rem',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          gap: '1.5rem',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
+          fontFamily: "'Inter', sans-serif",
         }}
       >
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#fff' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#fff', letterSpacing: '-0.01em' }}>
             New Campaign
           </h3>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.1rem' }}
+            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1, padding: '2px 6px' }}
           >
             ×
           </button>
         </div>
 
-        {/* Title input */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 500 }}>
-            Campaign title
-          </label>
+        {/* Campaign Name */}
+        <div>
+          <label style={labelStyle}>Campaign Name</label>
           <input
             autoFocus
             type="text"
@@ -89,26 +121,153 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onClose(); }}
-            style={{
-              backgroundColor: '#0d0d1a',
-              border: '1px solid #2a2a3e',
-              borderRadius: 6,
-              color: '#e0e0e0',
-              padding: '8px 12px',
-              fontSize: '0.875rem',
-              outline: 'none',
-              transition: 'border-color 0.15s',
-            }}
-            onFocus={(e) => (e.target.style.borderColor = '#3b82f6')}
-            onBlur={(e) => (e.target.style.borderColor = '#2a2a3e')}
+            style={inputStyle}
+            onFocus={(e) => (e.target.style.borderColor = '#44B2FF')}
+            onBlur={(e) => (e.target.style.borderColor = '#2a2a2e')}
           />
         </div>
 
-        {/* Channel selection */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 500 }}>
-            Channels
-          </label>
+        {/* Brief */}
+        <div>
+          <label style={labelStyle}>Brief</label>
+          <textarea
+            placeholder="e.g. Q2 product launch campaign targeting independent sales reps on LinkedIn and Instagram..."
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            style={{
+              ...inputStyle,
+              minHeight: 100,
+              resize: 'vertical',
+              lineHeight: '1.5',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = '#44B2FF')}
+            onBlur={(e) => (e.target.style.borderColor = '#2a2a2e')}
+          />
+        </div>
+
+        {/* Resources */}
+        <div>
+          <label style={labelStyle}>Resources</label>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <span style={{
+              fontSize: '0.7rem',
+              color: '#555',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+            }}>
+              Reference Links
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {refLinks.map((link, i) => (
+              <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={link}
+                  onChange={(e) => updateLink(i, e.target.value)}
+                  style={{ ...inputStyle, flex: 1 }}
+                  onFocus={(e) => (e.target.style.borderColor = '#44B2FF')}
+                  onBlur={(e) => (e.target.style.borderColor = '#2a2a2e')}
+                />
+                <button
+                  onClick={() => removeLink(i)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#555',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    padding: '0 4px',
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#888')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={addLink}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#44B2FF',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              padding: '0.375rem 0',
+              marginTop: '0.25rem',
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            + Add Link
+          </button>
+        </div>
+
+        {/* Attach Files */}
+        <div>
+          <label style={labelStyle}>Attach Files</label>
+          <button
+            style={{
+              padding: '7px 16px',
+              background: 'none',
+              border: '1px solid #2a2a2e',
+              borderRadius: 6,
+              color: '#888',
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              fontFamily: "'Inter', sans-serif",
+              letterSpacing: '0.04em',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#44B2FF')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2a2e')}
+          >
+            Choose Files
+          </button>
+        </div>
+
+        {/* Fluid DAM */}
+        <div>
+          <label style={labelStyle}>Fluid DAM</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+            <span style={{ color: '#4ade80', fontSize: '0.85rem' }}>✦</span>
+            <span style={{ color: '#4ade80', fontSize: '0.8rem', fontWeight: 500 }}>Fluid DAM connected</span>
+          </div>
+          <button
+            style={{
+              width: '100%',
+              padding: '9px 16px',
+              backgroundColor: '#44B2FF',
+              border: 'none',
+              borderRadius: 6,
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: "'Inter', sans-serif",
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            Browse Assets
+          </button>
+        </div>
+
+        {/* Channel selection (styled to match) */}
+        <div>
+          <label style={labelStyle}>Channels</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {CHANNEL_OPTIONS.map((ch) => {
               const active = selectedChannels.includes(ch.value);
@@ -119,12 +278,13 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
                   style={{
                     padding: '4px 10px',
                     borderRadius: 5,
-                    border: `1px solid ${active ? '#3b82f6' : '#2a2a3e'}`,
-                    backgroundColor: active ? 'rgba(59,130,246,0.15)' : 'transparent',
-                    color: active ? '#7db5ff' : '#666',
+                    border: `1px solid ${active ? '#44B2FF' : '#2a2a2e'}`,
+                    backgroundColor: active ? 'rgba(68,178,255,0.12)' : 'transparent',
+                    color: active ? '#44B2FF' : '#666',
                     fontSize: '0.78rem',
                     cursor: 'pointer',
                     transition: 'all 0.12s',
+                    fontFamily: "'Inter', sans-serif",
                   }}
                 >
                   {ch.label}
@@ -135,17 +295,18 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.25rem' }}>
           <button
             onClick={onClose}
             style={{
               padding: '7px 16px',
               background: 'none',
-              border: '1px solid #2a2a3e',
+              border: '1px solid #2a2a2e',
               borderRadius: 6,
               color: '#888',
-              fontSize: '0.8125rem',
+              fontSize: '0.8rem',
               cursor: 'pointer',
+              fontFamily: "'Inter', sans-serif",
             }}
           >
             Cancel
@@ -154,18 +315,21 @@ function NewCampaignModal({ onClose, onCreated }: NewCampaignModalProps) {
             onClick={handleCreate}
             disabled={!title.trim()}
             style={{
-              padding: '7px 16px',
-              backgroundColor: title.trim() ? '#3b82f6' : '#1e2a40',
+              padding: '7px 20px',
+              backgroundColor: title.trim() ? '#44B2FF' : '#1a2530',
               border: 'none',
               borderRadius: 6,
               color: title.trim() ? '#fff' : '#444',
-              fontSize: '0.8125rem',
-              fontWeight: 500,
+              fontSize: '0.8rem',
+              fontWeight: 600,
               cursor: title.trim() ? 'pointer' : 'not-allowed',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
               transition: 'background-color 0.15s',
+              fontFamily: "'Inter', sans-serif",
             }}
           >
-            Create Campaign
+            Save Campaign
           </button>
         </div>
       </div>
@@ -190,8 +354,8 @@ function FilterSortBar({ filterChannel, onFilterChannel, sortKey, onSort, channe
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-      {/* Channel filter chips */}
-      <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+      {/* Channel filter tabs */}
+      <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         {allChannels.map((ch) => {
           const active = filterChannel === ch;
           return (
@@ -199,16 +363,21 @@ function FilterSortBar({ filterChannel, onFilterChannel, sortKey, onSort, channe
               key={ch}
               onClick={() => onFilterChannel(ch)}
               style={{
-                padding: '3px 10px',
+                padding: '4px 12px',
                 borderRadius: 5,
-                border: `1px solid ${active ? '#3b82f6' : '#2a2a3e'}`,
-                backgroundColor: active ? 'rgba(59,130,246,0.12)' : 'transparent',
-                color: active ? '#7db5ff' : '#555',
-                fontSize: '0.75rem',
+                border: `1px solid ${active ? '#44B2FF' : 'transparent'}`,
+                backgroundColor: active ? 'rgba(68,178,255,0.1)' : 'transparent',
+                color: active ? '#44B2FF' : '#555',
+                fontSize: '0.7rem',
+                fontWeight: active ? 600 : 500,
                 cursor: 'pointer',
-                textTransform: 'capitalize',
+                textTransform: 'uppercase' as const,
+                letterSpacing: '0.08em',
                 transition: 'all 0.12s',
+                fontFamily: "'Inter', sans-serif",
               }}
+              onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = '#888'; }}
+              onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = '#555'; }}
             >
               {ch}
             </button>
@@ -218,7 +387,7 @@ function FilterSortBar({ filterChannel, onFilterChannel, sortKey, onSort, channe
 
       {/* Sort controls */}
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-        <span style={{ fontSize: '0.75rem', color: '#444' }}>Sort:</span>
+        <span style={{ fontSize: '0.7rem', color: '#444', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Sort:</span>
         {[
           { key: 'updatedAt' as SortKey, label: 'Updated' },
           { key: 'createdAt' as SortKey, label: 'Created' },
@@ -228,14 +397,21 @@ function FilterSortBar({ filterChannel, onFilterChannel, sortKey, onSort, channe
             key={key}
             onClick={() => onSort(key)}
             style={{
-              padding: '3px 8px',
-              borderRadius: 4,
-              border: `1px solid ${sortKey === key ? '#3b82f6' : '#2a2a3e'}`,
-              backgroundColor: sortKey === key ? 'rgba(59,130,246,0.1)' : 'transparent',
-              color: sortKey === key ? '#7db5ff' : '#555',
-              fontSize: '0.75rem',
+              padding: '4px 10px',
+              borderRadius: 5,
+              border: `1px solid ${sortKey === key ? '#44B2FF' : 'transparent'}`,
+              backgroundColor: sortKey === key ? 'rgba(68,178,255,0.1)' : 'transparent',
+              color: sortKey === key ? '#44B2FF' : '#555',
+              fontSize: '0.7rem',
+              fontWeight: sortKey === key ? 600 : 500,
               cursor: 'pointer',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.08em',
+              transition: 'all 0.12s',
+              fontFamily: "'Inter', sans-serif",
             }}
+            onMouseEnter={(e) => { if (sortKey !== key) e.currentTarget.style.color = '#888'; }}
+            onMouseLeave={(e) => { if (sortKey !== key) e.currentTarget.style.color = '#555'; }}
           >
             {label}
           </button>
@@ -326,18 +502,21 @@ export function CampaignDashboard() {
           display: 'flex',
           alignItems: 'center',
           gap: '0.375rem',
-          padding: '5px 12px',
-          backgroundColor: '#3b82f6',
+          padding: '5px 14px',
+          backgroundColor: '#44B2FF',
           color: '#fff',
           border: 'none',
           borderRadius: 6,
-          fontSize: '0.8125rem',
-          fontWeight: 500,
+          fontSize: '0.7rem',
+          fontWeight: 600,
           cursor: 'pointer',
           whiteSpace: 'nowrap',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          fontFamily: "'Inter', sans-serif",
         }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
@@ -356,30 +535,33 @@ export function CampaignDashboard() {
       height: '100%',
       minHeight: 300,
       gap: '1rem',
-      color: '#444',
+      color: '#555',
     }}>
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-           stroke="#2a2a3e" strokeWidth="1.25" strokeLinecap="round">
+           stroke="#2a2a2e" strokeWidth="1.25" strokeLinecap="round">
         <rect x="2" y="3" width="20" height="14" rx="2" />
         <line x1="8" y1="21" x2="16" y2="21" />
         <line x1="12" y1="17" x2="12" y2="21" />
       </svg>
-      <div style={{ fontSize: '0.9rem' }}>No campaigns yet</div>
-      <div style={{ fontSize: '0.8rem', color: '#333' }}>
+      <div style={{ fontSize: '0.9rem', color: '#555' }}>No campaigns yet</div>
+      <div style={{ fontSize: '0.8rem', color: '#3a3a3a' }}>
         Create one to get started
       </div>
       <button
         onClick={() => setShowNewModal(true)}
         style={{
           marginTop: '0.5rem',
-          padding: '7px 16px',
-          backgroundColor: '#3b82f6',
+          padding: '7px 18px',
+          backgroundColor: '#44B2FF',
           color: '#fff',
           border: 'none',
           borderRadius: 6,
-          fontSize: '0.8125rem',
-          fontWeight: 500,
+          fontSize: '0.7rem',
+          fontWeight: 600,
           cursor: 'pointer',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          fontFamily: "'Inter', sans-serif",
         }}
       >
         + New Campaign
@@ -397,10 +579,11 @@ export function CampaignDashboard() {
         color: '#555',
         fontSize: '0.9rem',
         gap: '0.75rem',
+        fontFamily: "'Inter', sans-serif",
       }}>
         <div style={{
           width: 20, height: 20, borderRadius: '50%',
-          border: '2px solid #2a2a3e', borderTopColor: '#3b82f6',
+          border: '2px solid #2a2a2e', borderTopColor: '#44B2FF',
           animation: 'spin 0.8s linear infinite',
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

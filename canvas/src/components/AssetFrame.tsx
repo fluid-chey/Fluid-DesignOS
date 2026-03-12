@@ -110,7 +110,7 @@ export function AssetFrame({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#1e1e30',
+            backgroundColor: '#1e1e1e',
             color: '#888',
             fontSize: '14px',
             transform: `scale(${scale})`,
@@ -176,8 +176,8 @@ export function AssetFrame({
               top: `${pendingPin.y}%`,
               transform: 'translate(-50%, 8px)',
               zIndex: 30,
-              backgroundColor: '#1e1e30',
-              border: '1px solid #3a3a52',
+              backgroundColor: '#1e1e1e',
+              border: '1px solid #2a2a2e',
               borderRadius: 6,
               padding: '0.5rem',
               display: 'flex',
@@ -198,8 +198,8 @@ export function AssetFrame({
               }}
               style={{
                 width: 180,
-                backgroundColor: '#252540',
-                border: '1px solid #3a3a52',
+                backgroundColor: '#1a1a1e',
+                border: '1px solid #2a2a2e',
                 borderRadius: 4,
                 color: '#e0e0e0',
                 padding: '4px 8px',
@@ -210,7 +210,7 @@ export function AssetFrame({
             <button
               onClick={handlePinSubmit}
               style={{
-                backgroundColor: '#3b82f6',
+                backgroundColor: '#44B2FF',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 4,

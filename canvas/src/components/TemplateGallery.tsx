@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { TEMPLATE_METADATA, type TemplateMetadata } from '../lib/template-configs';
 
 interface TemplateGalleryProps {
@@ -8,171 +9,162 @@ interface TemplateGalleryProps {
    * Defaults to 'modal'.
    */
   mode?: 'modal' | 'standalone';
+  /** Currently selected template id (for controlled highlight from parent) */
+  selectedTemplateId?: string | null;
 }
 
-const PLATFORM_LABELS: Record<string, string> = {
-  'instagram-square': 'Instagram',
-  'linkedin-landscape': 'LinkedIn',
-  'unknown': 'Other',
-};
+function getDimensionBadge(template: TemplateMetadata): string {
+  const { width, height } = template.dimensions;
+  if (width === height) return `${width}px`;
+  if (width > height) return 'landscape';
+  return 'portrait';
+}
 
 /**
- * Grid of template cards using static TEMPLATE_METADATA from template-configs.ts.
- * Uses thumbnail images from canvas/public/templates/thumbnails/.
- * Appears inside the creation flow modal, not as a top-level section.
+ * Numbered list of templates matching Jonathan's design.
+ * "✦ From Scratch" row at top, then numbered 01–N.
+ * Selected row highlighted with subtle blue background.
  */
-export function TemplateGallery({ onSelectTemplate, mode = 'modal' }: TemplateGalleryProps) {
+export function TemplateGallery({ onSelectTemplate, mode = 'modal', selectedTemplateId }: TemplateGalleryProps) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const rowBase: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0.55rem 0.875rem',
+    cursor: 'pointer',
+    borderRadius: 6,
+    transition: 'background-color 0.12s',
+    gap: '0.75rem',
+    userSelect: 'none',
+  };
+
   return (
-    <div style={{ padding: mode === 'modal' ? '1.25rem' : '1.5rem', overflowY: 'auto', height: '100%' }}>
+    <div style={{ padding: mode === 'modal' ? '0.5rem 0' : '1rem 0', overflowY: 'auto', height: '100%' }}>
       {mode === 'standalone' && (
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#fff' }}>
+        <h2 style={{ margin: '0 0 1rem 0.875rem', fontSize: '1.1rem', color: '#fff' }}>
           Choose a Template
         </h2>
       )}
 
+      {/* From Scratch row */}
       <div
+        onClick={() => onSelectTemplate({
+          templateId: 'scratch',
+          name: 'From Scratch',
+          description: 'Start with a blank canvas',
+          thumbnailPath: '',
+          platform: 'unknown',
+          dimensions: { width: 1080, height: 1080 },
+        })}
+        onMouseEnter={() => setHoveredId('scratch')}
+        onMouseLeave={() => setHoveredId(null)}
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '1rem',
+          ...rowBase,
+          backgroundColor:
+            selectedTemplateId === 'scratch'
+              ? 'rgba(68,178,255,0.12)'
+              : hoveredId === 'scratch'
+              ? 'rgba(255,255,255,0.04)'
+              : 'transparent',
+          borderLeft: selectedTemplateId === 'scratch' ? '2px solid #44B2FF' : '2px solid transparent',
         }}
       >
-        {TEMPLATE_METADATA.map((template) => (
-          <TemplateCard
-            key={template.templateId}
-            template={template}
-            onSelect={onSelectTemplate}
-          />
-        ))}
+        <span style={{
+          fontSize: '0.8rem',
+          color: selectedTemplateId === 'scratch' ? '#44B2FF' : '#888',
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          flexShrink: 0,
+          minWidth: 24,
+        }}>
+          ✦
+        </span>
+        <span style={{
+          fontSize: '0.85rem',
+          color: selectedTemplateId === 'scratch' ? '#44B2FF' : '#ccc',
+          fontWeight: selectedTemplateId === 'scratch' ? 600 : 400,
+          flex: 1,
+        }}>
+          From Scratch
+        </span>
       </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, backgroundColor: '#2a2a2e', margin: '0.375rem 0.875rem' }} />
+
+      {/* Template rows */}
+      {TEMPLATE_METADATA.map((template, index) => {
+        const num = String(index + 1).padStart(2, '0');
+        const badge = getDimensionBadge(template);
+        const isSelected = selectedTemplateId === template.templateId;
+        const isHovered = hoveredId === template.templateId;
+
+        return (
+          <div
+            key={template.templateId}
+            onClick={() => onSelectTemplate(template)}
+            onMouseEnter={() => setHoveredId(template.templateId)}
+            onMouseLeave={() => setHoveredId(null)}
+            style={{
+              ...rowBase,
+              backgroundColor:
+                isSelected
+                  ? 'rgba(68,178,255,0.12)'
+                  : isHovered
+                  ? 'rgba(255,255,255,0.04)'
+                  : 'transparent',
+              borderLeft: isSelected ? '2px solid #44B2FF' : '2px solid transparent',
+            }}
+          >
+            {/* Number */}
+            <span style={{
+              fontSize: '0.7rem',
+              color: isSelected ? '#44B2FF' : '#555',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              flexShrink: 0,
+              minWidth: 24,
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {num}
+            </span>
+
+            {/* Template name */}
+            <span style={{
+              fontSize: '0.85rem',
+              color: isSelected ? '#fff' : '#ccc',
+              fontWeight: isSelected ? 500 : 400,
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {template.name}
+            </span>
+
+            {/* Dimension badge */}
+            <span style={{
+              fontSize: '0.65rem',
+              padding: '2px 7px',
+              borderRadius: 4,
+              backgroundColor: isSelected ? 'rgba(68,178,255,0.18)' : 'rgba(255,255,255,0.06)',
+              color: isSelected ? '#44B2FF' : '#666',
+              flexShrink: 0,
+              letterSpacing: '0.03em',
+              fontWeight: 500,
+            }}>
+              {badge}
+            </span>
+          </div>
+        );
+      })}
 
       {TEMPLATE_METADATA.length === 0 && (
         <div style={{ color: '#555', textAlign: 'center', padding: '2rem' }}>
           No templates available.
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Template Card ───────────────────────────────────────────────────────────
-
-interface TemplateCardProps {
-  template: TemplateMetadata;
-  onSelect: (template: TemplateMetadata) => void;
-}
-
-function TemplateCard({ template, onSelect }: TemplateCardProps) {
-  const platformLabel = PLATFORM_LABELS[template.platform] ?? template.platform;
-  const isLandscape = template.dimensions.width > template.dimensions.height;
-  const thumbHeight = isLandscape ? 150 : 200;
-
-  return (
-    <div
-      onClick={() => onSelect(template)}
-      style={{
-        border: '1px solid #2a2a3e',
-        borderRadius: 8,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        backgroundColor: '#1e1e36',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = '#3b82f6';
-        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(59, 130, 246, 0.2)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#2a2a3e';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      {/* Thumbnail */}
-      <div style={{
-        height: thumbHeight,
-        overflow: 'hidden',
-        backgroundColor: '#0d0d1a',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        <img
-          src={`/${template.thumbnailPath}`}
-          alt={template.name}
-          loading="lazy"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-          onError={(e) => {
-            // Show a placeholder on broken thumbnail
-            const img = e.currentTarget;
-            img.style.display = 'none';
-            const parent = img.parentElement;
-            if (parent && !parent.querySelector('.thumb-placeholder')) {
-              const placeholder = document.createElement('div');
-              placeholder.className = 'thumb-placeholder';
-              placeholder.style.cssText = `
-                display: flex; align-items: center; justify-content: center;
-                width: 100%; height: 100%; color: #333; font-size: 0.75rem;
-              `;
-              placeholder.textContent = template.name;
-              parent.appendChild(placeholder);
-            }
-          }}
-        />
-      </div>
-
-      {/* Label row */}
-      <div style={{
-        padding: '0.625rem 0.75rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-      }}>
-        <div style={{
-          fontSize: '0.85rem',
-          fontWeight: 500,
-          color: '#e0e0e0',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {template.name}
-        </div>
-        <div style={{
-          fontSize: '0.7rem',
-          color: '#666',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {template.description}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.125rem' }}>
-          <span style={{
-            fontSize: '0.65rem',
-            padding: '2px 6px',
-            borderRadius: 4,
-            backgroundColor: 'rgba(59,130,246,0.15)',
-            color: '#7db5ff',
-            flexShrink: 0,
-          }}>
-            {platformLabel}
-          </span>
-          <span style={{
-            fontSize: '0.65rem',
-            color: '#444',
-          }}>
-            {template.dimensions.width} × {template.dimensions.height}
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

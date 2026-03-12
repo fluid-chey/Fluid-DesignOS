@@ -58,19 +58,19 @@ function ItemCard<T>({
       style={{
         cursor: 'pointer',
         borderRadius: 8,
-        border: '1px solid #1e1e30',
-        backgroundColor: '#0d0d1a',
+        border: '1px solid #1e1e1e',
+        backgroundColor: '#141414',
         overflow: 'hidden',
         transition: 'border-color 0.15s, box-shadow 0.15s',
         display: 'flex',
         flexDirection: 'column',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = '#3b82f6';
-        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(59, 130, 246, 0.2)';
+        e.currentTarget.style.borderColor = '#44B2FF';
+        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(68, 178, 255, 0.2)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#1e1e30';
+        e.currentTarget.style.borderColor = '#1e1e1e';
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
@@ -80,7 +80,7 @@ function ItemCard<T>({
         height: displayHeight,
         overflow: 'hidden',
         position: 'relative',
-        backgroundColor: '#0a0a14',
+        backgroundColor: '#111111',
         flexShrink: 0,
       }}>
         {preview ? (
@@ -100,13 +100,22 @@ function ItemCard<T>({
         ) : (
           <div style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
-            color: '#333',
-            fontSize: '0.8rem',
+            gap: '0.5rem',
+            color: '#3a3a3a',
+            fontSize: '0.75rem',
+            fontFamily: "'Inter', sans-serif",
           }}>
-            No preview
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                 stroke="#2a2a2e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span style={{ color: '#2e2e2e' }}>No preview</span>
           </div>
         )}
       </div>
@@ -117,28 +126,30 @@ function ItemCard<T>({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderTop: '1px solid #1a1a28',
+        borderTop: '1px solid #1e1e1e',
         gap: '0.5rem',
       }}>
         <div style={{ overflow: 'hidden', flex: 1 }}>
           <div style={{
             fontSize: '0.8125rem',
             fontWeight: 500,
-            color: '#d0d0e0',
+            color: '#e0e0e0',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            fontFamily: "'Inter', sans-serif",
           }}>
             {item.title}
           </div>
           {item.subtitle && (
             <div style={{
               fontSize: '0.7rem',
-              color: '#555',
+              color: '#666',
               marginTop: '0.125rem',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              fontFamily: "'Inter', sans-serif",
             }}>
               {item.subtitle}
             </div>
@@ -198,12 +209,13 @@ export function DrillDownGrid<T>({
       justifyContent: 'center',
       height: '100%',
       minHeight: 300,
-      color: '#444',
+      color: '#555',
       fontSize: '0.9rem',
       gap: '0.5rem',
+      fontFamily: "'Inter', sans-serif",
     }}>
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-           stroke="#333" strokeWidth="1.5" strokeLinecap="round">
+           stroke="#2a2a2e" strokeWidth="1.5" strokeLinecap="round">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <line x1="12" y1="8" x2="12" y2="16" />
         <line x1="8" y1="12" x2="16" y2="12" />
@@ -218,7 +230,7 @@ export function DrillDownGrid<T>({
       flexDirection: 'column',
       height: '100%',
       overflow: 'hidden',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontFamily: "'Inter', sans-serif",
     }}>
       {/* Section header */}
       {(title || headerActions) && (
@@ -236,6 +248,7 @@ export function DrillDownGrid<T>({
               fontWeight: 600,
               color: '#fff',
               letterSpacing: '-0.01em',
+              fontFamily: "'Inter', sans-serif",
             }}>
               {title}
             </h2>

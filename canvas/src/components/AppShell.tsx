@@ -76,9 +76,9 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
       display: 'flex',
       flexDirection: 'column',
       height: '100vh',
-      backgroundColor: '#0f0f1a',
+      backgroundColor: '#0d0d0d',
       color: '#e0e0e0',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontFamily: "'Inter', 'Neue Haas Grotesk Display Pro', -apple-system, BlinkMacSystemFont, sans-serif",
       overflow: 'hidden',
     }}>
       {/* ---- Header ---- */}
@@ -89,23 +89,25 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
         alignItems: 'center',
         gap: '0.75rem',
         padding: '0 1.25rem',
-        borderBottom: '1px solid #1e1e30',
-        backgroundColor: '#0f0f1a',
+        borderBottom: '1px solid #1e1e1e',
+        backgroundColor: '#0d0d0d',
         zIndex: 10,
       }}>
         {/* App wordmark */}
         <span style={{
-          fontSize: '0.9375rem',
+          fontSize: '0.875rem',
           fontWeight: 600,
           color: '#fff',
-          letterSpacing: '-0.02em',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
           whiteSpace: 'nowrap',
+          opacity: 0.9,
         }}>
           Fluid Design OS
         </span>
 
         {/* Divider */}
-        <div style={{ width: 1, height: 18, backgroundColor: '#2a2a3e', flexShrink: 0 }} />
+        <div style={{ width: 1, height: 18, backgroundColor: '#2a2a2e', flexShrink: 0 }} />
 
         {/* Breadcrumb fills remaining header space */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -122,18 +124,20 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
               alignItems: 'center',
               gap: '0.375rem',
               padding: '5px 12px',
-              backgroundColor: '#3b82f6',
+              backgroundColor: '#44B2FF',
               color: '#fff',
               border: 'none',
-              borderRadius: 6,
-              fontSize: '0.8125rem',
-              fontWeight: 500,
+              borderRadius: 5,
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
               cursor: 'pointer',
               flexShrink: 0,
               transition: 'background-color 0.15s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3a9fe0')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#44B2FF')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -154,8 +158,8 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
-          borderRight: '1px solid #1e1e30',
-          backgroundColor: '#0d0d1a',
+          borderRight: '1px solid #1e1e1e',
+          backgroundColor: '#111111',
           transition: 'width 0.2s ease',
           overflow: 'hidden',
           position: 'relative',
@@ -177,7 +181,7 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
                   padding: '8px 10px',
                   background: 'none',
                   border: 'none',
-                  borderTop: '1px solid #1e1e30',
+                  borderTop: '1px solid #1e1e1e',
                   color: '#555',
                   cursor: 'pointer',
                   fontSize: '0.75rem',
@@ -208,8 +212,8 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
                   width: 36,
                   height: 36,
                   background: 'none',
-                  border: '1px solid #2a2a3e',
-                  borderRadius: 6,
+                  border: '1px solid #2a2a2e',
+                  borderRadius: 5,
                   color: '#666',
                   cursor: 'pointer',
                 }}
@@ -234,8 +238,8 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            borderLeft: '1px solid #1e1e30',
-            backgroundColor: '#0d0d1a',
+            borderLeft: '1px solid #1e1e1e',
+            backgroundColor: '#111111',
             transition: 'width 0.2s ease',
             overflow: 'hidden',
           }}>
@@ -251,7 +255,7 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
                     padding: '8px 10px',
                     background: 'none',
                     border: 'none',
-                    borderBottom: '1px solid #1e1e30',
+                    borderBottom: '1px solid #1e1e1e',
                     color: '#555',
                     cursor: 'pointer',
                     gap: '0.375rem',
@@ -287,8 +291,8 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
                     width: 36,
                     height: 36,
                     background: 'none',
-                    border: '1px solid #2a2a3e',
-                    borderRadius: 6,
+                    border: '1px solid #2a2a2e',
+                    borderRadius: 5,
                     color: '#666',
                     cursor: 'pointer',
                   }}

@@ -13,7 +13,7 @@ function BackArrow() {
 /** Separator between breadcrumb segments */
 function Separator() {
   return (
-    <span style={{ color: '#3a3a52', fontSize: '0.75rem', userSelect: 'none', padding: '0 2px' }}>
+    <span style={{ color: '#333', fontSize: '0.75rem', userSelect: 'none', padding: '0 2px' }}>
       /
     </span>
   );
@@ -130,8 +130,8 @@ export function Breadcrumb() {
             width: 28,
             height: 28,
             background: 'none',
-            border: '1px solid #2a2a3e',
-            borderRadius: 5,
+            border: '1px solid #2a2a2e',
+            borderRadius: 4,
             color: '#666',
             cursor: 'pointer',
             flexShrink: 0,

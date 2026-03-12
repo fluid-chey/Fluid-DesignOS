@@ -12,7 +12,7 @@ interface AnnotationPinProps {
  */
 export function AnnotationPin({ annotation, isActive, onClick }: AnnotationPinProps) {
   const isAgent = annotation.authorType === 'agent';
-  const bgColor = isAgent ? '#8b5cf6' : '#3b82f6';
+  const bgColor = isAgent ? '#8b5cf6' : '#44B2FF';
   const activeBorder = isActive ? '2px solid #fff' : '2px solid transparent';
 
   return (

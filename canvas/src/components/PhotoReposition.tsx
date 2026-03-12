@@ -170,8 +170,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
   },
   panel: {
-    backgroundColor: '#0d0d1a',
-    border: '1px solid #2a2a42',
+    backgroundColor: '#141414',
+    border: '1px solid #2a2a2e',
     borderRadius: 8,
     padding: '1rem',
     width: 280,
@@ -205,8 +205,8 @@ const styles: Record<string, React.CSSProperties> = {
   toggleBtn: {
     flex: 1,
     padding: '5px 0',
-    backgroundColor: '#1a1a2e',
-    border: '1px solid #2a2a42',
+    backgroundColor: '#1a1a1e',
+    border: '1px solid #2a2a2e',
     borderRadius: 4,
     color: '#666',
     fontSize: '0.75rem',
@@ -223,7 +223,7 @@ const styles: Record<string, React.CSSProperties> = {
   thumb: {
     width: '100%',
     height: 180,
-    backgroundColor: '#15152a',
+    backgroundColor: '#1a1a1e',
     borderRadius: 4,
     overflow: 'hidden',
     position: 'relative',

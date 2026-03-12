@@ -83,5 +83,5 @@ const headerStyle: React.CSSProperties = {
   padding: '0.75rem 1rem',
   fontSize: '0.9rem',
   color: '#fff',
-  borderBottom: '1px solid #2a2a3e',
+  borderBottom: '1px solid #2a2a2e',
 };

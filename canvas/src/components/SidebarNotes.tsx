@@ -41,8 +41,8 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
       data-testid="sidebar-notes"
       style={{
         width: 280,
-        backgroundColor: '#16162a',
-        borderLeft: '1px solid #2a2a3e',
+        backgroundColor: '#111111',
+        borderLeft: '1px solid #2a2a2e',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
@@ -55,7 +55,7 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '0.75rem 1rem',
-        borderBottom: '1px solid #2a2a3e',
+        borderBottom: '1px solid #2a2a2e',
       }}>
         <h3 style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}>Notes</h3>
         <button
@@ -93,7 +93,7 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
             </h4>
             {varNotes.map((note) => (
               <div key={note.id} style={{
-                backgroundColor: '#1e1e32',
+                backgroundColor: '#1e1e1e',
                 borderRadius: 6,
                 padding: '0.5rem 0.75rem',
                 marginBottom: '0.4rem',
@@ -106,8 +106,8 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
                     fontSize: '0.6rem',
                     padding: '1px 6px',
                     borderRadius: 9999,
-                    backgroundColor: note.authorType === 'agent' ? '#8b5cf622' : '#3b82f622',
-                    color: note.authorType === 'agent' ? '#8b5cf6' : '#3b82f6',
+                    backgroundColor: note.authorType === 'agent' ? '#8b5cf622' : '#44B2FF22',
+                    color: note.authorType === 'agent' ? '#8b5cf6' : '#44B2FF',
                   }}>
                     {note.authorType}
                   </span>
@@ -127,7 +127,7 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
       {/* Add note form */}
       <div style={{
         padding: '0.75rem',
-        borderTop: '1px solid #2a2a3e',
+        borderTop: '1px solid #2a2a2e',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.4rem',
@@ -137,8 +137,8 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
           value={selectedVariation}
           onChange={(e) => setSelectedVariation(e.target.value)}
           style={{
-            backgroundColor: '#252540',
-            border: '1px solid #3a3a52',
+            backgroundColor: '#1a1a1e',
+            border: '1px solid #2a2a2e',
             borderRadius: 4,
             color: '#e0e0e0',
             padding: '4px 8px',
@@ -159,8 +159,8 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
             style={{
               flex: 1,
-              backgroundColor: '#252540',
-              border: '1px solid #3a3a52',
+              backgroundColor: '#1a1a1e',
+              border: '1px solid #2a2a2e',
               borderRadius: 4,
               color: '#e0e0e0',
               padding: '4px 8px',
@@ -171,7 +171,7 @@ export function SidebarNotes({ notes, variations, onAddNote, onClose }: SidebarN
           <button
             onClick={handleAdd}
             style={{
-              backgroundColor: '#3b82f6',
+              backgroundColor: '#44B2FF',
               color: '#fff',
               border: 'none',
               borderRadius: 4,

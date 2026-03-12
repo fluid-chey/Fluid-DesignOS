@@ -32,8 +32,8 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
         top: `${(annotation.y ?? 0) + 2}%`,
         width: 260,
         maxHeight: 320,
-        backgroundColor: '#1e1e30',
-        border: '1px solid #3a3a52',
+        backgroundColor: '#1e1e1e',
+        border: '1px solid #2a2a2e',
         borderRadius: 8,
         boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
         zIndex: 20,
@@ -49,7 +49,7 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '0.5rem 0.75rem',
-        borderBottom: '1px solid #2a2a3e',
+        borderBottom: '1px solid #2a2a2e',
       }}>
         <span style={{ fontSize: '0.75rem', color: '#aaa' }}>
           <span style={{
@@ -57,7 +57,7 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
             width: 8,
             height: 8,
             borderRadius: '50%',
-            backgroundColor: isAgent ? '#8b5cf6' : '#3b82f6',
+            backgroundColor: isAgent ? '#8b5cf6' : '#44B2FF',
             marginRight: 6,
           }} />
           {annotation.author} &middot; Pin #{annotation.pinNumber}
@@ -99,7 +99,7 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
           <div key={r.id} style={{
             marginBottom: '0.5rem',
             paddingLeft: '0.5rem',
-            borderLeft: `2px solid ${r.authorType === 'agent' ? '#8b5cf6' : '#3b82f6'}`,
+            borderLeft: `2px solid ${r.authorType === 'agent' ? '#8b5cf6' : '#44B2FF'}`,
           }}>
             <span style={{ fontSize: '0.7rem', color: '#888' }}>
               {r.author}
@@ -119,7 +119,7 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
         display: 'flex',
         gap: 4,
         padding: '0.5rem 0.75rem',
-        borderTop: '1px solid #2a2a3e',
+        borderTop: '1px solid #2a2a2e',
       }}>
         <input
           data-testid="reply-input"
@@ -130,8 +130,8 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
           onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
           style={{
             flex: 1,
-            backgroundColor: '#252540',
-            border: '1px solid #3a3a52',
+            backgroundColor: '#1a1a1e',
+            border: '1px solid #2a2a2e',
             borderRadius: 4,
             color: '#e0e0e0',
             padding: '4px 8px',
@@ -142,7 +142,7 @@ export function AnnotationThread({ annotation, onReply, onClose }: AnnotationThr
         <button
           onClick={handleSubmit}
           style={{
-            backgroundColor: '#3b82f6',
+            backgroundColor: '#44B2FF',
             color: '#fff',
             border: 'none',
             borderRadius: 4,

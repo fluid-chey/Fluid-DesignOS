@@ -11,14 +11,14 @@ export function SessionSidebar() {
       minWidth: 280,
       height: '100vh',
       backgroundColor: '#12121a',
-      borderRight: '1px solid #2a2a3e',
+      borderRight: '1px solid #2a2a2e',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
       <div style={{
         padding: '1rem',
-        borderBottom: '1px solid #2a2a3e',
+        borderBottom: '1px solid #2a2a2e',
       }}>
         <h2 style={{
           margin: 0,
@@ -65,13 +65,13 @@ export function SessionSidebar() {
                 marginBottom: '0.25rem',
                 border: 'none',
                 borderRadius: '6px',
-                backgroundColor: isActive ? '#2a2a4e' : 'transparent',
+                backgroundColor: isActive ? '#2a2a2e' : 'transparent',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'background-color 0.15s',
               }}
               onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.backgroundColor = '#1e1e30';
+                if (!isActive) e.currentTarget.style.backgroundColor = '#1e1e1e';
               }}
               onMouseLeave={(e) => {
                 if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';

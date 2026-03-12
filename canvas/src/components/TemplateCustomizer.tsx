@@ -12,7 +12,7 @@ interface TemplateCustomizerProps {
 
 const ACCENT_COLORS: Array<{ name: string; hex: string }> = [
   { name: 'orange', hex: '#F26522' },
-  { name: 'blue', hex: '#3b82f6' },
+  { name: 'blue', hex: '#44B2FF' },
   { name: 'green', hex: '#22c55e' },
   { name: 'purple', hex: '#8b5cf6' },
 ];
@@ -97,7 +97,7 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
         style={{
           background: 'none',
           border: 'none',
-          color: '#3b82f6',
+          color: '#44B2FF',
           cursor: 'pointer',
           fontSize: '0.85rem',
           padding: 0,
@@ -122,8 +122,8 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
             height: template.platform === 'linkedin-landscape' ? 132 : 200,
             overflow: 'hidden',
             borderRadius: 8,
-            border: '1px solid #2a2a3e',
-            backgroundColor: '#0d0d1a',
+            border: '1px solid #2a2a2e',
+            backgroundColor: '#0d0d0d',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -167,8 +167,8 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter a title for this asset..."
               style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = '#3b82f6')}
-              onBlur={(e) => (e.target.style.borderColor = '#3a3a52')}
+              onFocus={(e) => (e.target.style.borderColor = '#44B2FF')}
+              onBlur={(e) => (e.target.style.borderColor = '#2a2a2e')}
             />
           </div>
 
@@ -207,8 +207,8 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
               placeholder="Add any notes or brief for this asset..."
               rows={3}
               style={{ ...inputStyle, resize: 'vertical', minHeight: 72 }}
-              onFocus={(e) => (e.target.style.borderColor = '#3b82f6')}
-              onBlur={(e) => (e.target.style.borderColor = '#3a3a52')}
+              onFocus={(e) => (e.target.style.borderColor = '#44B2FF')}
+              onBlur={(e) => (e.target.style.borderColor = '#2a2a2e')}
             />
           </div>
 
@@ -232,7 +232,7 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
             onClick={handleCreate}
             disabled={creating || !title.trim()}
             style={{
-              backgroundColor: creating || !title.trim() ? '#1e2a40' : '#3b82f6',
+              backgroundColor: creating || !title.trim() ? '#1a2530' : '#44B2FF',
               color: creating || !title.trim() ? '#444' : '#fff',
               border: 'none',
               borderRadius: 6,
@@ -245,12 +245,12 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
             }}
             onMouseEnter={(e) => {
               if (!creating && title.trim()) {
-                e.currentTarget.style.backgroundColor = '#2563eb';
+                e.currentTarget.style.backgroundColor = '#3a9fe0';
               }
             }}
             onMouseLeave={(e) => {
               if (!creating && title.trim()) {
-                e.currentTarget.style.backgroundColor = '#3b82f6';
+                e.currentTarget.style.backgroundColor = '#44B2FF';
               }
             }}
           >
@@ -272,8 +272,8 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  backgroundColor: '#252540',
-  border: '1px solid #3a3a52',
+  backgroundColor: '#1a1a1e',
+  border: '1px solid #2a2a2e',
   borderRadius: 6,
   color: '#e0e0e0',
   padding: '0.5rem 0.75rem',
