@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Not Started (2 plans ready, 0 executed)
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-12T22:43:18.962Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-12T22:52:41.567Z"
 last_activity: 2026-03-12 -- Retroactive close of phases 3, 4, 4.1, 6 after audit
 progress:
   total_phases: 13
   completed_phases: 9
   total_plans: 36
-  completed_plans: 32
+  completed_plans: 33
   percent: 92
 ---
 
@@ -73,6 +73,7 @@ Progress: [█████████░] 92% (Overall: 33/36 plans)
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P06 | 4min | 1 tasks | 5 files |
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P07 | 5min | 2 tasks | 5 files |
 | Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end P01 | 8min | 1 tasks | 4 files |
+| Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end P02 | 9 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,9 @@ Recent decisions affecting current work:
 - [Phase 07-merge-jonathan-s-codebase-into-fluid-designos]: CampaignChannelSlots: 5 slots per channel is a hard constant matching Jonathan's locked decision
 - [Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end]: generationStatus is optional on Iteration interface so existing code compiles without changes; DB DEFAULT 'complete' ensures backward compatibility
 - [Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end]: getCampaignPreviewUrls uses INNER JOIN with MAX(iteration_index) subquery then GROUP BY asset for one preview per asset, LIMIT 4
+- [Phase 08-02]: activeCampaignGeneration lock covers full-campaign generations only; iterate mode uses legacy activeChild lock and is not blocked
+- [Phase 08-02]: parseChannelHints uses regex for channel detection; no hint defaults to 3 IG + 3 LI + 1 one-pager (7 total assets)
+- [Phase 08-02]: done SSE event fires only when all N children close — counter per child.on(close) prevents auto-navigate race
 
 ### Pending Todos
 
@@ -195,6 +199,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T22:43:18.960Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-12T22:52:41.565Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
