@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Checkpoint: 07-06 Task 2 — awaiting human verification of integrated app at localhost:5174"
-last_updated: "2026-03-12T17:19:44.499Z"
+stopped_at: "Completed 07-07-PLAN.md (Wave 3: campaign orchestrator, DAM UI, 5-slot channel display)"
+last_updated: "2026-03-12T17:45:32.678Z"
 last_activity: 2026-03-11 -- Completed 04.1-02 session-aware prompt sidebar with iterate mode
 progress:
   total_phases: 11
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 33
-  completed_plans: 29
+  completed_plans: 30
   percent: 73
 ---
 
@@ -72,6 +72,7 @@ Progress: [███████░░░] 73% (Overall: 19/26 plans)
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P04 | 4min | 2 tasks | 8 files |
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P05 | 7min | 2 tasks | 9 files |
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P06 | 4min | 1 tasks | 5 files |
+| Phase 07-merge-jonathan-s-codebase-into-fluid-designos P07 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -166,6 +167,9 @@ Recent decisions affecting current work:
 - [Phase 07-05]: Template configs locked as Record<string, SlotSchema>; 8 templates ported faithfully from Jonathan's editor.js with brush config and gallery metadata
 - [Phase 07-05]: Legacy sessionId/variationId MCP params detected and rejected with descriptive deprecation error pointing to V2 campaign params
 - [Phase 07-merge-jonathan-s-codebase-into-fluid-designos]: TemplateGallery uses TEMPLATE_METADATA from template-configs.ts (no /api/templates fetch); TemplateCustomizer creates Asset+Frame+Iteration via 3 REST calls; creation flow is modal overlay; useFileWatcher refreshes campaign view data by checking currentView
+- [Phase 07-merge-jonathan-s-codebase-into-fluid-designos]: /fluid-campaign blog channel uses inline Agent (Markdown output) — not fluid-social
+- [Phase 07-merge-jonathan-s-codebase-into-fluid-designos]: DAM token is env-var gated (VITE_FLUID_DAM_TOKEN); graceful fallback to local file picker when absent
+- [Phase 07-merge-jonathan-s-codebase-into-fluid-designos]: CampaignChannelSlots: 5 slots per channel is a hard constant matching Jonathan's locked decision
 
 ### Pending Todos
 
@@ -187,6 +191,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T17:19:44.497Z
-Stopped at: Checkpoint: 07-06 Task 2 — awaiting human verification of integrated app at localhost:5174
+Last session: 2026-03-12T17:45:32.675Z
+Stopped at: Completed 07-07-PLAN.md (Wave 3: campaign orchestrator, DAM UI, 5-slot channel display)
 Resume file: None

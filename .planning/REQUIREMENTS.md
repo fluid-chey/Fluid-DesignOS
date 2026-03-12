@@ -125,9 +125,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **MRGR-12**: MCP tools (push_asset, read_annotations, read_statuses, read_history, iterate_request) rewired from file access to SQLite API
 - [x] **MRGR-13**: Jonathan's 8 templates ported as locked TypeScript configs with SlotSchema definitions
 - [x] **MRGR-14**: Collapsible left (AI chat) and right (content editor) sidebars with independent toggle controls
-- [ ] **MRGR-15**: Campaign orchestrator skill (/fluid-campaign) takes a brief, decomposes into per-channel tasks, dispatches to existing skill pipelines
-- [ ] **MRGR-16**: DAM integration UI elements merged from Jonathan's codebase (Fluid DAM indicator, Browse Assets button, file attachment flow)
-- [ ] **MRGR-17**: 5 fixed option slots per channel matching Jonathan's UI design
+- [x] **MRGR-15**: Campaign orchestrator skill (/fluid-campaign) takes a brief, decomposes into per-channel tasks, dispatches to existing skill pipelines
+- [x] **MRGR-16**: DAM integration UI elements merged from Jonathan's codebase (Fluid DAM indicator, Browse Assets button, file attachment flow)
+- [x] **MRGR-17**: 5 fixed option slots per channel matching Jonathan's UI design
 
 ## v2 Requirements
 
