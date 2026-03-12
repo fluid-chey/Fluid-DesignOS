@@ -128,11 +128,15 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
           // POST /api/campaigns
           if (url === '/api/campaigns' && method === 'POST') {
             const body = JSON.parse(await readBody(req));
-            if (!body.title || !Array.isArray(body.channels)) {
+            // Accept either 'title' or 'name' for the campaign name
+            const title = body.title || body.name;
+            if (!title) {
               res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'title and channels are required' }));
+              res.end(JSON.stringify({ error: 'title (or name) is required' }));
               return;
             }
+            body.title = title;
+            if (!Array.isArray(body.channels)) body.channels = [];
             // Atomic creation with assets if assets array provided
             if (Array.isArray(body.assets)) {
               const result = createCampaignWithAssets(
@@ -292,6 +296,31 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             }
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ...iteration, htmlContent }));
+            return;
+          }
+
+          // GET /api/iterations/:id/html — serves raw HTML for iframe preview
+          const iterHtmlMatch = url.match(/^\/api\/iterations\/([^/]+)\/html$/);
+          if (iterHtmlMatch && method === 'GET') {
+            const { getDb } = await import('../lib/db.js');
+            const db = getDb();
+            const row = db.prepare('SELECT html_path FROM iterations WHERE id = ?').get(iterHtmlMatch[1]) as { html_path: string } | undefined;
+            if (!row?.html_path) {
+              res.writeHead(404, { 'Content-Type': 'text/plain' });
+              res.end('Not found');
+              return;
+            }
+            try {
+              const htmlContent = await fs.readFile(
+                path.resolve(srv.config.root, '..', row.html_path),
+                'utf-8'
+              );
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(htmlContent);
+            } catch {
+              res.writeHead(404, { 'Content-Type': 'text/plain' });
+              res.end('HTML file not found on disk');
+            }
             return;
           }
 

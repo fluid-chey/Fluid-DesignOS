@@ -2,12 +2,20 @@ import type { ReactNode } from 'react';
 
 /**
  * Preview descriptor returned by the `renderPreview` prop.
- * html is used in an iframe at native dimensions (width x height).
+ * Provide either `html` (srcDoc) or `src` (URL) for the iframe.
+ * If neither is set, a metadata-only card is shown using `meta`.
  */
 export interface PreviewDescriptor {
-  html: string;
+  html?: string;
+  src?: string;
   width: number;
   height: number;
+  /** Optional metadata to display instead of an iframe preview */
+  meta?: {
+    badges?: string[];
+    detail?: string;
+    icon?: 'campaign' | 'asset' | 'frame';
+  };
 }
 
 /**
@@ -49,8 +57,9 @@ function ItemCard<T>({
   onAction?: (item: DrillDownItem<T>, action: string) => void;
 }) {
   const preview = renderPreview(item);
-  const scale = preview ? PREVIEW_DISPLAY_WIDTH / preview.width : 1;
-  const displayHeight = preview ? preview.height * scale : 180;
+  const hasIframe = preview && (preview.html || preview.src);
+  const scale = hasIframe ? PREVIEW_DISPLAY_WIDTH / preview.width : 1;
+  const displayHeight = hasIframe ? preview.height * scale : 180;
 
   return (
     <div
@@ -74,7 +83,7 @@ function ItemCard<T>({
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      {/* Preview area — full-size iframe at native dimensions, scaled to fit */}
+      {/* Preview area */}
       <div style={{
         width: PREVIEW_DISPLAY_WIDTH,
         height: displayHeight,
@@ -83,9 +92,9 @@ function ItemCard<T>({
         backgroundColor: '#111111',
         flexShrink: 0,
       }}>
-        {preview ? (
+        {hasIframe ? (
           <iframe
-            srcDoc={preview.html}
+            {...(preview.html ? { srcDoc: preview.html } : { src: preview.src })}
             sandbox="allow-same-origin"
             style={{
               width: preview.width,
@@ -93,10 +102,72 @@ function ItemCard<T>({
               border: 'none',
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              pointerEvents: 'none', // prevent iframe from capturing click
+              pointerEvents: 'none',
             }}
             title={item.title}
           />
+        ) : preview?.meta ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            gap: '0.625rem',
+            padding: '1rem',
+            fontFamily: "'Inter', sans-serif",
+          }}>
+            {/* Icon */}
+            {preview.meta.icon === 'campaign' && (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                   stroke="#2a2a2e" strokeWidth="1.25" strokeLinecap="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            )}
+            {preview.meta.icon === 'asset' && (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                   stroke="#2a2a2e" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            )}
+            {preview.meta.icon === 'frame' && (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                   stroke="#2a2a2e" strokeWidth="1.25" strokeLinecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="9" y1="21" x2="9" y2="9" />
+              </svg>
+            )}
+            {/* Badges */}
+            {preview.meta.badges && preview.meta.badges.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', justifyContent: 'center' }}>
+                {preview.meta.badges.map((b, i) => (
+                  <span key={i} style={{
+                    fontSize: '0.6rem',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    backgroundColor: 'rgba(68,178,255,0.1)',
+                    color: '#44B2FF',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}>
+                    {b}
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* Detail */}
+            {preview.meta.detail && (
+              <span style={{ fontSize: '0.7rem', color: '#3a3a3a', textAlign: 'center' }}>
+                {preview.meta.detail}
+              </span>
+            )}
+          </div>
         ) : (
           <div style={{
             display: 'flex',

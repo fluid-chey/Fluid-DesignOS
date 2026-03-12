@@ -115,15 +115,40 @@ export function App() {
     : null;
 
   // ── DrillDownGrid renderPreview helpers ─────────────────────────────────
-  // For assets: no preview HTML at this level
-  const renderAssetPreview = (_item: DrillDownItem<Asset>): PreviewDescriptor | null => null;
+  // For assets: show asset type and frame count as metadata
+  const renderAssetPreview = (item: DrillDownItem<Asset>): PreviewDescriptor | null => ({
+    width: 320,
+    height: 180,
+    meta: {
+      icon: 'asset',
+      badges: [item.data.assetType],
+      detail: `${item.data.frameCount} frame${item.data.frameCount !== 1 ? 's' : ''}`,
+    },
+  });
 
-  // For frames: no preview HTML at frame level either
-  const renderFramePreview = (_item: DrillDownItem<Frame>): PreviewDescriptor | null => null;
+  // For frames: show frame index
+  const renderFramePreview = (item: DrillDownItem<Frame>): PreviewDescriptor | null => ({
+    width: 320,
+    height: 180,
+    meta: {
+      icon: 'frame',
+      detail: `Frame ${item.data.frameIndex + 1}`,
+    },
+  });
 
-  // For iterations: the iteration has htmlPath; we can serve via API
-  // The DrillDownGrid shows a placeholder when no preview returned
-  const renderIterationPreview = (_item: DrillDownItem<Iteration>): PreviewDescriptor | null => null;
+  // For iterations: serve the actual HTML via the API endpoint
+  const renderIterationPreview = (item: DrillDownItem<Iteration>): PreviewDescriptor | null => {
+    if (!item.data.htmlPath) return null;
+    // Look up template dimensions from templateId, or fall back to 1080x1080
+    const tmpl = item.data.templateId ? TEMPLATE_METADATA.find((t) => t.templateId === item.data.templateId) : null;
+    const width = tmpl?.dimensions.width ?? 1080;
+    const height = tmpl?.dimensions.height ?? 1080;
+    return {
+      src: `/api/iterations/${item.data.id}/html`,
+      width,
+      height,
+    };
+  };
 
   // ── Map store data to DrillDownItem arrays ───────────────────────────────
   const assetItems: DrillDownItem<Asset>[] = assets.map((a) => ({

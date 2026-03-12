@@ -466,11 +466,22 @@ export function CampaignDashboard() {
 
   /**
    * renderPreview for campaigns:
-   * At campaign level we don't have asset HTML loaded yet.
-   * Return null — the grid will show a "No preview" placeholder.
-   * A future plan can wire in representative asset thumbnails.
+   * Shows channel badges and creation date as metadata card.
    */
-  const renderPreview = (_item: DrillDownItem<Campaign>): PreviewDescriptor | null => null;
+  const renderPreview = (item: DrillDownItem<Campaign>): PreviewDescriptor | null => {
+    const channels = item.data.channels;
+    const date = new Date(item.data.createdAt);
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return {
+      width: 320,
+      height: 180,
+      meta: {
+        icon: 'campaign',
+        badges: channels.length > 0 ? channels : undefined,
+        detail: `Created ${dateStr}`,
+      },
+    };
+  };
 
   const handleSelect = (item: DrillDownItem<Campaign>) => {
     navigateToCampaign(item.id);
