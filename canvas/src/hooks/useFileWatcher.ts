@@ -1,17 +1,21 @@
 import { useEffect, useRef } from 'react';
 import { useSessionStore } from '../store/sessions';
+import { useCampaignStore } from '../store/campaign';
 import { useGenerationStore } from '../store/generation';
 
 /**
  * Listens for fluid:file-change HMR custom events from the Vite dev server
- * and triggers a session refresh. Debounced to avoid excessive re-renders.
+ * and triggers a refresh of both sessions and the current campaign view.
+ * Debounced to avoid excessive re-renders.
  *
  * PAUSES during active generation to prevent partial/in-progress files
  * from flickering in the UI. Resumes on generation complete/error.
+ *
+ * Campaign refresh: refetches the current view's data so new iterations
+ * pushed by MCP tools appear without a manual reload.
  */
 export function useFileWatcher() {
   const refreshSessions = useSessionStore((s) => s.refreshSessions);
-  const generationStatus = useGenerationStore((s) => s.status);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -23,7 +27,33 @@ export function useFileWatcher() {
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
+        // Refresh legacy session store (flat-file sessions)
         refreshSessions();
+
+        // Refresh campaign data for the current view
+        const campaignStore = useCampaignStore.getState();
+        const { currentView, activeCampaignId, activeAssetId, activeFrameId } = campaignStore;
+
+        switch (currentView) {
+          case 'dashboard':
+            campaignStore.fetchCampaigns();
+            break;
+          case 'campaign':
+            if (activeCampaignId) {
+              campaignStore.fetchAssets(activeCampaignId);
+            }
+            break;
+          case 'asset':
+            if (activeAssetId) {
+              campaignStore.fetchFrames(activeAssetId);
+            }
+            break;
+          case 'frame':
+            if (activeFrameId) {
+              campaignStore.fetchIterations(activeFrameId);
+            }
+            break;
+        }
       }, 200);
     };
 

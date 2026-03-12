@@ -2,146 +2,154 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TemplateGallery } from '../components/TemplateGallery';
 import { TemplateCustomizer } from '../components/TemplateCustomizer';
-import type { TemplateInfo } from '../lib/templates';
+import type { TemplateMetadata } from '../lib/template-configs';
+import { TEMPLATE_METADATA } from '../lib/template-configs';
 
-const mockTemplates: TemplateInfo[] = [
-  {
-    id: 'problem-first',
-    name: 'Problem First',
-    category: 'social',
-    html: '<div>Social template</div>',
-    dimensions: { width: 1080, height: 1080 },
-  },
-  {
-    id: 'case-study',
-    name: 'Case Study',
-    category: 'one-pager',
-    html: '<div>One-pager template</div>',
-    dimensions: { width: 816, height: 1056 },
-  },
-];
-
-// Mock useGenerationStream
-const mockGenerate = vi.fn();
-vi.mock('../hooks/useGenerationStream', () => ({
-  useGenerationStream: () => ({
-    generate: mockGenerate,
-    status: 'idle',
-    events: [],
-  }),
-}));
+/**
+ * TemplateGallery now uses static TEMPLATE_METADATA from template-configs.ts
+ * (no fetch). TemplateCustomizer now creates asset+frame+iteration via API.
+ */
 
 describe('TemplateGallery', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockTemplates),
-    });
+  it('renders a card for each template in TEMPLATE_METADATA', () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery onSelectTemplate={onSelect} />);
+
+    // Each template in the metadata should appear
+    for (const tmpl of TEMPLATE_METADATA) {
+      expect(screen.getByText(tmpl.name)).toBeInTheDocument();
+    }
   });
 
-  it('fetches templates on mount and renders a card for each template', async () => {
+  it('clicking a template card calls onSelectTemplate with TemplateMetadata', () => {
     const onSelect = vi.fn();
-    const onFreePrompt = vi.fn();
+    render(<TemplateGallery onSelectTemplate={onSelect} />);
 
-    render(
-      <TemplateGallery onSelectTemplate={onSelect} onFreePrompt={onFreePrompt} />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Problem First')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Case Study')).toBeInTheDocument();
+    const firstTemplate = TEMPLATE_METADATA[0];
+    fireEvent.click(screen.getByText(firstTemplate.name));
+    expect(onSelect).toHaveBeenCalledWith(firstTemplate);
   });
 
-  it('clicking a template card calls onSelectTemplate with the template', async () => {
+  it('renders no "Create with AI" card (AI flow moved to PromptSidebar)', () => {
     const onSelect = vi.fn();
-    const onFreePrompt = vi.fn();
+    render(<TemplateGallery onSelectTemplate={onSelect} />);
 
-    render(
-      <TemplateGallery onSelectTemplate={onSelect} onFreePrompt={onFreePrompt} />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Problem First')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText('Problem First'));
-    expect(onSelect).toHaveBeenCalledWith(mockTemplates[0]);
-  });
-
-  it('renders "Create with AI" card and calls onFreePrompt when clicked', async () => {
-    const onSelect = vi.fn();
-    const onFreePrompt = vi.fn();
-
-    render(
-      <TemplateGallery onSelectTemplate={onSelect} onFreePrompt={onFreePrompt} />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/Create with AI/)).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText(/Create with AI/));
-    expect(onFreePrompt).toHaveBeenCalled();
+    // The old "Create with AI" card is removed — template gallery only shows templates
+    expect(screen.queryByText(/Create with AI/)).toBeNull();
   });
 });
 
 describe('TemplateCustomizer', () => {
-  const template = mockTemplates[0];
+  const template: TemplateMetadata = {
+    templateId: 't1-quote',
+    name: 'Client Testimonial / Quote',
+    description: 'Portrait photo with name, title, handle, and pull quote',
+    thumbnailPath: 'templates/thumbnails/template_1.png',
+    platform: 'instagram-square',
+    dimensions: { width: 1080, height: 1080 },
+  };
+
+  const mockFetch = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    global.fetch = mockFetch;
   });
 
-  it('renders form fields (headline, accent color, topic, variations)', () => {
+  it('renders the template name and description', () => {
     render(
-      <TemplateCustomizer template={template} onBack={vi.fn()} />
+      <TemplateCustomizer
+        template={template}
+        campaignId="cmp_test"
+        onBack={vi.fn()}
+        onCreated={vi.fn()}
+      />
     );
 
-    expect(screen.getByLabelText(/headline/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/topic/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/variations/i)).toBeInTheDocument();
-    // Accent color buttons
-    expect(screen.getByTestId('color-orange')).toBeInTheDocument();
-    expect(screen.getByTestId('color-blue')).toBeInTheDocument();
+    expect(screen.getByText('Client Testimonial / Quote')).toBeInTheDocument();
+    expect(screen.getByText(/portrait photo/i)).toBeInTheDocument();
   });
 
-  it('"Generate" button calls generate with constructed prompt and customization', async () => {
+  it('renders the Asset Title input with template name as default', () => {
     render(
-      <TemplateCustomizer template={template} onBack={vi.fn()} />
+      <TemplateCustomizer
+        template={template}
+        campaignId="cmp_test"
+        onBack={vi.fn()}
+        onCreated={vi.fn()}
+      />
     );
 
-    const headlineInput = screen.getByLabelText(/headline/i);
-    const topicInput = screen.getByLabelText(/topic/i);
-
-    fireEvent.change(headlineInput, { target: { value: 'Test Headline' } });
-    fireEvent.change(topicInput, { target: { value: 'Test Topic' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /generate/i }));
-
-    await waitFor(() => {
-      expect(mockGenerate).toHaveBeenCalled();
-    });
-
-    const callArgs = mockGenerate.mock.calls[0];
-    expect(callArgs[0]).toContain('Test Headline');
-    expect(callArgs[1]).toMatchObject({
-      template: 'problem-first',
-      customization: expect.objectContaining({
-        headline: 'Test Headline',
-        topic: 'Test Topic',
-      }),
-    });
+    const titleInput = screen.getByLabelText(/asset title/i);
+    expect(titleInput).toBeInTheDocument();
+    expect((titleInput as HTMLInputElement).value).toBe('Client Testimonial / Quote');
   });
 
   it('"Back to Templates" calls onBack', () => {
     const onBack = vi.fn();
     render(
-      <TemplateCustomizer template={template} onBack={onBack} />
+      <TemplateCustomizer
+        template={template}
+        campaignId="cmp_test"
+        onBack={onBack}
+        onCreated={vi.fn()}
+      />
     );
 
     fireEvent.click(screen.getByText(/back to templates/i));
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it('"Create Asset" calls the API and then onCreated', async () => {
+    const onCreated = vi.fn();
+
+    // Mock the three POST requests: asset, frame, iteration
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'ast_1' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'frm_1' }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'itr_1' }) });
+
+    render(
+      <TemplateCustomizer
+        template={template}
+        campaignId="cmp_test"
+        onBack={vi.fn()}
+        onCreated={onCreated}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /create asset/i }));
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledWith('cmp_test');
+    });
+
+    // Should have made 3 API calls
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch.mock.calls[0][0]).toContain('/api/campaigns/cmp_test/assets');
+    expect(mockFetch.mock.calls[1][0]).toContain('/api/assets/ast_1/frames');
+    expect(mockFetch.mock.calls[2][0]).toContain('/api/frames/frm_1/iterations');
+  });
+
+  it('shows error message when API call fails', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    });
+
+    render(
+      <TemplateCustomizer
+        template={template}
+        campaignId="cmp_test"
+        onBack={vi.fn()}
+        onCreated={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /create asset/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to create asset: 500/i)).toBeInTheDocument();
+    });
   });
 });

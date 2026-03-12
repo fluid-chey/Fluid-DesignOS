@@ -1,305 +1,371 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { AppShell } from './components/AppShell';
 import { PromptSidebar } from './components/PromptSidebar';
+import { ContentEditor } from './components/ContentEditor';
+import { CampaignDashboard } from './components/CampaignDashboard';
+import { DrillDownGrid, type DrillDownItem, type PreviewDescriptor } from './components/DrillDownGrid';
 import { TemplateGallery } from './components/TemplateGallery';
 import { TemplateCustomizer } from './components/TemplateCustomizer';
-import { VariationGrid } from './components/VariationGrid';
-import { Timeline } from './components/Timeline';
-import { SidebarNotes } from './components/SidebarNotes';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { useSessionStore } from './store/sessions';
-import { useGenerationStore } from './store/generation';
-import { useAnnotationStore } from './store/annotations';
-import { useAnnotations } from './hooks/useAnnotations';
+import { useCampaignStore } from './store/campaign';
+import { useEditorStore } from './store/editor';
 import { useFileWatcher } from './hooks/useFileWatcher';
-import type { TemplateInfo } from './lib/templates';
-import type { VariationStatus } from './lib/types';
+import type { Asset, Frame, Iteration } from './lib/campaign-types';
+import { TEMPLATE_METADATA, type TemplateMetadata } from './lib/template-configs';
 
-type MainView = 'gallery' | 'customizer' | 'session';
+type CreationFlow = null | 'gallery' | 'customizer';
 
 export function App() {
-  const refreshSessions = useSessionStore((s) => s.refreshSessions);
-  const activeSessionData = useSessionStore((s) => s.activeSessionData);
-  const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const loading = useSessionStore((s) => s.loading);
+  const currentView = useCampaignStore((s) => s.currentView);
+  const activeCampaignId = useCampaignStore((s) => s.activeCampaignId);
+  const activeAssetId = useCampaignStore((s) => s.activeAssetId);
+  const activeFrameId = useCampaignStore((s) => s.activeFrameId);
+  const activeIterationId = useCampaignStore((s) => s.activeIterationId);
+  const assets = useCampaignStore((s) => s.assets);
+  const frames = useCampaignStore((s) => s.frames);
+  const iterations = useCampaignStore((s) => s.iterations);
+  const loading = useCampaignStore((s) => s.loading);
+  const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
+  const navigateToAsset = useCampaignStore((s) => s.navigateToAsset);
+  const navigateToFrame = useCampaignStore((s) => s.navigateToFrame);
+  const selectIteration = useCampaignStore((s) => s.selectIteration);
+  const setRightSidebarOpen = useCampaignStore((s) => s.setRightSidebarOpen);
+  const fetchCampaigns = useCampaignStore((s) => s.fetchCampaigns);
 
-  const generationStatus = useGenerationStore((s: any) => s.status);
-  const generationSessionId = useGenerationStore((s: any) => s.activeSessionId);
-  const resetGeneration = useGenerationStore((s: any) => s.reset);
-  const selectSession = useSessionStore((s) => s.selectSession);
+  const selectedIterationId = useEditorStore((s) => s.selectedIterationId);
 
-  const {
-    annotations,
-    statuses,
-    activePin,
-    setActivePin,
-    setStatus,
-    sidebarNotes,
-    addPin,
-    addNote,
-    addReply,
-  } = useAnnotations();
+  // Template creation flow state
+  const [creationFlow, setCreationFlow] = useState<CreationFlow>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateMetadata | null>(null);
 
-  const [mainView, setMainView] = useState<MainView>('gallery');
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateInfo | null>(null);
-  const [showNotes, setShowNotes] = useState(false);
+  // Ref to the active iteration's iframe element for ContentEditor
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // Auto-refresh on filesystem changes
+  // Auto-refresh on filesystem changes (campaign-aware)
   useFileWatcher();
 
-  // Initial session load
+  // Initial data load
   useEffect(() => {
-    refreshSessions();
-  }, [refreshSessions]);
+    fetchCampaigns();
+  }, [fetchCampaigns]);
 
-  // Auto-switch to session view when generation starts or completes
+  // When an iteration is selected, open the right sidebar
   useEffect(() => {
-    if (generationStatus === 'generating') {
-      setMainView('session');
+    if (activeIterationId) {
+      setRightSidebarOpen(true);
     }
-    if (generationStatus === 'complete') {
-      // Refresh sessions list, then auto-select the generated session
-      refreshSessions().then(() => {
-        if (generationSessionId) {
-          selectSession(generationSessionId);
-        }
-        // Reset generation status to idle so it doesn't re-trigger
-        // on subsequent renders or interfere with manual session selection
-        resetGeneration();
-      });
-    }
-  }, [generationStatus, refreshSessions, generationSessionId, selectSession, resetGeneration]);
+  }, [activeIterationId, setRightSidebarOpen]);
 
-  // Switch to session view when a session is selected
-  useEffect(() => {
-    if (activeSessionId && activeSessionData) {
-      setMainView('session');
-    }
-  }, [activeSessionId, activeSessionData]);
+  // ── Iteration selection handler ──────────────────────────────────────────
+  const handleSelectIteration = useCallback(
+    (item: DrillDownItem<Iteration>) => {
+      selectIteration(item.id);
+    },
+    [selectIteration]
+  );
 
-  // Template selection handlers
-  const handleSelectTemplate = useCallback((template: TemplateInfo) => {
-    setSelectedTemplate(template);
-    setMainView('customizer');
+  // ── Navigation handlers ──────────────────────────────────────────────────
+  const handleSelectAsset = useCallback(
+    (item: DrillDownItem<Asset>) => {
+      navigateToAsset(item.id);
+    },
+    [navigateToAsset]
+  );
+
+  const handleSelectFrame = useCallback(
+    (item: DrillDownItem<Frame>) => {
+      navigateToFrame(item.id);
+    },
+    [navigateToFrame]
+  );
+
+  // ── Template creation flow ───────────────────────────────────────────────
+  const handleNewAsset = useCallback(() => {
+    setCreationFlow('gallery');
+    setSelectedTemplate(null);
   }, []);
 
-  const handleFreePrompt = useCallback(() => {
-    // Focus is in the sidebar prompt input -- just stay on gallery
-    // The user types in the sidebar and clicks Generate
+  const handleSelectTemplate = useCallback((template: TemplateMetadata) => {
+    setSelectedTemplate(template);
+    setCreationFlow('customizer');
+  }, []);
+
+  const handleCloseCreationFlow = useCallback(() => {
+    setCreationFlow(null);
+    setSelectedTemplate(null);
   }, []);
 
   const handleBackToGallery = useCallback(() => {
     setSelectedTemplate(null);
-    setMainView('gallery');
+    setCreationFlow('gallery');
   }, []);
 
-  // Status change: set status directly (no auto-reject of other variations)
-  const handleStatusChange = useCallback(
-    (variationPath: string, newStatus: VariationStatus) => {
-      setStatus(variationPath, newStatus);
+  // Called by TemplateCustomizer after successfully creating an asset
+  const handleAssetCreated = useCallback(
+    (campaignId: string) => {
+      handleCloseCreationFlow();
+      navigateToCampaign(campaignId);
     },
-    [setStatus]
+    [handleCloseCreationFlow, navigateToCampaign]
   );
 
-  const handlePinClick = useCallback(
-    (id: string) => {
-      setActivePin(activePin === id ? null : id);
-    },
-    [activePin, setActivePin]
-  );
+  // ── Derive active iteration object ──────────────────────────────────────
+  const activeIteration = activeIterationId
+    ? iterations.find((it) => it.id === activeIterationId) ?? null
+    : null;
 
-  // Determine current round number
-  const currentRound = activeSessionData?.lineage.rounds
-    ? Math.max(...activeSessionData.lineage.rounds.map((r) => r.roundNumber), 0)
-    : 0;
+  // ── DrillDownGrid renderPreview helpers ─────────────────────────────────
+  // For assets: no preview HTML at this level
+  const renderAssetPreview = (_item: DrillDownItem<Asset>): PreviewDescriptor | null => null;
 
-  return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      backgroundColor: '#1a1a2e',
-      color: '#e0e0e0',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    }}>
-      {/* Top bar spanning full width */}
-      <header style={{
-        padding: '0.75rem 1.5rem',
-        borderBottom: '1px solid #2a2a3e',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-        minHeight: 48,
-        flexShrink: 0,
-      }}>
-        <h1 style={{
-          margin: 0,
-          fontSize: '1rem',
-          fontWeight: 600,
-          color: '#fff',
+  // For frames: no preview HTML at frame level either
+  const renderFramePreview = (_item: DrillDownItem<Frame>): PreviewDescriptor | null => null;
+
+  // For iterations: the iteration has htmlPath; we can serve via API
+  // The DrillDownGrid shows a placeholder when no preview returned
+  const renderIterationPreview = (_item: DrillDownItem<Iteration>): PreviewDescriptor | null => null;
+
+  // ── Map store data to DrillDownItem arrays ───────────────────────────────
+  const assetItems: DrillDownItem<Asset>[] = assets.map((a) => ({
+    id: a.id,
+    title: a.title,
+    subtitle: a.assetType,
+    data: a,
+  }));
+
+  const frameItems: DrillDownItem<Frame>[] = frames.map((f) => ({
+    id: f.id,
+    title: `Frame ${f.frameIndex + 1}`,
+    data: f,
+  }));
+
+  const iterationItems: DrillDownItem<Iteration>[] = iterations.map((it) => ({
+    id: it.id,
+    title: `Iteration ${it.iterationIndex + 1}`,
+    subtitle: it.source === 'template' ? `Template: ${it.templateId ?? ''}` : 'AI Generated',
+    data: it,
+  }));
+
+  // ── Main content area (switches based on currentView) ───────────────────
+  const renderMainContent = () => {
+    if (loading && currentView !== 'dashboard') {
+      return (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          color: '#555',
+          fontSize: '0.9rem',
+          gap: '0.75rem',
         }}>
-          Fluid Design OS
-        </h1>
-        {activeSessionData && (
-          <span style={{ fontSize: '0.8rem', color: '#666' }}>
-            {activeSessionData.id}
-          </span>
-        )}
-        <div style={{ flex: 1 }} />
-        {mainView === 'session' && activeSessionData && (
-          <button
-            onClick={() => { setMainView('gallery'); }}
-            style={{
-              background: 'none',
-              border: '1px solid #333',
-              borderRadius: 4,
-              color: '#888',
-              padding: '4px 10px',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-            }}
-          >
-            Templates
-          </button>
-        )}
-        {activeSessionData && (
-          <button
-            onClick={() => setShowNotes(!showNotes)}
-            style={{
-              background: showNotes ? '#3b82f622' : 'none',
-              border: '1px solid #333',
-              borderRadius: 4,
-              color: showNotes ? '#3b82f6' : '#888',
-              padding: '4px 10px',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-            }}
-          >
-            Notes {sidebarNotes.length > 0 && `(${sidebarNotes.length})`}
-          </button>
-        )}
-      </header>
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%',
+            border: '2px solid #2a2a3e', borderTopColor: '#3b82f6',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          Loading...
+        </div>
+      );
+    }
 
-      {/* Main layout: PromptSidebar | Main Pane | Right sidebar */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left sidebar: prompt + stream + sessions */}
-        <PromptSidebar />
+    switch (currentView) {
+      case 'dashboard':
+        return <CampaignDashboard />;
 
-        {/* Main pane with view routing */}
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Gallery view */}
-          {mainView === 'gallery' && (
-            <TemplateGallery
-              onSelectTemplate={handleSelectTemplate}
-              onFreePrompt={handleFreePrompt}
-            />
-          )}
-
-          {/* Customizer view */}
-          {mainView === 'customizer' && selectedTemplate && (
-            <TemplateCustomizer
-              template={selectedTemplate}
-              onBack={handleBackToGallery}
-            />
-          )}
-
-          {/* Session view */}
-          {mainView === 'session' && (
-            <ErrorBoundary>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {loading && (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
-                      Loading session...
-                    </div>
-                  )}
-
-                  {!loading && generationStatus === 'generating' && (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '100%',
-                      color: '#555',
-                      fontSize: '0.95rem',
-                      gap: '1rem',
-                    }}>
-                      <div style={{
-                        width: 40, height: 40, borderRadius: '50%',
-                        border: '3px solid #333', borderTopColor: '#3b82f6',
-                        animation: 'spin 1s linear infinite',
-                      }} />
-                      <div style={{ color: '#888' }}>
-                        {generationSessionId && generationSessionId === activeSessionId
-                          ? 'Iterating on your asset...'
-                          : 'Generating your asset...'}
-                      </div>
-                      <div style={{ color: '#555', fontSize: '0.8rem' }}>
-                        Watch the sidebar for progress
-                      </div>
-                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                    </div>
-                  )}
-
-                  {!loading && generationStatus !== 'generating' && !activeSessionData && (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '100%',
-                      color: '#555',
-                      fontSize: '0.95rem',
-                    }}>
-                      Select a session to view variations
-                    </div>
-                  )}
-
-                  {!loading && generationStatus !== 'generating' && activeSessionData && (
-                    <VariationGrid
-                      variations={activeSessionData.variations}
-                      platform={activeSessionData.lineage.platform}
-                      statuses={statuses}
-                      annotations={annotations}
-                      activePin={activePin}
-                      onPinClick={handlePinClick}
-                      onAddPin={addPin}
-                      onReply={addReply}
-                      onStatusChange={handleStatusChange}
-                    />
-                  )}
+      case 'campaign':
+        return (
+          <DrillDownGrid
+            items={assetItems}
+            renderPreview={renderAssetPreview}
+            onSelect={handleSelectAsset}
+            title="Assets"
+            emptyState={
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', height: '100%', minHeight: 300,
+                gap: '1rem', color: '#444',
+              }}>
+                <div style={{ fontSize: '0.9rem' }}>No assets yet</div>
+                <div style={{ fontSize: '0.8rem', color: '#333' }}>
+                  Click &quot;New Asset&quot; to create one
                 </div>
               </div>
-            </ErrorBoundary>
-          )}
-        </main>
+            }
+          />
+        );
 
-        {/* Right sidebar: Timeline + Notes (only when session active and not generating) */}
-        {mainView === 'session' && !loading && generationStatus !== 'generating' && activeSessionData && (
-          <ErrorBoundary>
-            <div style={{
-              width: showNotes ? 560 : 280,
-              display: 'flex',
-              borderLeft: '1px solid #2a2a3e',
-              flexShrink: 0,
-            }}>
-              <div style={{ width: 280, overflow: 'hidden' }}>
-                <Timeline
-                  lineage={activeSessionData.lineage}
-                  statuses={statuses}
-                />
+      case 'asset':
+        return (
+          <DrillDownGrid
+            items={frameItems}
+            renderPreview={renderFramePreview}
+            onSelect={handleSelectFrame}
+            title="Frames"
+          />
+        );
+
+      case 'frame':
+        return (
+          <DrillDownGrid
+            items={iterationItems}
+            renderPreview={renderIterationPreview}
+            onSelect={handleSelectIteration}
+            title="Iterations"
+            emptyState={
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', height: '100%', minHeight: 300,
+                gap: '0.75rem', color: '#444',
+              }}>
+                <div style={{ fontSize: '0.9rem' }}>No iterations yet</div>
+                <div style={{ fontSize: '0.8rem', color: '#333' }}>
+                  Iterations appear here once generated
+                </div>
               </div>
-              {showNotes && (
-                <SidebarNotes
-                  notes={sidebarNotes}
-                  variations={activeSessionData.variations}
-                  onAddNote={addNote}
-                  onClose={() => setShowNotes(false)}
-                />
-              )}
+            }
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <ErrorBoundary>
+      <AppShell
+        leftSidebar={<PromptSidebar />}
+        rightSidebar={
+          <ContentEditor
+            iteration={activeIteration}
+            iframeEl={iframeRef.current}
+          />
+        }
+        onNewAsset={activeCampaignId ? handleNewAsset : undefined}
+      >
+        {renderMainContent()}
+      </AppShell>
+
+      {/* Template creation flow — modal overlay */}
+      {creationFlow !== null && (
+        <TemplateCreationModal
+          flow={creationFlow}
+          selectedTemplate={selectedTemplate}
+          activeCampaignId={activeCampaignId}
+          onSelectTemplate={handleSelectTemplate}
+          onBack={handleBackToGallery}
+          onClose={handleCloseCreationFlow}
+          onAssetCreated={handleAssetCreated}
+        />
+      )}
+    </ErrorBoundary>
+  );
+}
+
+// ─── Template Creation Modal ─────────────────────────────────────────────────
+
+interface TemplateCreationModalProps {
+  flow: 'gallery' | 'customizer';
+  selectedTemplate: TemplateMetadata | null;
+  activeCampaignId: string | null;
+  onSelectTemplate: (t: TemplateMetadata) => void;
+  onBack: () => void;
+  onClose: () => void;
+  onAssetCreated: (campaignId: string) => void;
+}
+
+function TemplateCreationModal({
+  flow,
+  selectedTemplate,
+  activeCampaignId,
+  onSelectTemplate,
+  onBack,
+  onClose,
+  onAssetCreated,
+}: TemplateCreationModalProps) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 200,
+      }}
+    >
+      {/* Dialog panel */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: flow === 'gallery' ? '75vw' : '85vw',
+          maxWidth: flow === 'gallery' ? 900 : 1100,
+          maxHeight: '85vh',
+          backgroundColor: '#0f0f1a',
+          border: '1px solid #2a2a3e',
+          borderRadius: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 16px 64px rgba(0,0,0,0.8)',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '1rem 1.5rem',
+          borderBottom: '1px solid #1e1e30',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#fff' }}>
+            {flow === 'gallery' ? 'Choose a Template' : 'Customize Template'}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#555',
+              cursor: 'pointer',
+              fontSize: '1.25rem',
+              lineHeight: 1,
+              padding: '0 4px',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Modal body */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {flow === 'gallery' && (
+            <TemplateGallery
+              onSelectTemplate={onSelectTemplate}
+              mode="modal"
+            />
+          )}
+          {flow === 'customizer' && selectedTemplate && activeCampaignId && (
+            <TemplateCustomizer
+              template={selectedTemplate}
+              campaignId={activeCampaignId}
+              onBack={onBack}
+              onCreated={onAssetCreated}
+            />
+          )}
+          {flow === 'customizer' && !activeCampaignId && (
+            <div style={{ padding: '2rem', color: '#555', textAlign: 'center' }}>
+              No campaign selected. Please navigate to a campaign first.
             </div>
-          </ErrorBoundary>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

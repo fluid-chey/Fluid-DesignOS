@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-04-PLAN.md
-last_updated: "2026-03-12T17:08:54.651Z"
+stopped_at: Completed 07-05-PLAN.md
+last_updated: "2026-03-12T17:12:00.927Z"
 last_activity: 2026-03-11 -- Completed 04.1-02 session-aware prompt sidebar with iterate mode
 progress:
   total_phases: 11
   completed_phases: 7
   total_plans: 33
-  completed_plans: 27
+  completed_plans: 28
   percent: 73
 ---
 
@@ -70,6 +70,7 @@ Progress: [███████░░░] 73% (Overall: 19/26 plans)
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P03 | 4min | 2 tasks | 6 files |
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P02 | 5min | 1 tasks | 3 files |
 | Phase 07-merge-jonathan-s-codebase-into-fluid-designos P04 | 4min | 2 tasks | 8 files |
+| Phase 07-merge-jonathan-s-codebase-into-fluid-designos P05 | 7min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -160,6 +161,9 @@ Recent decisions affecting current work:
 - [Phase 07-04]: iframeRef stored in Zustand store so all components share one reference without prop drilling
 - [Phase 07-04]: BrushTransform uses numeric inputs matching Jonathan's sidebar controls; direct drag handled by iframe-side script
 - [Phase 07-04]: ExportActions uses global pendingCaptures map with 30s timeout for postMessage capture round-trips
+- [Phase 07-05]: MCP tools call Vite HTTP API in production; tests bypass HTTP via db-api direct calls with FLUID_DB_PATH isolation
+- [Phase 07-05]: Template configs locked as Record<string, SlotSchema>; 8 templates ported faithfully from Jonathan's editor.js with brush config and gallery metadata
+- [Phase 07-05]: Legacy sessionId/variationId MCP params detected and rejected with descriptive deprecation error pointing to V2 campaign params
 
 ### Pending Todos
 
@@ -181,6 +185,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T17:08:54.649Z
-Stopped at: Completed 07-04-PLAN.md
+Last session: 2026-03-12T17:12:00.925Z
+Stopped at: Completed 07-05-PLAN.md
 Resume file: None
