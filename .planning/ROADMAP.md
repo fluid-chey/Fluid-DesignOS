@@ -21,6 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4.3: Install Process Safety** - Ensure sync.sh never wipes non-Fluid commands (GSD, plugins, etc.)
 - [ ] **Phase 6: Marketing Skills Integration** - Deep integration of 30 marketing domain skills into subagent system
 - [x] **Phase 7: Merge Jonathan's Codebase** - Rebuild Jonathan's content creation tool inside Chey's React/Vite/Zustand canvas app (completed 2026-03-12)
+- [ ] **Phase 8: AI Sidebar to Campaign Dashboard End-to-End** - Bridge sidebar generation to campaign dashboard with multi-asset creation, preview rendering, canonical paths
 
 ## Phase Details
 
@@ -186,22 +187,41 @@ Plans:
 **Plans**: 7 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Wave 0: SQLite schema, TypeScript types, slot schema port, database API
-- [ ] 07-02-PLAN.md — Teammate A: Vite middleware API endpoints for campaign hierarchy
-- [ ] 07-03-PLAN.md — Teammate B: Navigation UI (dashboard, drill-down, breadcrumbs, app shell)
-- [ ] 07-04-PLAN.md — Teammate C: Content editor right sidebar (slot fields, photo, brush, carousel, export)
-- [ ] 07-05-PLAN.md — Teammate D: MCP tool rewiring + template config port
-- [ ] 07-06-PLAN.md — Wave 2: Integration wiring (App.tsx, template flow, file watcher)
-- [ ] 07-07-PLAN.md — Wave 3: Campaign orchestrator skill, DAM integration, 5-slot channel UI
+- [x] 07-01-PLAN.md — Wave 0: SQLite schema, TypeScript types, slot schema port, database API
+- [x] 07-02-PLAN.md — Teammate A: Vite middleware API endpoints for campaign hierarchy
+- [x] 07-03-PLAN.md — Teammate B: Navigation UI (dashboard, drill-down, breadcrumbs, app shell)
+- [x] 07-04-PLAN.md — Teammate C: Content editor right sidebar (slot fields, photo, brush, carousel, export)
+- [x] 07-05-PLAN.md — Teammate D: MCP tool rewiring + template config port
+- [x] 07-06-PLAN.md — Wave 2: Integration wiring (App.tsx, template flow, file watcher)
+- [x] 07-07-PLAN.md — Wave 3: Campaign orchestrator skill, DAM integration, 5-slot channel UI
+
+### Phase 8: AI Sidebar to Campaign Dashboard End-to-End
+**Goal**: A prompt in the AI sidebar creates a multi-asset campaign in SQLite with canonical HTML paths, spawns parallel subagents for each asset, and the campaign dashboard shows iframe previews at every navigation level — bridging the final gap between generation and visualization
+**Depends on**: Phase 7
+**Requirements**: E2E-01, E2E-02, E2E-03, E2E-04, E2E-05, E2E-06, E2E-07
+**Success Criteria** (what must be TRUE):
+  1. Typing a prompt in the sidebar creates a Campaign with 7 Assets (3 Instagram + 3 LinkedIn + 1 one-pager) by default, with channel hints in the prompt narrowing the set
+  2. Server pre-creates all records BEFORE spawning agents; generated HTML lands at .fluid/campaigns/{cId}/{aId}/{fId}/{iterId}.html
+  3. Campaign dashboard cards show 2x2 mosaic iframe previews; asset and frame cards show full iframe previews
+  4. Sidebar detects campaign context and offers "Add to existing campaign" mode
+  5. Auto-navigate to campaign view on generation completion
+  6. Per-asset status badges show pending/generating/complete
+**Plans**: 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Schema migration (generationStatus), type updates, db-api helpers
+- [ ] 08-02-PLAN.md — /api/generate multi-asset refactor, parallel subagent spawning, canonical paths, new API endpoints
+- [ ] 08-03-PLAN.md — Iframe previews at all levels, campaign mosaic, sidebar campaign integration
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 4.3 > 5 > 6 > 7
+Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 4.3 > 5 > 6 > 7 > 8
 (Phase 4 depends on Phase 2, not Phase 3 -- Phases 3 and 4 could run in parallel)
 (Phase 4.3 has no dependency on 4.2 -- can run in parallel)
 (Phase 6 depends on Phase 2 -- can run in parallel with Phases 3-5)
 (Phase 7 depends on Phase 6)
+(Phase 8 depends on Phase 7)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -215,3 +235,14 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 4.3 > 5 > 6 > 7
 | 5. Learning Loop | 2/2 | Complete   | 2026-03-11 |
 | 6. Marketing Skills Integration | 1/2 | In Progress|  |
 | 7. Merge Jonathan's Codebase | 7/7 | Complete   | 2026-03-12 |
+| 8. AI Sidebar to Campaign Dashboard E2E | 0/3 | Not Started |  |
+
+### Phase 9: Conversational chat UI — bottom input, message bubbles, auto-scroll
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 8
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 9 to break down)

@@ -129,6 +129,16 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **MRGR-16**: DAM integration UI elements merged from Jonathan's codebase (Fluid DAM indicator, Browse Assets button, file attachment flow)
 - [x] **MRGR-17**: 5 fixed option slots per channel matching Jonathan's UI design
 
+### End-to-End (AI Sidebar to Campaign Dashboard)
+
+- [ ] **E2E-01**: Server pre-creates Campaign + Assets + Frames + Iterations in SQLite BEFORE spawning any agent, using canonical path .fluid/campaigns/{cId}/{aId}/{fId}/{iterId}.html
+- [ ] **E2E-02**: Iteration records have a generationStatus field ('pending'/'generating'/'complete') separate from user review status ('winner'/'rejected'/'final'/'unmarked')
+- [ ] **E2E-03**: Default campaign creates 7 assets (3 Instagram + 3 LinkedIn + 1 one-pager) from a single prompt, overridable by channel hints in the prompt
+- [ ] **E2E-04**: Multiple subagents spawn in parallel (one per asset) without lock collision, with campaign-level lock preventing concurrent full-campaign generations
+- [ ] **E2E-05**: Iframe previews at every navigation level — campaign cards show 2x2 mosaic, asset cards show full iframe, frame cards show full iframe
+- [ ] **E2E-06**: Sidebar detects campaign view context and offers "Add to existing campaign" mode, sending existingCampaignId in generate request
+- [ ] **E2E-07**: Auto-navigate to campaign view on generation completion, triggered by SSE done event (not timeout)
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -235,29 +245,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ASSET-04 | Phase 4.2 | Planned |
 | SAFE-01 | Phase 4.3 | Planned |
 | SAFE-02 | Phase 4.3 | Planned |
-| MRGR-01 | Phase 7 | Planned (07-01) |
-| MRGR-02 | Phase 7 | Planned (07-01) |
-| MRGR-03 | Phase 7 | Planned (07-01) |
-| MRGR-04 | Phase 7 | Planned (07-02, 07-05) |
-| MRGR-05 | Phase 7 | Planned (07-03, 07-06) |
-| MRGR-06 | Phase 7 | Planned (07-03, 07-06) |
-| MRGR-07 | Phase 7 | Planned (07-03) |
-| MRGR-08 | Phase 7 | Planned (07-04, 07-06) |
-| MRGR-09 | Phase 7 | Planned (07-04) |
-| MRGR-10 | Phase 7 | Planned (07-04) |
-| MRGR-11 | Phase 7 | Planned (07-04) |
-| MRGR-12 | Phase 7 | Planned (07-05) |
-| MRGR-13 | Phase 7 | Planned (07-05) |
-| MRGR-14 | Phase 7 | Planned (07-03, 07-06) |
-| MRGR-15 | Phase 7 | Planned (07-07) |
-| MRGR-16 | Phase 7 | Planned (07-07) |
-| MRGR-17 | Phase 7 | Planned (07-07) |
+| MRGR-01 | Phase 7 | Complete (07-01) |
+| MRGR-02 | Phase 7 | Complete (07-01) |
+| MRGR-03 | Phase 7 | Complete (07-01) |
+| MRGR-04 | Phase 7 | Complete (07-02, 07-05) |
+| MRGR-05 | Phase 7 | Complete (07-03, 07-06) |
+| MRGR-06 | Phase 7 | Complete (07-03, 07-06) |
+| MRGR-07 | Phase 7 | Complete (07-03) |
+| MRGR-08 | Phase 7 | Complete (07-04, 07-06) |
+| MRGR-09 | Phase 7 | Complete (07-04) |
+| MRGR-10 | Phase 7 | Complete (07-04) |
+| MRGR-11 | Phase 7 | Complete (07-04) |
+| MRGR-12 | Phase 7 | Complete (07-05) |
+| MRGR-13 | Phase 7 | Complete (07-05) |
+| MRGR-14 | Phase 7 | Complete (07-03, 07-06) |
+| MRGR-15 | Phase 7 | Complete (07-07) |
+| MRGR-16 | Phase 7 | Complete (07-07) |
+| MRGR-17 | Phase 7 | Complete (07-07) |
+| E2E-01 | Phase 8 | Planned (08-01, 08-02) |
+| E2E-02 | Phase 8 | Planned (08-01) |
+| E2E-03 | Phase 8 | Planned (08-02, 08-03) |
+| E2E-04 | Phase 8 | Planned (08-02, 08-03) |
+| E2E-05 | Phase 8 | Planned (08-01, 08-03) |
+| E2E-06 | Phase 8 | Planned (08-02, 08-03) |
+| E2E-07 | Phase 8 | Planned (08-03) |
 
 **Coverage:**
-- v1 requirements: 80 total
-- Mapped to phases: 80
+- v1 requirements: 87 total
+- Mapped to phases: 87
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-12 after Phase 7 (Merger) requirement definition*
+*Last updated: 2026-03-12 after Phase 8 (End-to-End) requirement definition*
