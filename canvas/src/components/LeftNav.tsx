@@ -7,12 +7,24 @@ interface NavItem {
   icon: () => ReactElement;
 }
 
-function CreateIcon() {
+function PlusIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function MasonryGridIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
     </svg>
   );
 }
@@ -60,7 +72,8 @@ function ChatBubbleIcon() {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { tab: 'create', label: 'Create', icon: CreateIcon },
+  { tab: 'create', label: 'Create', icon: PlusIcon },
+  { tab: 'my-creations', label: 'My Creations', icon: MasonryGridIcon },
   { tab: 'templates', label: 'Templates', icon: TemplatesIcon },
   { tab: 'patterns', label: 'Patterns', icon: PatternsIcon },
   { tab: 'voice-guide', label: 'Voice Guide', icon: VoiceGuideIcon },
