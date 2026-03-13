@@ -174,11 +174,9 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
           return next();
         }
         try {
+          // Home/index: let Vite serve the app at /
           if (pathname === '/') {
-            const html = await fs.readFile(path.join(templatesDir, 'index.html'), 'utf-8');
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(html);
-            return;
+            return next();
           }
           if (pathname === '/editor' || pathname.startsWith('/editor?')) {
             const html = await fs.readFile(path.join(templatesDir, 'editor.html'), 'utf-8');
@@ -423,7 +421,7 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
       <a class="back" href="/">← Back to library</a>
     </div>
     <div class="right">
-      <a href="/app/">Create new asset</a>
+      <a href="/">Create new asset</a>
       <a href="/" id="preview-dl">Download</a>
       <a href="#" id="preview-share">Share link</a>
     </div>
