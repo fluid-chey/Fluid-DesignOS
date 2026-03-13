@@ -27,7 +27,7 @@ interface AppShellProps {
    * Called when the user triggers a "New Asset" flow.
    * Only shown in Campaigns viewport header when provided.
    */
-  onNewAsset?: () => void;
+  onNewCreation?: () => void;
 
 }
 
@@ -58,14 +58,14 @@ function ChevronIcon({ direction }: { direction: 'left' | 'right' }) {
   );
 }
 
-export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: AppShellProps) {
+export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }: AppShellProps) {
   const activeNavTab = useCampaignStore((s) => s.activeNavTab);
   const rightSidebarOpen = useCampaignStore((s) => s.rightSidebarOpen);
   const toggleRightSidebar = useCampaignStore((s) => s.toggleRightSidebar);
 
   const renderViewport = () => {
     switch (activeNavTab) {
-      case 'campaigns':
+      case 'create':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             {/* Campaigns viewport header */}
@@ -83,11 +83,11 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <Breadcrumb />
               </div>
-              {/* New Asset button */}
-              {onNewAsset && (
+              {/* New Creation button */}
+              {onNewCreation && (
                 <button
-                  onClick={onNewAsset}
-                  title="New asset"
+                  onClick={onNewCreation}
+                  title="New creation"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -113,7 +113,7 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewAsset }: Ap
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  New Asset
+                  New Creation
                 </button>
               )}
             </div>

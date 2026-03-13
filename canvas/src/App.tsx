@@ -10,9 +10,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useCampaignStore } from './store/campaign';
 import { useEditorStore } from './store/editor';
 import { useFileWatcher } from './hooks/useFileWatcher';
-import type { Asset, Frame, Iteration } from './lib/campaign-types';
+import type { Creation, Slide, Iteration } from './lib/campaign-types';
 import { TEMPLATE_METADATA, type TemplateMetadata } from './lib/template-configs';
-import { buildAssetPreview, buildFramePreview } from './lib/preview-utils';
+import { buildCreationPreview, buildSlidePreview } from './lib/preview-utils';
 // Note: iteration previews always try the API — the server handles path resolution with multiple fallback strategies
 import { StatusBadge } from './components/StatusBadge';
 
@@ -21,17 +21,17 @@ type CreationFlow = null | 'gallery' | 'customizer';
 export function App() {
   const currentView = useCampaignStore((s) => s.currentView);
   const activeCampaignId = useCampaignStore((s) => s.activeCampaignId);
-  const activeAssetId = useCampaignStore((s) => s.activeAssetId);
-  const activeFrameId = useCampaignStore((s) => s.activeFrameId);
+  const activeCreationId = useCampaignStore((s) => s.activeCreationId);
+  const activeSlideId = useCampaignStore((s) => s.activeSlideId);
   const activeIterationId = useCampaignStore((s) => s.activeIterationId);
-  const assets = useCampaignStore((s) => s.assets);
-  const frames = useCampaignStore((s) => s.frames);
+  const creations = useCampaignStore((s) => s.creations);
+  const slides = useCampaignStore((s) => s.slides);
   const iterations = useCampaignStore((s) => s.iterations);
-  const latestIterationByAssetId = useCampaignStore((s) => s.latestIterationByAssetId);
+  const latestIterationByCreationId = useCampaignStore((s) => s.latestIterationByCreationId);
   const loading = useCampaignStore((s) => s.loading);
   const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
-  const navigateToAsset = useCampaignStore((s) => s.navigateToAsset);
-  const navigateToFrame = useCampaignStore((s) => s.navigateToFrame);
+  const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
+  const navigateToSlide = useCampaignStore((s) => s.navigateToSlide);
   const selectIteration = useCampaignStore((s) => s.selectIteration);
   const setRightSidebarOpen = useCampaignStore((s) => s.setRightSidebarOpen);
   const fetchCampaigns = useCampaignStore((s) => s.fetchCampaigns);
@@ -76,22 +76,22 @@ export function App() {
   );
 
   // ── Navigation handlers ──────────────────────────────────────────────────
-  const handleSelectAsset = useCallback(
-    (item: DrillDownItem<Asset>) => {
-      navigateToAsset(item.id);
+  const handleSelectCreation = useCallback(
+    (item: DrillDownItem<Creation>) => {
+      navigateToCreation(item.id);
     },
-    [navigateToAsset]
+    [navigateToCreation]
   );
 
-  const handleSelectFrame = useCallback(
-    (item: DrillDownItem<Frame>) => {
-      navigateToFrame(item.id);
+  const handleSelectSlide = useCallback(
+    (item: DrillDownItem<Slide>) => {
+      navigateToSlide(item.id);
     },
-    [navigateToFrame]
+    [navigateToSlide]
   );
 
   // ── Template creation flow ───────────────────────────────────────────────
-  const handleNewAsset = useCallback(() => {
+  const handleNewCreation = useCallback(() => {
     setCreationFlow('gallery');
     setSelectedTemplate(null);
   }, []);
@@ -111,8 +111,8 @@ export function App() {
     setCreationFlow('gallery');
   }, []);
 
-  // Called by TemplateCustomizer after successfully creating an asset
-  const handleAssetCreated = useCallback(
+  // Called by TemplateCustomizer after successfully creating a creation
+  const handleCreationCreated = useCallback(
     (campaignId: string) => {
       handleCloseCreationFlow();
       navigateToCampaign(campaignId);
@@ -126,15 +126,15 @@ export function App() {
     : null;
 
   // ── DrillDownGrid renderPreview helpers ─────────────────────────────────
-  // For assets: show iframe preview when a complete iteration exists, else metadata fallback
-  const renderAssetPreview = (item: DrillDownItem<Asset>): PreviewDescriptor | null =>
-    buildAssetPreview(item.data, latestIterationByAssetId[item.id]) as PreviewDescriptor;
+  // For creations: show iframe preview when a complete iteration exists, else metadata fallback
+  const renderCreationPreview = (item: DrillDownItem<Creation>): PreviewDescriptor | null =>
+    buildCreationPreview(item.data, latestIterationByCreationId[item.id]) as PreviewDescriptor;
 
-  // For frames: show iframe preview for latest complete iteration, else metadata fallback
-  const renderFramePreview = (item: DrillDownItem<Frame>): PreviewDescriptor | null => {
-    const frameIterations = iterations.filter((i) => i.frameId === item.id);
-    const parentAsset = assets.find((a) => a.id === item.data.assetId);
-    return buildFramePreview(item.data, frameIterations, parentAsset) as PreviewDescriptor;
+  // For slides: show iframe preview for latest complete iteration, else metadata fallback
+  const renderSlidePreview = (item: DrillDownItem<Slide>): PreviewDescriptor | null => {
+    const slideIterations = iterations.filter((i) => i.slideId === item.id);
+    const parentCreation = creations.find((a) => a.id === item.data.creationId);
+    return buildSlidePreview(item.data, slideIterations, parentCreation) as PreviewDescriptor;
   };
 
   // For iterations: serve the actual HTML via the API endpoint
@@ -152,25 +152,25 @@ export function App() {
   };
 
   // ── Map store data to DrillDownItem arrays ───────────────────────────────
-  const assetItems: DrillDownItem<Asset>[] = assets.map((a) => {
-    const latestIter = latestIterationByAssetId[a.id];
+  const creationItems: DrillDownItem<Creation>[] = creations.map((a) => {
+    const latestIter = latestIterationByCreationId[a.id];
     const genStatus = latestIter?.generationStatus;
     return {
       id: a.id,
       title: a.title,
       subtitle: genStatus ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-          <span>{a.assetType}</span>
+          <span>{a.creationType}</span>
           <StatusBadge status={genStatus} />
         </span>
-      ) : a.assetType,
+      ) : a.creationType,
       data: a,
     };
   });
 
-  const frameItems: DrillDownItem<Frame>[] = frames.map((f) => ({
+  const slideItems: DrillDownItem<Slide>[] = slides.map((f) => ({
     id: f.id,
-    title: `Frame ${f.frameIndex + 1}`,
+    title: `Slide ${f.slideIndex + 1}`,
     data: f,
   }));
 
@@ -212,36 +212,36 @@ export function App() {
       case 'campaign':
         return (
           <DrillDownGrid
-            items={assetItems}
-            renderPreview={renderAssetPreview}
-            onSelect={handleSelectAsset}
-            title="Assets"
+            items={creationItems}
+            renderPreview={renderCreationPreview}
+            onSelect={handleSelectCreation}
+            title="Creations"
             emptyState={
               <div style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', height: '100%', minHeight: 300,
                 gap: '1rem', color: '#444',
               }}>
-                <div style={{ fontSize: '0.9rem' }}>No assets yet</div>
+                <div style={{ fontSize: '0.9rem' }}>No creations yet</div>
                 <div style={{ fontSize: '0.8rem', color: '#333' }}>
-                  Click &quot;New Asset&quot; to create one
+                  Click &quot;New Creation&quot; to create one
                 </div>
               </div>
             }
           />
         );
 
-      case 'asset':
+      case 'creation':
         return (
           <DrillDownGrid
-            items={frameItems}
-            renderPreview={renderFramePreview}
-            onSelect={handleSelectFrame}
-            title="Frames"
+            items={slideItems}
+            renderPreview={renderSlidePreview}
+            onSelect={handleSelectSlide}
+            title="Slides"
           />
         );
 
-      case 'frame':
+      case 'slide':
         if (activeIterationId && activeIteration) {
           const tmpl = activeIteration.templateId
             ? TEMPLATE_METADATA.find((t) => t.templateId === activeIteration.templateId)
@@ -260,7 +260,7 @@ export function App() {
               }}>
                 <button
                   type="button"
-                  onClick={() => navigateToFrame(activeFrameId!)}
+                  onClick={() => navigateToSlide(activeSlideId!)}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -322,10 +322,10 @@ export function App() {
         rightSidebar={
           <ContentEditor
             iteration={activeIteration}
-            iframeEl={currentView === 'frame' && activeIterationId ? editIframeEl : iframeRef.current}
+            iframeEl={currentView === 'slide' && activeIterationId ? editIframeEl : iframeRef.current}
           />
         }
-        onNewAsset={activeCampaignId ? handleNewAsset : undefined}
+        onNewCreation={activeCampaignId ? handleNewCreation : undefined}
       >
         {renderMainContent()}
       </AppShell>
@@ -339,7 +339,7 @@ export function App() {
           onSelectTemplate={handleSelectTemplate}
           onBack={handleBackToGallery}
           onClose={handleCloseCreationFlow}
-          onAssetCreated={handleAssetCreated}
+          onCreationCreated={handleCreationCreated}
         />
       )}
     </ErrorBoundary>
@@ -355,7 +355,7 @@ interface TemplateCreationModalProps {
   onSelectTemplate: (t: TemplateMetadata) => void;
   onBack: () => void;
   onClose: () => void;
-  onAssetCreated: (campaignId: string) => void;
+  onCreationCreated: (campaignId: string) => void;
 }
 
 // ── Shared style constants ───────────────────────────────────────────────────
@@ -429,15 +429,15 @@ const SKILLS = [
   },
 ];
 
-// ── NEW ASSET tab ─────────────────────────────────────────────────────────────
-interface NewAssetTabProps {
+// ── NEW CREATION tab ─────────────────────────────────────────────────────────────
+interface NewCreationTabProps {
   selectedTemplate: TemplateMetadata | null;
   onSelectTemplate: (t: TemplateMetadata) => void;
   activeCampaignId: string | null;
-  onAssetCreated: (campaignId: string) => void;
+  onCreationCreated: (campaignId: string) => void;
 }
 
-function NewAssetTab({ selectedTemplate, onSelectTemplate, activeCampaignId, onAssetCreated }: NewAssetTabProps) {
+function NewCreationTab({ selectedTemplate, onSelectTemplate, activeCampaignId, onCreationCreated }: NewCreationTabProps) {
   // Local template selection for preview — only calls parent onSelectTemplate on "Generate"
   const [localTemplate, setLocalTemplate] = useState<TemplateMetadata | null>(selectedTemplate);
   const [selectedSkill, setSelectedSkill] = useState('ad-creative');
@@ -554,9 +554,9 @@ function NewAssetTab({ selectedTemplate, onSelectTemplate, activeCampaignId, onA
 
         {/* BRIEF section */}
         <section>
-          <label htmlFor="asset-brief" style={LABEL_STYLE}>Brief</label>
+          <label htmlFor="creation-brief" style={LABEL_STYLE}>Brief</label>
           <textarea
-            id="asset-brief"
+            id="creation-brief"
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
             placeholder="Describe what you want to create..."
@@ -1077,10 +1077,10 @@ function TemplateCreationModal({
   onSelectTemplate,
   onBack,
   onClose,
-  onAssetCreated,
+  onCreationCreated,
 }: TemplateCreationModalProps) {
-  // 'asset' = "+ NEW ASSET" tab, 'campaign' = "+ NEW CAMPAIGN" tab
-  const [activeTab, setActiveTab] = useState<'asset' | 'campaign'>('asset');
+  // 'creation' = "+ NEW CREATION" tab, 'campaign' = "+ NEW CAMPAIGN" tab
+  const [activeTab, setActiveTab] = useState<'creation' | 'campaign'>('creation');
 
   const tabStyle = (isActive: boolean): CSSProperties => ({
     background: 'none',
@@ -1140,12 +1140,12 @@ function TemplateCreationModal({
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button
-              style={tabStyle(activeTab === 'asset')}
-              onClick={() => setActiveTab('asset')}
-              onMouseEnter={(e) => { if (activeTab !== 'asset') e.currentTarget.style.color = '#aaa'; }}
-              onMouseLeave={(e) => { if (activeTab !== 'asset') e.currentTarget.style.color = '#555'; }}
+              style={tabStyle(activeTab === 'creation')}
+              onClick={() => setActiveTab('creation')}
+              onMouseEnter={(e) => { if (activeTab !== 'creation') e.currentTarget.style.color = '#aaa'; }}
+              onMouseLeave={(e) => { if (activeTab !== 'creation') e.currentTarget.style.color = '#555'; }}
             >
-              + New Asset
+              + New Creation
             </button>
             <button
               style={tabStyle(activeTab === 'campaign')}
@@ -1178,15 +1178,15 @@ function TemplateCreationModal({
 
         {/* ── Body ── */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-          {activeTab === 'asset' && (
+          {activeTab === 'creation' && (
             <>
               {/* When flow = 'gallery': show new design */}
               {flow === 'gallery' && (
-                <NewAssetTab
+                <NewCreationTab
                   selectedTemplate={selectedTemplate}
                   onSelectTemplate={onSelectTemplate}
                   activeCampaignId={activeCampaignId}
-                  onAssetCreated={onAssetCreated}
+                  onCreationCreated={onCreationCreated}
                 />
               )}
               {/* When flow = 'customizer': show the customizer inline */}
@@ -1196,7 +1196,7 @@ function TemplateCreationModal({
                     template={selectedTemplate}
                     campaignId={activeCampaignId}
                     onBack={onBack}
-                    onCreated={onAssetCreated}
+                    onCreated={onCreationCreated}
                   />
                 </div>
               )}
