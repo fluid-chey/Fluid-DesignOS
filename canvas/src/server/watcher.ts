@@ -241,6 +241,40 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
         }
       });
 
+      // Serve patterns library at /patterns/ and /patterns/index.html
+      const patternsDir = path.resolve(projectRoot, 'patterns');
+      srv.middlewares.use(async (req, res, next) => {
+        if (req.method !== 'GET' || !req.url) return next();
+        const pathname = req.url.split('?')[0];
+        if (!pathname.startsWith('/patterns/') && pathname !== '/patterns') return next();
+        try {
+          if (pathname === '/patterns' || pathname === '/patterns/') {
+            const html = await fs.readFile(path.join(patternsDir, 'index.html'), 'utf-8');
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(html);
+            return;
+          }
+          // Serve static files under /patterns/
+          const relative = pathname.replace(/^\/patterns\//, '');
+          const fullPath = path.resolve(patternsDir, relative);
+          if (!fullPath.startsWith(patternsDir + path.sep)) return next();
+          const stat = await fs.stat(fullPath);
+          if (!stat.isFile()) return next();
+          const data = await fs.readFile(fullPath);
+          const ext = path.extname(fullPath).toLowerCase();
+          const mime = ext === '.js' ? 'application/javascript'
+            : ext === '.css' ? 'text/css'
+            : ext === '.html' ? 'text/html; charset=utf-8'
+            : 'application/octet-stream';
+          res.writeHead(200, { 'Content-Type': mime });
+          res.end(data);
+          return;
+        } catch {
+          /* file not found */
+        }
+        next();
+      });
+
       // Full-size preview screen: /preview/templates/:name.html — top bar, decorative bg, iframe, bottom bar with prev/next
       const previewTemplateOrder = [
         't1-quote', 't2-app-highlight', 't3-partner-alert', 't4-fluid-ad',
