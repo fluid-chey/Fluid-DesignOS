@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-13T16:56:45.722Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-13T17:14:47.636Z"
 last_activity: "2026-03-13 -- PR #1 merged, chey-work branch cleaned up"
 progress:
   total_phases: 14
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 39
-  completed_plans: 36
+  completed_plans: 37
   percent: 94
 ---
 
@@ -76,6 +76,7 @@ Progress: [█████████░] 94% (Overall: 35/36 plans)
 | Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end P02 | 9 | 2 tasks | 3 files |
 | Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end P03 | 25 | 2 tasks | 8 files |
 | Phase 10 P01 | 7 | 3 tasks | 7 files |
+| Phase 10-top-level-tab-navigation-main-viewport-overhaul P02 | 20 | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -197,6 +198,7 @@ Recent decisions affecting current work:
 - [Phase 10]: Four-zone layout: LeftNav (52px) | ChatSidebar (0/280px) | Viewport | ContentEditor — header removed
 - [Phase 10]: chatSidebarOpen is canonical new name; leftSidebarOpen kept in sync for backward compat
 - [Phase 10]: Patterns /patterns/ middleware added in watcher.ts (Phase 10-01 deviation) — needed for patterns iframe to resolve
+- [Phase 10-top-level-tab-navigation-main-viewport-overhaul]: VoiceGuide uses Vite ?raw imports for markdown (zero runtime fetch); wired directly in AppShell not via prop; DOCS ordered company-identity first then product areas
 
 ### Parallel Development Note
 
@@ -225,6 +227,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T16:56:45.720Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-13T17:14:43.965Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
