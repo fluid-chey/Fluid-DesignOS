@@ -174,9 +174,11 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
           return next();
         }
         try {
-          // Home/index: let Vite serve the app at /
+          // Home/index: redirect to React app at /app/
           if (pathname === '/') {
-            return next();
+            res.writeHead(302, { Location: '/app/' });
+            res.end();
+            return;
           }
           if (pathname === '/editor' || pathname.startsWith('/editor?')) {
             const html = await fs.readFile(path.join(templatesDir, 'editor.html'), 'utf-8');

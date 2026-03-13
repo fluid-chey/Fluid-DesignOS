@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fluidWatcherPlugin } from './src/server/watcher';
 
 export default defineConfig({
-  base: '/',
+  base: '/app/',
   plugins: [
     react(),
     fluidWatcherPlugin('../.fluid/working'),
