@@ -3,6 +3,9 @@ import type { Campaign, Asset, Frame, Iteration } from '../lib/campaign-types';
 
 export type NavigationView = 'dashboard' | 'campaign' | 'asset' | 'frame';
 
+/** Top-level navigation tabs controlling the main viewport */
+export type NavTab = 'campaigns' | 'templates' | 'patterns' | 'voice-guide';
+
 interface CampaignStore {
   // Navigation state
   currentView: NavigationView;
@@ -22,6 +25,12 @@ interface CampaignStore {
 
   // Loading state
   loading: boolean;
+
+  // Top-level navigation tab
+  activeNavTab: NavTab;
+
+  // Chat sidebar state (canonical name; leftSidebarOpen kept for backward compat)
+  chatSidebarOpen: boolean;
 
   // Sidebar state
   leftSidebarOpen: boolean;
@@ -50,6 +59,10 @@ interface CampaignStore {
    */
   fetchLatestIterations: (campaignId: string) => Promise<void>;
 
+  // Nav tab actions
+  setActiveNavTab: (tab: NavTab) => void;
+  toggleChatSidebar: () => void;
+
   // Sidebar actions
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
@@ -72,6 +85,10 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   latestIterationByAssetId: {},
 
   loading: false,
+
+  // Top-level nav tab initial state
+  activeNavTab: 'campaigns',
+  chatSidebarOpen: true,
 
   // Sidebar initial state
   leftSidebarOpen: true,
@@ -283,10 +300,26 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     set({ latestIterationByAssetId: result });
   },
 
+  // ---- Nav tab actions ----
+
+  setActiveNavTab: (tab: NavTab) => {
+    set({ activeNavTab: tab });
+  },
+
+  toggleChatSidebar: () => {
+    set((state) => ({
+      chatSidebarOpen: !state.chatSidebarOpen,
+      leftSidebarOpen: !state.chatSidebarOpen,
+    }));
+  },
+
   // ---- Sidebar actions ----
 
   toggleLeftSidebar: () => {
-    set((state) => ({ leftSidebarOpen: !state.leftSidebarOpen }));
+    set((state) => ({
+      leftSidebarOpen: !state.leftSidebarOpen,
+      chatSidebarOpen: !state.leftSidebarOpen,
+    }));
   },
 
   toggleRightSidebar: () => {
