@@ -47,7 +47,7 @@ export function buildAssetPreview(
   asset: Asset,
   latestIter: Iteration | undefined
 ): PreviewDescriptorBasic {
-  if (isValidHtmlPath(latestIter?.htmlPath) && latestIter!.generationStatus === 'complete') {
+  if (latestIter && isValidHtmlPath(latestIter.htmlPath) && latestIter.generationStatus === 'complete') {
     const dims = getAssetDimensions(asset.assetType);
     return { src: `/api/iterations/${latestIter.id}/html`, ...dims };
   }
@@ -76,7 +76,7 @@ export function buildFramePreview(
         iter.iterationIndex > best.iterationIndex ? iter : best
       )
     : null;
-  if (isValidHtmlPath(latest?.htmlPath) && latest!.generationStatus === 'complete') {
+  if (latest && isValidHtmlPath(latest.htmlPath) && latest.generationStatus === 'complete') {
     const dims = getAssetDimensions(parentAsset?.assetType ?? 'instagram');
     return { src: `/api/iterations/${latest.id}/html`, ...dims };
   }
