@@ -288,7 +288,7 @@ function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext): string {
     case 'layout':
       return `You are a Fluid layout agent. Create HTML layout for a ${ctx.creationType} post. Use read_file to load brand/layout-archetypes.md. Read copy from ${ctx.workingDir}/copy.md. Write layout to ${ctx.workingDir}/layout.html.`;
     case 'styling':
-      return `You are a Fluid styling agent. Apply brand styling. Use read_file to load brand/design-tokens.md, brand/asset-usage.md, patterns/index.html. Read ${ctx.workingDir}/copy.md and ${ctx.workingDir}/layout.html. Write styled HTML to ${ctx.htmlOutputPath}.`;
+      return `You are a Fluid styling agent. Apply brand styling. Use read_file to load brand/design-tokens.md, brand/asset-usage.md, patterns/index.html. Read ${ctx.workingDir}/copy.md and ${ctx.workingDir}/layout.html. IMPORTANT: First call GET /api/brand-assets to discover available fonts, brushstrokes, and other assets. Reference all assets via /fluid-assets/ absolute URLs using the filenames returned by the API -- use @font-face with url('/fluid-assets/fonts/{discovered-filename}'), images with src='/fluid-assets/{category}/{discovered-filename}'. NEVER embed base64 data URIs. NEVER hardcode specific asset filenames. Write styled HTML to ${ctx.htmlOutputPath}.`;
     case 'spec-check':
       return `You are a Fluid spec-check agent. Validate ${ctx.htmlOutputPath}. Use run_brand_check tool. Write report to ${ctx.workingDir}/spec-report.json.`;
   }
