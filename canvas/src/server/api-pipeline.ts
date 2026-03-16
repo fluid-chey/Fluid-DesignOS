@@ -432,3 +432,238 @@ export function emitStageStatus(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Stage user prompt builders (private helpers)
+// ---------------------------------------------------------------------------
+
+function buildCopyPrompt(ctx: PipelineContext): string {
+  return [
+    `Generate Fluid brand copy for a ${ctx.creationType} marketing creation.`,
+    `Topic: ${ctx.prompt}`,
+    ``,
+    `Use read_file to load brand docs (brand/voice-rules.md, brand/social-post-specs.md).`,
+    `Write structured copy (headline, subtext, accent color, archetype selection) to ${ctx.workingDir}/copy.md.`,
+  ].join('\n');
+}
+
+function buildLayoutPrompt(ctx: PipelineContext): string {
+  return [
+    `Create structural HTML layout for a Fluid ${ctx.creationType} post.`,
+    `Read copy from ${ctx.workingDir}/copy.md.`,
+    `Use read_file to load brand/layout-archetypes.md for archetype guidance.`,
+    `Write layout HTML to ${ctx.workingDir}/layout.html.`,
+  ].join('\n');
+}
+
+function buildStylingPrompt(ctx: PipelineContext): string {
+  return [
+    `Apply Fluid brand styling to create a complete HTML output.`,
+    `Read copy from ${ctx.workingDir}/copy.md and layout from ${ctx.workingDir}/layout.html.`,
+    `Use read_file to load brand/design-tokens.md, brand/asset-usage.md, patterns/index.html.`,
+    `Write complete self-contained HTML (all CSS inline) to ${ctx.htmlOutputPath}.`,
+  ].join('\n');
+}
+
+function buildSpecCheckPrompt(ctx: PipelineContext): string {
+  return [
+    `Validate the HTML at ${ctx.htmlOutputPath} against Fluid brand specs.`,
+    `Use run_brand_check tool on that file.`,
+    `Write a JSON report to ${ctx.workingDir}/spec-report.json with format:`,
+    `{ "overall": "pass" | "fail", "blocking_issues": [{ "description": "...", "severity": "...", "fix_target": "copy" | "layout" | "styling" }] }`,
+    `Use empty blocking_issues array when overall is "pass".`,
+  ].join('\n');
+}
+
+function buildFixPrompt(target: FixTarget, issues: Array<{ description: string; severity: string; fix_target: string }>, ctx: PipelineContext): string {
+  return [
+    `FIX: You are the Fluid ${target} agent. Re-read and fix the following issues in your domain.`,
+    `Issues: ${JSON.stringify(issues, null, 2)}`,
+    ``,
+    `Read the relevant files in ${ctx.workingDir}/ and fix only the issues listed above.`,
+    `Rewrite the relevant file with the fixes applied.`,
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Core agentic loop: runStageWithTools
+// ---------------------------------------------------------------------------
+
+/**
+ * Run a single pipeline stage via the Anthropic API with full agentic tool loop.
+ * Emits SSE events for text and tool use as they occur.
+ */
+export async function runStageWithTools(
+  stage: PipelineStage,
+  userPrompt: string,
+  ctx: PipelineContext,
+  res: ServerResponse,
+): Promise<StageResult> {
+  const systemPrompt = await loadStagePrompt(stage, ctx);
+  const model = STAGE_MODELS[stage];
+  const tools = STAGE_TOOLS[stage];
+
+  const messages: Anthropic.MessageParam[] = [{ role: 'user', content: userPrompt }];
+
+  emitStageStatus(res, ctx.creationId, stage, 'starting');
+
+  let accumulatedText = '';
+  let toolCallCount = 0;
+  const MAX_ITERATIONS = 20;
+
+  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    const response = await anthropic.messages.create({
+      model,
+      system: systemPrompt,
+      max_tokens: 8192,
+      tools,
+      messages,
+    });
+
+    // Process content blocks
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        accumulatedText += block.text;
+        emitText(res, ctx.creationId, block.text);
+      } else if (block.type === 'tool_use') {
+        emitToolStart(res, ctx.creationId, block.name);
+      }
+    }
+
+    if (response.stop_reason === 'end_turn') {
+      break;
+    }
+
+    if (response.stop_reason === 'max_tokens') {
+      emitStageStatus(res, ctx.creationId, stage, 'max-tokens-reached');
+      break;
+    }
+
+    if (response.stop_reason === 'tool_use') {
+      // Execute tools and collect results
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+      for (const block of response.content) {
+        if (block.type === 'tool_use') {
+          toolCallCount++;
+          const result = await executeTool(block.name, block.input as Record<string, unknown>, ctx.workingDir);
+          emitToolDone(res, ctx.creationId, block.name);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: result,
+          });
+        }
+      }
+
+      // Append assistant turn and tool results to conversation
+      messages.push({ role: 'assistant', content: response.content });
+      messages.push({ role: 'user', content: toolResults });
+
+      // Continue loop
+      continue;
+    }
+
+    // Unexpected stop_reason — break to avoid infinite loop
+    break;
+  }
+
+  emitStageStatus(res, ctx.creationId, stage, 'done');
+  return { stage, output: accumulatedText, toolCalls: toolCallCount };
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline orchestrator: runApiPipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the full 4-stage Fluid generation pipeline for one creation.
+ * Stages: copy -> layout -> styling -> spec-check -> (fix loop up to 3x)
+ */
+export async function runApiPipeline(
+  ctx: PipelineContext,
+  res: ServerResponse,
+): Promise<void> {
+  // Ensure working directory exists
+  await fs.mkdir(ctx.workingDir, { recursive: true });
+
+  // ── Stage 1: Copy ──────────────────────────────────────────────────────────
+  await runStageWithTools('copy', buildCopyPrompt(ctx), ctx, res);
+
+  // ── Stage 2: Layout ────────────────────────────────────────────────────────
+  await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res);
+
+  // ── Stage 3: Styling ───────────────────────────────────────────────────────
+  await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res);
+
+  // ── Stage 4: Spec-check ────────────────────────────────────────────────────
+  await runStageWithTools('spec-check', buildSpecCheckPrompt(ctx), ctx, res);
+
+  // Read spec report
+  const specReportPath = path.join(ctx.workingDir, 'spec-report.json');
+  let specReport: { overall: string; blocking_issues?: Array<{ description: string; severity: string; fix_target: string }> } = { overall: 'pass' };
+  try {
+    const raw = await fs.readFile(specReportPath, 'utf-8');
+    specReport = JSON.parse(raw);
+  } catch {
+    // No spec report or parse error — treat as pass (best-effort)
+  }
+
+  if (specReport.overall === 'pass') {
+    return;
+  }
+
+  // ── Fix loop: up to 3 iterations ──────────────────────────────────────────
+  const MAX_FIX_ITERATIONS = 3;
+  for (let fixIter = 1; fixIter <= MAX_FIX_ITERATIONS; fixIter++) {
+    const blockingIssues = specReport.blocking_issues ?? [];
+    if (blockingIssues.length === 0) break;
+
+    emitStageStatus(res, ctx.creationId, `fix-${fixIter}`, 'starting');
+
+    // Group issues by fix_target
+    const issuesByTarget = new Map<FixTarget, typeof blockingIssues>();
+    for (const issue of blockingIssues) {
+      const target = issue.fix_target as FixTarget;
+      if (!issuesByTarget.has(target)) issuesByTarget.set(target, []);
+      issuesByTarget.get(target)!.push(issue);
+    }
+
+    const fixTargets = Array.from(issuesByTarget.keys());
+    const hasCopyFix = fixTargets.includes('copy');
+
+    // Run fix agents for each affected target
+    for (const [target, issues] of issuesByTarget) {
+      await runStageWithTools(target, buildFixPrompt(target, issues, ctx), ctx, res);
+    }
+
+    // Cascade rule: if copy was fixed, re-run layout and styling too
+    if (hasCopyFix) {
+      if (!issuesByTarget.has('layout')) {
+        await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res);
+      }
+      if (!issuesByTarget.has('styling')) {
+        await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res);
+      }
+    }
+
+    // Re-run spec-check
+    await runStageWithTools('spec-check', buildSpecCheckPrompt(ctx), ctx, res);
+
+    // Re-read spec report
+    try {
+      const raw = await fs.readFile(specReportPath, 'utf-8');
+      specReport = JSON.parse(raw);
+    } catch {
+      specReport = { overall: 'pass' };
+    }
+
+    emitStageStatus(res, ctx.creationId, `fix-${fixIter}`, 'done');
+
+    if (specReport.overall === 'pass') break;
+
+    if (fixIter === MAX_FIX_ITERATIONS) {
+      emitStageStatus(res, ctx.creationId, 'fix-loop', 'max-iterations-reached');
+    }
+  }
+}
+
