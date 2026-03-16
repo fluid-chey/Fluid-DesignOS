@@ -17,6 +17,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ['mcp/**/*.test.ts', 'node'],
       ['src/__tests__/api-pipeline.test.ts', 'node'],
+      ['src/__tests__/routing.test.ts', 'node'],
     ],
   },
 });
