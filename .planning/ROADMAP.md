@@ -241,7 +241,7 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 4.3 > 5 > 6 > 7 > 8
 | 7. Merge Jonathan's Codebase | 7/7 | Complete | 2026-03-12 |
 | 8. AI Sidebar to Campaign Dashboard E2E | 4/4 | Complete   | 2026-03-13 |
 | 10. App Navigation Overhaul | 2/2 | Complete | 2026-03-13 |
-| 11. Anthropic API Generation Pipeline | 2/2 | Complete   | 2026-03-16 |
+| 11. Anthropic API Generation Pipeline | 2/2 | Complete    | 2026-03-16 |
 
 ### Phase 9: Conversational chat UI — bottom input, message bubbles, auto-scroll
 
