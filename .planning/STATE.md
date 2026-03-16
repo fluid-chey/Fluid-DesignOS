@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 10 complete + nomenclature overhaul + template fix
-last_updated: "2026-03-13T19:30:00.000Z"
-last_activity: "2026-03-13 -- Phase 10 executed, deep rename (Asset→Creation, Frame→Slide, Variation→Version), template iframe fix, DB migrated, PR #2 created on chey-work"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-16T17:45:46.802Z"
+last_activity: "2026-03-13 -- Phase 10 + rename + fixes on chey-work branch, PR #2 created"
 progress:
-  total_phases: 14
-  completed_phases: 12
+  total_phases: 16
+  completed_phases: 11
   total_plans: 39
-  completed_plans: 39
-  percent: 100
+  completed_plans: 38
+  percent: 94
 ---
 
 # Project State
@@ -77,6 +77,7 @@ Progress: [█████████░] 94% (Overall: 35/36 plans)
 | Phase 08-ai-sidebar-to-campaign-dashboard-end-to-end P03 | 25 | 2 tasks | 8 files |
 | Phase 10 P01 | 7 | 3 tasks | 7 files |
 | Phase 10-top-level-tab-navigation-main-viewport-overhaul P02 | 20 | 3 tasks | 18 files |
+| Phase 11-anthropic-api-generation-pipeline P01 | 7min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -202,6 +203,9 @@ Recent decisions affecting current work:
 - [Post-Phase 10 rename]: Deep nomenclature rename — Asset→Creation, Frame→Slide, Variation→Version across DB schema, types, store, API routes, components, tests. NavTab 'campaigns'→'create' with Campaigns/Creations sub-tabs in Create viewport. Rationale: "assets" conflicts with brand assets; "creations" better represents user-generated content. "slides" and "versions" are more intuitive than "frames" and "variations".
 - [Post-Phase 10 rename]: DB migration required for existing data — old tables (assets, frames) coexist with new (creations, slides); iterations.frame_id→slide_id column rename. CREATE TABLE IF NOT EXISTS won't recreate existing tables with new schema.
 - [Post-Phase 10 fix]: Template iframe middleware was double-nesting social/ subdirectory — templates/index.html uses relative src="social/t1-quote.html" which resolves to /templates/social/t1-quote.html, but middleware mapped to templates/social/social/. Fixed by resolving from templates/ root.
+- [Phase 11-01]: PROJECT_ROOT resolves to Fluid-DesignOS root (3 levels up from canvas/src/server/) — brand/, tools/, patterns/ live at project root, not canvas/
+- [Phase 11-01]: loadStagePrompt reads ~/.agents/skills/*/SKILL.md from disk; falls back to hardcoded prompts only on file read failure. Keeps read path swappable for Phase 14 DB-backed brand intelligence
+- [Phase 11-01]: api-pipeline.test.ts runs in node environment (not jsdom) — Anthropic SDK detects browser-like environment and throws in jsdom
 
 ### Parallel Development Note
 
@@ -209,7 +213,14 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ### Pending Todos
 
-None yet.
+7 pending:
+- **Refactor BuildHero into smaller sub-components** (ui)
+- **Fix hardcoded tooltip positioning in LeftNav** (ui)
+- **Verify chatSidebarOpen default change is intentional** (ui)
+- **Fix branch name typo createsceen-updates** (general)
+- **Fix BuildHero hardcoded height 924px** (ui)
+- **Refactor IdeasGetStarted 573-line monolith** (ui)
+- **Deduplicate assets fetch between AssetsScreen and BuildHero** (ui)
 
 ### Roadmap Evolution
 
@@ -221,6 +232,7 @@ None yet.
 - Phase 8 added: AI sidebar to campaign dashboard end-to-end — fix disconnected data paths (sidebar generates to disk, dashboard reads SQLite), multi-asset campaign creation, preview rendering at all navigation levels, MCP push_asset bridge
 - Phase 9 added: Conversational chat UI — bottom input, message bubbles, auto-scroll
 - Phase 10 added: App Navigation Overhaul — slim icon-based left nav (Campaigns, Templates, Patterns, Voice Guide) controlling main viewport; collapsible AI chat sidebar between left nav and viewport (toggled via bottom nav icon); Voice Guide renders 14 markdown docs with vertical side-tabs
+- Phase 11 added: Anthropic API Generation Pipeline — replace CLI `claude -p` spawning with direct Anthropic SDK calls from Vite server; full pipeline (copy→layout→styling→spec-check→fix loop) with tool use, per-stage model selection, SSE streaming to sidebar; CLI kept as explicit fallback only
 
 ### Blockers/Concerns
 
@@ -230,6 +242,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T17:14:43.965Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-03-16T17:45:46.799Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
