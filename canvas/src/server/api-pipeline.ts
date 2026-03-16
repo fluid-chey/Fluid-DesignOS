@@ -179,6 +179,12 @@ export async function executeTool(
         : path.resolve(PROJECT_ROOT, filePath);
       try {
         const content = await fs.readFile(resolvedPath, 'utf-8');
+        // Truncate large files to avoid blowing the 200k token context limit.
+        // ~4 chars per token, so 60k chars ≈ 15k tokens — safe headroom.
+        const MAX_FILE_CHARS = 60_000;
+        if (content.length > MAX_FILE_CHARS) {
+          return content.slice(0, MAX_FILE_CHARS) + `\n\n[TRUNCATED — file is ${content.length} chars, showing first ${MAX_FILE_CHARS}. Request specific sections if you need more.]`;
+        }
         return content;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -516,7 +522,7 @@ export async function runStageWithTools(
 
   let accumulatedText = '';
   let toolCallCount = 0;
-  const MAX_ITERATIONS = 20;
+  const MAX_ITERATIONS = 10;
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     const response = await anthropic.messages.create({
