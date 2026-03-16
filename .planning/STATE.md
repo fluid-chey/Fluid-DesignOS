@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-16T17:45:46.802Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-16T17:53:52.646Z"
 last_activity: "2026-03-13 -- Phase 10 + rename + fixes on chey-work branch, PR #2 created"
 progress:
   total_phases: 16
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 39
-  completed_plans: 38
+  completed_plans: 39
   percent: 94
 ---
 
@@ -78,6 +78,7 @@ Progress: [█████████░] 94% (Overall: 35/36 plans)
 | Phase 10 P01 | 7 | 3 tasks | 7 files |
 | Phase 10-top-level-tab-navigation-main-viewport-overhaul P02 | 20 | 3 tasks | 18 files |
 | Phase 11-anthropic-api-generation-pipeline P01 | 7min | 2 tasks | 5 files |
+| Phase 11-anthropic-api-generation-pipeline P02 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -206,6 +207,7 @@ Recent decisions affecting current work:
 - [Phase 11-01]: PROJECT_ROOT resolves to Fluid-DesignOS root (3 levels up from canvas/src/server/) — brand/, tools/, patterns/ live at project root, not canvas/
 - [Phase 11-01]: loadStagePrompt reads ~/.agents/skills/*/SKILL.md from disk; falls back to hardcoded prompts only on file read failure. Keeps read path swappable for Phase 14 DB-backed brand intelligence
 - [Phase 11-01]: api-pipeline.test.ts runs in node environment (not jsdom) — Anthropic SDK detects browser-like environment and throws in jsdom
+- [Phase 11-02]: Engine routing uses body.engine ?? 'api' as default — CLI is explicit opt-in escape hatch. Campaign pre-creation DB code shared above engine check. Cascade fix rule: copy fix re-runs layout+styling. API mode uses parallel fire-and-forget promises with shared counter.
 
 ### Parallel Development Note
 
@@ -242,6 +244,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-16T17:45:46.799Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-16T17:53:52.644Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
