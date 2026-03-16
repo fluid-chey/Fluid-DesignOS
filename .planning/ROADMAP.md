@@ -127,8 +127,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04.2-01-PLAN.md — Vite /assets/ + /variations/ middleware, VariationFile type change, session URL returns, agent prompt updates
-- [ ] 04.2-02-PLAN.md — AssetFrame srcDoc-to-src switch, component updates, test updates for url type
+- [ ] 04.2-01-PLAN.md — DB schema (brand_assets/campaign_assets), asset scanner, /api/brand-assets endpoint, /fluid-campaigns/ middleware, ZIP export, agent prompt updates
+- [ ] 04.2-02-PLAN.md — CreationFrame srcDoc-to-src switch, ExportActions ZIP download, VersionGrid/type updates, test updates
 
 ### Phase 04.3: Install Process Safety (INSERTED)
 
