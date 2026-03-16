@@ -145,9 +145,10 @@ export const STAGE_TOOLS: Record<PipelineStage, Anthropic.Tool[]> = {
 };
 
 // ---------------------------------------------------------------------------
-// Project root (two levels up from canvas/src/server/)
+// Project root (three levels up from canvas/src/server/ = Fluid-DesignOS root)
+// brand/, tools/, patterns/ all live at this level
 // ---------------------------------------------------------------------------
-const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 // ---------------------------------------------------------------------------
 // Tool executor

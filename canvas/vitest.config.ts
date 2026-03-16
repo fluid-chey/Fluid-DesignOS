@@ -16,6 +16,7 @@ export default defineConfig({
     exclude: ['e2e/**', 'node_modules/**'],
     environmentMatchGlobs: [
       ['mcp/**/*.test.ts', 'node'],
+      ['src/__tests__/api-pipeline.test.ts', 'node'],
     ],
   },
 });
