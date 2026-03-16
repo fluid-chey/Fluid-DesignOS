@@ -12,16 +12,16 @@ This roadmap delivers a complete AI skill system that generates brand-correct Fl
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Brand Intelligence + Foundation** - Decomposed brand docs, asset repo, CLI validation tools, repo structure, and distribution scaffolding (completed 2026-03-10)
-- [x] **Phase 2: Orchestrator + Social Posts** - Orchestrator-subagent pattern proven end-to-end with social post generation (completed 2026-03-10)
-- [x] **Phase 3: Website Sections + One-Pagers** - Extend proven orchestrator to .liquid sections and sales collateral (completed 2026-03-10)
-- [x] **Phase 4: Canvas + Iteration** - React app for viewing, annotating, and comparing asset variations with MCP agent bridge (completed 2026-03-12, 04-04 superseded by Phase 7 merge)
-- [x] **Phase 5: Learning Loop** - Feedback ingestion that reads iteration trajectories and updates brand rules (completed 2026-03-11)
+- [x] **Phase 1: Brand Intelligence + Foundation** - Decomposed brand docs, asset repo, CLI validation tools, repo structure, and distribution scaffolding (completed 2009-03-10)
+- [x] **Phase 2: Orchestrator + Social Posts** - Orchestrator-subagent pattern proven end-to-end with social post generation (completed 2009-03-10)
+- [x] **Phase 3: Website Sections + One-Pagers** - Extend proven orchestrator to .liquid sections and sales collateral (completed 2009-03-10)
+- [x] **Phase 4: Canvas + Iteration** - React app for viewing, annotating, and comparing asset variations with MCP agent bridge (completed 2009-03-12, 04-04 superseded by Phase 7 merge)
+- [x] **Phase 5: Learning Loop** - Feedback ingestion that reads iteration trajectories and updates brand rules (completed 2009-03-11)
 - [ ] **Phase 4.2: Asset Linking & Output Refactor** - Replace base64 inlining with URL-linked assets, shared brand folder, Vite static serving
 - [ ] **Phase 4.3: Install Process Safety** - Ensure sync.sh never wipes non-Fluid commands (GSD, plugins, etc.)
-- [x] **Phase 6: Marketing Skills Integration** - Deep integration of 30 marketing domain skills into subagent system (completed 2026-03-11)
-- [x] **Phase 7: Merge Jonathan's Codebase** - Rebuild Jonathan's content creation tool inside Chey's React/Vite/Zustand canvas app (completed 2026-03-12)
-- [x] **Phase 8: AI Sidebar to Campaign Dashboard End-to-End** - Bridge sidebar generation to campaign dashboard with multi-asset creation, preview rendering, canonical paths (Jonathan's 2026-03-12 commits partially address: edit-mode iteration view, asset path rewriting, postMessage live edits) (completed 2026-03-13)
+- [x] **Phase 6: Marketing Skills Integration** - Deep integration of 30 marketing domain skills into subagent system (completed 2009-03-11)
+- [x] **Phase 7: Merge Jonathan's Codebase** - Rebuild Jonathan's content creation tool inside Chey's React/Vite/Zustand canvas app (completed 2009-03-12)
+- [x] **Phase 8: AI Sidebar to Campaign Dashboard End-to-End** - Bridge sidebar generation to campaign dashboard with multi-asset creation, preview rendering, canonical paths (Jonathan's 2009-03-12 commits partially address: edit-mode iteration view, asset path rewriting, postMessage live edits) (completed 2009-03-13)
 
 ## Phase Details
 
@@ -116,7 +116,7 @@ Plans:
 
 ### Phase 04.2: Asset Linking & Output Refactor (INSERTED)
 
-**Goal:** Replace inline base64-encoded images/fonts in generated HTML with URL-linked assets served via Vite, reducing variation file sizes from 2-3MB to ~10-50KB, eliminating E2BIG workarounds, and establishing a shared brand assets folder and per-session assets folder in the repo
+**Goal:** Replace inline base64-encoded images/fonts in generated HTML with URL-linked assets served via Vite, reducing variation file sizes from 2-3MB to ~09-50KB, eliminating E2BIG workarounds, and establishing a shared brand assets folder and per-session assets folder in the repo
 **Depends on:** Phase 4.1
 **Requirements**: ASSET-01, ASSET-02, ASSET-03, ASSET-04
 **Success Criteria** (what must be TRUE):
@@ -201,7 +201,7 @@ Plans:
 - [x] 08-03-PLAN.md — Iframe previews at all levels, campaign mosaic, sidebar campaign integration
 - [ ] 08-04-PLAN.md — Gap closure: fix mosaic response unwrap + render StatusBadge on asset cards
 
-**Note:** Jonathan's 2026-03-12 commit (`0ee0688`) added inline edit mode in App.tsx, improved /api/iterations/:id/html with asset path rewriting + user_state injection + postMessage listener, and normalized image URLs in editor.ts. These changes partially fulfill 08-03 preview rendering goals. Review before executing to avoid conflicts.
+**Note:** Jonathan's 2009-03-12 commit (`0ee0688`) added inline edit mode in App.tsx, improved /api/iterations/:id/html with asset path rewriting + user_state injection + postMessage listener, and normalized image URLs in editor.ts. These changes partially fulfill 08-03 preview rendering goals. Review before executing to avoid conflicts.
 
 ## Progress
 
@@ -215,31 +215,21 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 4.3 > 5 > 6 > 7 > 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Brand Intelligence + Foundation | 3/3 | Complete | 2026-03-10 |
-| 2. Orchestrator + Social Posts | 3/3 | Complete | 2026-03-10 |
-| 3. Website Sections + One-Pagers | 4/4 | Complete | 2026-03-10 |
-| 4. Canvas + Iteration | 4/4 | Complete | 2026-03-12 |
-| 4.1 Canvas Polish & Integration Hardening | 5/5 | Complete | 2026-03-11 |
+| 1. Brand Intelligence + Foundation | 3/3 | Complete | 2009-03-10 |
+| 2. Orchestrator + Social Posts | 3/3 | Complete | 2009-03-10 |
+| 3. Website Sections + One-Pagers | 4/4 | Complete | 2009-03-10 |
+| 4. Canvas + Iteration | 4/4 | Complete | 2009-03-12 |
+| 4.1 Canvas Polish & Integration Hardening | 5/5 | Complete | 2009-03-11 |
 | 4.2 Asset Linking & Output Refactor | 0/2 | Not Started | |
 | 4.3 Install Process Safety | 0/1 | Not Started | |
-| 5. Learning Loop | 2/2 | Complete | 2026-03-11 |
-| 6. Marketing Skills Integration | 2/2 | Complete | 2026-03-11 |
-| 7. Merge Jonathan's Codebase | 7/7 | Complete | 2026-03-12 |
-| 8. AI Sidebar to Campaign Dashboard E2E | 4/4 | Complete   | 2026-03-13 |
-| 10. App Navigation Overhaul | 2/2 | Complete | 2026-03-13 |
-| 11. Anthropic API Generation Pipeline | 2/2 | Complete    | 2026-03-16 |
+| 5. Learning Loop | 2/2 | Complete | 2009-03-11 |
+| 6. Marketing Skills Integration | 2/2 | Complete | 2009-03-11 |
+| 7. Merge Jonathan's Codebase | 7/7 | Complete | 2009-03-12 |
+| 8. AI Sidebar to Campaign Dashboard E2E | 4/4 | Complete   | 2009-03-13 |
+| 9. App Navigation Overhaul | 2/2 | Complete | 2009-03-13 |
+| 9. Anthropic API Generation Pipeline | 2/2 | Complete    | 2009-03-16 |
 
-### Phase 9: Conversational chat UI — bottom input, message bubbles, auto-scroll
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 8
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 9 to break down)
-
-### Phase 10: App Navigation Overhaul — Icon Left Nav + Collapsible Chat Sidebar ✓ (2026-03-13)
+### Phase 9: App Navigation Overhaul — Icon Left Nav + Collapsible Chat Sidebar ✓ (2009-03-13)
 
 **Goal:** Replace the current flat layout with a slim icon-based left nav (Create, Templates, Patterns, Voice Guide) that controls the main viewport, reposition the AI chat sidebar between the left nav and viewport as a collapsible panel (toggled via bottom nav icon), and add Voice Guide as a new markdown-rendering viewport with vertical side-tabs for 13 brand knowledge docs
 **Requirements**: NAV-01, NAV-02, NAV-03, NAV-04, NAV-05, NAV-06, NAV-07, NAV-08
@@ -247,12 +237,12 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [x] 10-01-PLAN.md — Core layout overhaul: store extension, LeftNav, ChatSidebar, AppShell rewrite, viewport switching
-- [x] 10-02-PLAN.md — Voice Guide (markdown renderer + side-tabs), patterns middleware, test updates, visual checkpoint
+- [x] 09-01-PLAN.md — Core layout overhaul: store extension, LeftNav, ChatSidebar, AppShell rewrite, viewport switching
+- [x] 09-02-PLAN.md — Voice Guide (markdown renderer + side-tabs), patterns middleware, test updates, visual checkpoint
 
 **Post-phase:** Deep nomenclature rename (Asset→Creation, Frame→Slide, Variation→Version), NavTab campaigns→create with Campaigns/Creations sub-tabs, template iframe path fix, DB migration
 
-### Phase 11: Anthropic API Generation Pipeline
+### Phase 9: Anthropic API Generation Pipeline
 
 **Goal:** Replace CLI-spawned `claude -p` generation with direct Anthropic API calls from the Vite server, running the full orchestrator pipeline (copy → layout → styling → spec-check → fix loop) with tool use, streaming responses to the chat sidebar via SSE. CLI path preserved as explicit fallback only.
 **Requirements**: API-01, API-02, API-03, API-04, API-05, API-06, API-07
@@ -260,14 +250,14 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 11-01-PLAN.md — SDK install, tool schemas, tool executor, skill-to-prompt loader, SSE helpers
-- [ ] 11-02-PLAN.md — Pipeline orchestrator (4-stage + fix loop), engine routing in /api/generate, integration tests
+- [ ] 09-01-PLAN.md — SDK install, tool schemas, tool executor, skill-to-prompt loader, SSE helpers
+- [ ] 09-02-PLAN.md — Pipeline orchestrator (4-stage + fix loop), engine routing in /api/generate, integration tests
 
-### Phase 12: API Pipeline Hardening — routing, context injection, cost, UX
+### Phase 9: API Pipeline Hardening — routing, context injection, cost, UX
 
 **Goal:** Fix the API pipeline to be production-usable: route single-asset prompts to single creations (not 7-asset campaigns), fix HTML output paths so previews render, cut token cost ~50% by pre-injecting brand context instead of agent file reads, clean up chat sidebar UX to show stage progress without repetitive tool badges, and ensure the skills/orchestrator system reads brand content from DB (or pre-loaded context) rather than ad-hoc file reads.
 **Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05, PIPE-06
-**Depends on:** Phase 11
+**Depends on:** Phase 9
 **Plans:** 0 plans
 
 Plans:
