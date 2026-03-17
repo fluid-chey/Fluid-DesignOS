@@ -415,6 +415,7 @@ export interface BrandAsset {
   tags: string[];
   source: string;        // 'local' | 'dam'
   damDeleted: boolean;   // true if soft-deleted from DAM
+  description: string | null;
 }
 
 function rowToBrandAsset(row: Record<string, unknown>): BrandAsset {
@@ -428,6 +429,7 @@ function rowToBrandAsset(row: Record<string, unknown>): BrandAsset {
     tags: JSON.parse(row.tags as string),
     source: (row.source as string) ?? 'local',
     damDeleted: (row.dam_deleted as number) === 1,
+    description: (row.description as string | null) ?? null,
   };
 }
 
@@ -446,6 +448,18 @@ export function getAllBrandAssets(category?: string): BrandAsset[] {
     return (db.prepare('SELECT * FROM brand_assets WHERE category = ? ORDER BY name ASC').all(category) as Record<string, unknown>[]).map(rowToBrandAsset);
   }
   return (db.prepare('SELECT * FROM brand_assets ORDER BY category ASC, name ASC').all() as Record<string, unknown>[]).map(rowToBrandAsset);
+}
+
+/** Update mutable metadata fields (category, description) on a brand asset. */
+export function updateBrandAsset(id: string, updates: { category?: string; description?: string }): void {
+  const db = getDb();
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  if (updates.category !== undefined) { sets.push('category = ?'); vals.push(updates.category); }
+  if (updates.description !== undefined) { sets.push('description = ?'); vals.push(updates.description); }
+  if (sets.length === 0) return;
+  vals.push(id);
+  db.prepare(`UPDATE brand_assets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
 }
 
 // ─── DAM asset sync ──────────────────────────────────────────────────────────
@@ -662,6 +676,13 @@ export function getBrandPatternBySlug(slug: string): BrandPattern | undefined {
   const db = getDb();
   const row = db.prepare('SELECT * FROM brand_patterns WHERE slug = ?').get(slug) as Record<string, unknown> | undefined;
   return row ? rowToBrandPattern(row) : undefined;
+}
+
+export function updateBrandPattern(slug: string, content: string): void {
+  const db = getDb();
+  db.prepare(
+    'UPDATE brand_patterns SET content = ?, updated_at = ? WHERE slug = ?'
+  ).run(content, Date.now(), slug);
 }
 
 // ─── Design Rules (template_design_rules) ────────────────────────────────────

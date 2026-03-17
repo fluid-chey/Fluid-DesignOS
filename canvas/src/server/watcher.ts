@@ -29,10 +29,12 @@ import {
   deleteSavedAsset,
   getBrandAssets,
   getAllBrandAssets,
+  updateBrandAsset,
   getVoiceGuideDocs,
   getVoiceGuideDoc,
   updateVoiceGuideDoc,
   getBrandPatterns,
+  updateBrandPattern,
   getDesignRules,
   getDesignRule,
   updateDesignRule,
@@ -723,6 +725,16 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             return;
           }
 
+          // PUT /api/brand-assets/:id
+          const brandAssetIdMatch = url.match(/^\/api\/brand-assets\/([^/?]+)$/);
+          if (brandAssetIdMatch && method === 'PUT') {
+            const body = JSON.parse(await readBody(req));
+            updateBrandAsset(brandAssetIdMatch[1], body);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+
           // ── Voice Guide ────────────────────────────────────────────────────
 
           // GET /api/voice-guide — returns all voice guide docs
@@ -771,6 +783,21 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             const patterns = getBrandPatterns(category);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(patterns));
+            return;
+          }
+
+          // PUT /api/brand-patterns/:slug
+          const brandPatternSlugMatch = url.match(/^\/api\/brand-patterns\/([^/?]+)$/);
+          if (brandPatternSlugMatch && method === 'PUT') {
+            const body = JSON.parse(await readBody(req));
+            if (typeof body.content !== 'string') {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'content is required' }));
+              return;
+            }
+            updateBrandPattern(brandPatternSlugMatch[1], body.content);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
             return;
           }
 
