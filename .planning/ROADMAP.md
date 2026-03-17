@@ -221,7 +221,7 @@ Plans:
 
 ### Phase 10: Anthropic API Generation Pipeline (completed 2026-03-16)
 
-**Goal:** Replace CLI-spawned `claude -p` generation with direct Anthropic API calls from the Vite server, running the full orchestrator pipeline (copy → layout → styling → spec-check → fix loop) with tool use, streaming responses to the chat sidebar via SSE. CLI path preserved as explicit fallback only.
+**Goal:** Replace CLI-spawned `claude -p` generation with direct Anthropic API calls from the Vite server, running the full orchestrator pipeline (copy -> layout -> styling -> spec-check -> fix loop) with tool use, streaming responses to the chat sidebar via SSE. CLI path preserved as explicit fallback only.
 **Requirements**: API-01, API-02, API-03, API-04, API-05, API-06, API-07
 **Depends on:** Phase 9
 **Plans:** 2 plans
@@ -238,16 +238,21 @@ Plans:
 **Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 11-01-PLAN.md — Prompt routing (single vs campaign) + preview path fix (iteration ID mismatch)
-- [ ] 11-02-PLAN.md — DB schema + seeder + API endpoints for Voice Guide and Patterns, VoiceGuide DB switch
-- [ ] 11-03-PLAN.md — Brand context injection from DB into pipeline stage prompts
-- [ ] 11-04-PLAN.md — Claude-style chat sidebar UX + Haiku stage narrator + stage badge components
+- [x] 11-01-PLAN.md — Prompt routing (single vs campaign) + preview path fix (iteration ID mismatch)
+- [x] 11-02-PLAN.md — DB schema + seeder + API endpoints for Voice Guide and Patterns, VoiceGuide DB switch
+- [x] 11-03-PLAN.md — Brand context injection from DB into pipeline stage prompts
+- [x] 11-04-PLAN.md — Claude-style chat sidebar UX + Haiku stage narrator + stage badge components
 
 ### Phase 12: Post-API Migration Cleanup & Audit
 
-**Goal:** Audit the full codebase for CLI-era artifacts, dead code, and stale infrastructure left over from the CLI→API migration. Slim skill `.md` files to behavioral contracts only (strip embedded brand data, keep behavioral instructions). Update CLI validation tools to read from DB instead of static `rules.json`. Remove dead CLI generation paths, stale MCP tools, unused imports, and orphaned utilities. Verify infrastructure coherence — API pipeline, DB schema, brand seeder, MCP server, skill files, and validation tools should tell a consistent story with no contradictions.
+**Goal:** Audit the full codebase for CLI-era artifacts, dead code, and stale infrastructure left over from the CLI-to-API migration. Update CLI validation tools to read from DB instead of static `rules.json`. Remove dead CLI generation paths, stale tests, unused imports, and orphaned planning directories. Verify infrastructure coherence -- API pipeline, DB schema, brand seeder, MCP server, and validation tools should tell a consistent story with no contradictions.
 **Depends on:** Phase 11
-**Plans:** 0 plans
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — CLI dead code removal from watcher.ts (iterate + campaign spawn paths) + stale test cleanup
+- [ ] 12-02-PLAN.md — Validation tools DB migration (brand-compliance.cjs reads SQLite) + orphan directory cleanup + STATE.md update
+- [ ] 12-03-PLAN.md — Pre-existing test failure fixes, MCP tool audit, stale reference sweep, CLAUDE.md update
 
 ### Phase 13: DAM Sync
 
@@ -274,6 +279,6 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 >
 | 8. AI Sidebar to Campaign Dashboard E2E | 4/4 | Complete | 2026-03-13 |
 | 9. App Navigation Overhaul | 2/2 | Complete | 2026-03-13 |
 | 10. Anthropic API Generation Pipeline | 2/2 | Complete | 2026-03-16 |
-| 11. API Pipeline Hardening + DB Brand Intelligence | 4/4 | Complete    | 2026-03-16 |
-| 12. Post-API Migration Cleanup & Audit | 0/? | Not Started | |
+| 11. API Pipeline Hardening + DB Brand Intelligence | 4/4 | Complete | 2026-03-16 |
+| 12. Post-API Migration Cleanup & Audit | 0/3 | In Progress | |
 | 13. DAM Sync | 0/? | Not Started | |
