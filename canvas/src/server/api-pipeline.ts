@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import type { ServerResponse } from 'node:http';
-import { getVoiceGuideDocs, getBrandPatterns } from './db-api';
+import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets } from './db-api';
 
 // Load .env file — try multiple paths since __dirname is unreliable in Vite middleware
 const envPaths = [
@@ -55,39 +55,9 @@ export interface PipelineContext {
 }
 
 // ---------------------------------------------------------------------------
-// Brand context — loaded from DB once per pipeline run
+// Brand context is accessed via tools (list_brand_sections / read_brand_section)
+// so agents selectively load only what they need per stage.
 // ---------------------------------------------------------------------------
-
-export interface BrandContext {
-  voiceRules: string;
-  designTokens: string;
-  layoutArchetypes: string;
-  patternSnippets: string;
-}
-
-/**
- * Load brand context from DB for injection into stage prompts.
- * Called once per pipeline run; all stages share the same snapshot.
- */
-export function loadBrandContextFromDb(): BrandContext {
-  const voiceDocs = getVoiceGuideDocs();
-  const voiceRules = voiceDocs.map(d => `## ${d.label}\n${d.content}`).join('\n\n');
-
-  const tokenRows = getBrandPatterns('design-tokens');
-  const designTokens = tokenRows.map(r => `## ${r.label}\n${r.content}`).join('\n\n');
-
-  const archetypeRows = getBrandPatterns('layout-archetype');
-  const layoutArchetypes = archetypeRows.map(r => `## ${r.label}\n${r.content}`).join('\n\n');
-
-  const patternRows = getBrandPatterns('pattern');
-  // Truncate each pattern snippet to 2000 chars max to avoid blowing context
-  const patternSnippets = patternRows.map(r => {
-    const truncated = r.content.length > 2000 ? r.content.slice(0, 2000) + '\n<!-- truncated -->' : r.content;
-    return `## ${r.label}\n${truncated}`;
-  }).join('\n\n');
-
-  return { voiceRules, designTokens, layoutArchetypes, patternSnippets };
-}
 
 // ---------------------------------------------------------------------------
 // Stage model mapping (haiku for layout, sonnet for creative stages)
@@ -111,7 +81,7 @@ const readFileTool: Anthropic.Tool = {
     properties: {
       path: {
         type: 'string',
-        description: 'Path to the file to read. Relative paths are resolved from project root.',
+        description: 'Absolute path to the file to read. Use the absolute paths provided in your instructions.',
       },
     },
     required: ['path'],
@@ -172,19 +142,74 @@ const runBrandCheckTool: Anthropic.Tool = {
   },
 };
 
-/** All 4 pipeline tools */
+const listBrandSectionsTool: Anthropic.Tool = {
+  name: 'list_brand_sections',
+  description:
+    'List available brand sections from the DB. Returns slug, label, and category for each section. ' +
+    'Categories: "voice-guide" (brand voice docs), "design-tokens" (colors, typography, opacity), ' +
+    '"layout-archetype" (layout types), "pattern" (brushstrokes, circles, textures, footer, etc.). ' +
+    'Use this to discover what brand content is available, then read_brand_section to load specific ones.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      category: {
+        type: 'string',
+        description: 'Optional filter: "voice-guide", "design-tokens", "layout-archetype", or "pattern".',
+      },
+    },
+    required: [],
+  },
+};
+
+const readBrandSectionTool: Anthropic.Tool = {
+  name: 'read_brand_section',
+  description:
+    'Read full content of a brand section by slug. Use list_brand_sections first to discover available slugs.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      slug: {
+        type: 'string',
+        description: 'The slug of the brand section to read (e.g. "voice-and-style", "color-palette", "brushstroke-textures").',
+      },
+    },
+    required: ['slug'],
+  },
+};
+
+const listBrandAssetsTool: Anthropic.Tool = {
+  name: 'list_brand_assets',
+  description:
+    'List available brand assets (fonts, brushstrokes, textures, logos, etc.) from the asset library. ' +
+    'Returns name, category, and filename for each asset. Use filenames to construct /fluid-assets/ URLs in HTML.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      category: {
+        type: 'string',
+        description: 'Optional filter: "fonts", "brushstrokes", "textures", "logos", etc.',
+      },
+    },
+    required: [],
+  },
+};
+
+/** All pipeline tools */
 export const PIPELINE_TOOLS: Anthropic.Tool[] = [
   readFileTool,
   writeFileTool,
   listFilesTool,
   runBrandCheckTool,
+  listBrandSectionsTool,
+  readBrandSectionTool,
+  listBrandAssetsTool,
 ];
 
 /** Tools available per stage */
 export const STAGE_TOOLS: Record<PipelineStage, Anthropic.Tool[]> = {
-  copy: [readFileTool, writeFileTool, listFilesTool],
-  layout: [readFileTool, writeFileTool, listFilesTool],
-  styling: [readFileTool, writeFileTool, listFilesTool],
+  copy: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool],
+  layout: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool],
+  styling: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool, listBrandAssetsTool],
   'spec-check': [readFileTool, writeFileTool, runBrandCheckTool],
 };
 
@@ -206,13 +231,14 @@ export async function executeTool(
   name: string,
   input: Record<string, unknown>,
   workingDir: string,
+  allowedPaths: string[] = [],
 ): Promise<string> {
   switch (name) {
     case 'read_file': {
       const filePath = input.path as string;
       const resolvedPath = path.isAbsolute(filePath)
         ? filePath
-        : path.resolve(PROJECT_ROOT, filePath);
+        : path.resolve(workingDir, filePath);
       try {
         const content = await fs.readFile(resolvedPath, 'utf-8');
         // Truncate large files to avoid blowing the 200k token context limit.
@@ -235,9 +261,11 @@ export async function executeTool(
         ? filePath
         : path.resolve(workingDir, filePath);
 
-      // Security check: prevent writes outside workingDir
+      // Security check: prevent writes outside workingDir (unless path is explicitly allowed, e.g. htmlOutputPath)
       const resolvedWorking = path.resolve(workingDir);
-      if (!resolvedPath.startsWith(resolvedWorking + path.sep) && resolvedPath !== resolvedWorking) {
+      const isInWorkingDir = resolvedPath.startsWith(resolvedWorking + path.sep) || resolvedPath === resolvedWorking;
+      const isAllowedPath = allowedPaths.some(ap => path.resolve(ap) === resolvedPath);
+      if (!isInWorkingDir && !isAllowedPath) {
         return `Error: write_file path "${resolvedPath}" is outside the allowed working directory "${resolvedWorking}"`;
       }
 
@@ -257,7 +285,7 @@ export async function executeTool(
       const pattern = input.pattern as string | undefined;
       const resolvedDir = path.isAbsolute(directory)
         ? directory
-        : path.resolve(PROJECT_ROOT, directory);
+        : path.resolve(workingDir, directory);
       try {
         const entries = await fs.readdir(resolvedDir);
         const filtered = pattern
@@ -290,6 +318,48 @@ export async function executeTool(
       }
     }
 
+    case 'list_brand_sections': {
+      const category = input.category as string | undefined;
+      const sections: Array<{ slug: string; label: string; category: string }> = [];
+
+      if (!category || category === 'voice-guide') {
+        const docs = getVoiceGuideDocs();
+        sections.push(...docs.map(d => ({ slug: d.slug, label: d.label, category: 'voice-guide' })));
+      }
+      if (!category || category !== 'voice-guide') {
+        const patterns = getBrandPatterns(category !== 'voice-guide' ? category : undefined);
+        sections.push(...patterns.map(p => ({ slug: p.slug, label: p.label, category: p.category })));
+      }
+
+      return JSON.stringify(sections, null, 2);
+    }
+
+    case 'read_brand_section': {
+      const slug = input.slug as string;
+      const MAX_SECTION_CHARS = 30_000; // ~7.5k tokens — safe for any single section
+      const truncate = (text: string) =>
+        text.length > MAX_SECTION_CHARS
+          ? text.slice(0, MAX_SECTION_CHARS) + `\n\n[TRUNCATED — section is ${text.length} chars. This section contains embedded HTML/SVG examples. Use the high-level descriptions to guide your layout choices.]`
+          : text;
+      // Try voice guide first, then brand patterns
+      const doc = getVoiceGuideDoc(slug);
+      if (doc) return `# ${doc.label}\n\n${truncate(doc.content)}`;
+      const pattern = getBrandPatternBySlug(slug);
+      if (pattern) return `# ${pattern.label} [${pattern.category}]\n\n${truncate(pattern.content)}`;
+      return `No brand section found with slug: ${slug}`;
+    }
+
+    case 'list_brand_assets': {
+      const category = input.category as string | undefined;
+      const assets = getBrandAssets(category);
+      return JSON.stringify(assets.map(a => ({
+        name: a.name,
+        category: a.category,
+        url: a.url,
+        mimeType: a.mimeType,
+      })), null, 2);
+    }
+
     default:
       return `Unknown tool: ${name}`;
   }
@@ -316,15 +386,15 @@ const SKILL_FILES: Record<string, string> = {
   'theme-section': path.join(os.homedir(), '.agents/skills/fluid-theme-section/SKILL.md'),
 };
 
-/** Fallback prompts when skill file cannot be loaded — includes brand context inline */
-function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext, brandCtx: BrandContext): string {
+/** Fallback prompts when skill file cannot be loaded */
+function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext): string {
   switch (stage) {
     case 'copy':
       return [
         `You are a Fluid brand copywriter. Generate marketing copy for a ${ctx.creationType} post.`,
         ``,
-        `## Brand Voice Rules`,
-        brandCtx.voiceRules,
+        `Use list_brand_sections(category="voice-guide") to discover available voice guide docs.`,
+        `Then read_brand_section the most relevant ones (e.g. "voice-and-style", plus the product-specific doc if applicable).`,
         ``,
         `Write copy to ${ctx.workingDir}/copy.md.`,
       ].join('\n');
@@ -333,8 +403,8 @@ function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext, brandCtx:
         `You are a Fluid layout agent. Create HTML layout for a ${ctx.creationType} post.`,
         `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
         ``,
-        `## Layout Archetypes`,
-        brandCtx.layoutArchetypes,
+        `Use list_brand_sections(category="layout-archetype") to discover layout types.`,
+        `Then read_brand_section to load the archetype details.`,
         ``,
         `Write layout to ${ctx.workingDir}/layout.html.`,
       ].join('\n');
@@ -343,13 +413,16 @@ function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext, brandCtx:
         `You are a Fluid styling agent. Apply brand styling.`,
         `Read ${ctx.workingDir}/copy.md and ${ctx.workingDir}/layout.html using the read_file tool.`,
         ``,
-        `## Design Tokens`,
-        brandCtx.designTokens,
+        `Use list_brand_sections to discover available brand specs. Load relevant sections:`,
+        `- "design-tokens" category for colors, typography, opacity`,
+        `- "pattern" category for brushstrokes, circles, textures, footer structure`,
+        `Read only the sections you actually need for this creation.`,
         ``,
-        `IMPORTANT: First call GET /api/brand-assets to discover available fonts, brushstrokes, and other assets.`,
-        `Reference all assets via /fluid-assets/ absolute URLs. NEVER embed base64 data URIs. NEVER hardcode specific asset filenames.`,
+        `Use list_brand_assets tool to discover available fonts, brushstrokes, and other assets.`,
+        `Reference all assets via the URLs returned by list_brand_assets. NEVER embed base64 data URIs. NEVER hardcode specific asset filenames.`,
         ``,
-        `Write styled HTML to ${ctx.htmlOutputPath}.`,
+        `CRITICAL: Write the final HTML using write_file to EXACTLY this path: ${ctx.htmlOutputPath}`,
+        `Do NOT write to styled.html or any other filename.`,
       ].join('\n');
     case 'spec-check':
       return `You are a Fluid spec-check agent. Validate ${ctx.htmlOutputPath}. Use run_brand_check tool. Write report to ${ctx.workingDir}/spec-report.json.`;
@@ -406,14 +479,14 @@ function extractStageSection(content: string, stage: PipelineStage): string | nu
 /**
  * Load the system prompt for a pipeline stage.
  * Primary: reads skill .md file from disk and extracts stage-specific section.
- * Fallback: hardcoded minimal prompt (with inline brand context) if file read or parse fails.
+ * Fallback: hardcoded minimal prompt if file read or parse fails.
  */
-export async function loadStagePrompt(stage: PipelineStage, ctx: PipelineContext, brandCtx: BrandContext): Promise<string> {
+export async function loadStagePrompt(stage: PipelineStage, ctx: PipelineContext): Promise<string> {
   const skillPath = SKILL_FILES[ctx.creationType];
 
   if (!skillPath) {
     console.warn(`[api-pipeline] No skill file mapping for creationType "${ctx.creationType}", using fallback`);
-    return getFallbackPrompt(stage, ctx, brandCtx);
+    return getFallbackPrompt(stage, ctx);
   }
 
   let skillContent: string;
@@ -421,20 +494,22 @@ export async function loadStagePrompt(stage: PipelineStage, ctx: PipelineContext
     skillContent = await fs.readFile(skillPath, 'utf-8');
   } catch (err) {
     console.warn(`[api-pipeline] Failed to read skill file "${skillPath}": ${err}. Using fallback.`);
-    return getFallbackPrompt(stage, ctx, brandCtx);
+    return getFallbackPrompt(stage, ctx);
   }
 
   const stageSection = extractStageSection(skillContent, stage);
   if (!stageSection) {
     console.warn(`[api-pipeline] Could not extract "${stage}" section from "${skillPath}". Using fallback.`);
-    return getFallbackPrompt(stage, ctx, brandCtx);
+    return getFallbackPrompt(stage, ctx);
   }
 
   // Compose the final system prompt
   const availableTools =
     stage === 'spec-check'
       ? 'read_file, write_file, run_brand_check'
-      : 'read_file, write_file, list_files';
+      : stage === 'styling'
+        ? 'read_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_assets'
+        : 'read_file, write_file, list_files, list_brand_sections, read_brand_section';
 
   return [
     `You are a Fluid ${stage} agent working on a ${ctx.creationType} creation.`,
@@ -521,47 +596,46 @@ export function emitStageNarrative(
 // Stage user prompt builders — exported for testing
 // ---------------------------------------------------------------------------
 
-export function buildCopyPrompt(ctx: PipelineContext, brandCtx: BrandContext): string {
+export function buildCopyPrompt(ctx: PipelineContext): string {
   return [
     `Generate Fluid brand copy for a ${ctx.creationType} marketing creation.`,
     `Topic: ${ctx.prompt}`,
     ``,
-    `## Brand Voice Rules`,
-    brandCtx.voiceRules,
+    `Use list_brand_sections(category="voice-guide") to see available voice guide docs.`,
+    `Then read_brand_section to load the ones relevant to this topic (always include "voice-and-style", plus the product-specific doc if applicable).`,
     ``,
     `Write structured copy (headline, subtext, accent color, archetype selection) to ${ctx.workingDir}/copy.md.`,
   ].join('\n');
 }
 
-export function buildLayoutPrompt(ctx: PipelineContext, brandCtx: BrandContext): string {
+export function buildLayoutPrompt(ctx: PipelineContext): string {
   return [
     `Create structural HTML layout for a Fluid ${ctx.creationType} post.`,
     `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
     ``,
-    `## Layout Archetypes`,
-    brandCtx.layoutArchetypes,
+    `Use list_brand_sections(category="layout-archetype") to discover layout types, then read_brand_section to load details.`,
     ``,
     `Write layout HTML to ${ctx.workingDir}/layout.html.`,
   ].join('\n');
 }
 
-export function buildStylingPrompt(ctx: PipelineContext, brandCtx: BrandContext): string {
+export function buildStylingPrompt(ctx: PipelineContext): string {
   return [
     `Apply Fluid brand styling to create a complete HTML output.`,
     `Read copy from ${ctx.workingDir}/copy.md and layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
     ``,
-    `## Design Tokens`,
-    brandCtx.designTokens,
+    `Use list_brand_sections to discover available brand specs, then read_brand_section to load what you need:`,
+    `- From "design-tokens" category: color palette, typography, opacity patterns`,
+    `- From "pattern" category: brushstrokes, circles, textures, footer structure — load only the ones relevant to this creation`,
     ``,
-    `## Pattern Reference (code snippets)`,
-    brandCtx.patternSnippets,
+    `Use the list_brand_assets tool to discover available fonts, brushstrokes, and other assets.`,
+    `Reference all assets via the URLs returned by list_brand_assets (they start with /fluid-assets/).`,
+    `Use @font-face with the font URLs from list_brand_assets(category="fonts").`,
+    `NEVER embed base64 data URIs. NEVER hardcode specific asset filenames — always discover them via the tool.`,
     ``,
-    `IMPORTANT: Call GET /api/brand-assets to discover available fonts, brushstrokes, and other assets.`,
-    `Reference all assets via /fluid-assets/ absolute URLs using the filenames returned by the API.`,
-    `Use @font-face with url('/fluid-assets/fonts/{discovered-filename}').`,
-    `NEVER embed base64 data URIs. NEVER hardcode specific asset filenames.`,
-    ``,
-    `Write complete self-contained HTML (all CSS inline) to ${ctx.htmlOutputPath}.`,
+    `CRITICAL: Write the final complete self-contained HTML (all CSS inline) using write_file to EXACTLY this path:`,
+    `${ctx.htmlOutputPath}`,
+    `Do NOT write to styled.html or any other filename. The output MUST go to the exact path above.`,
   ].join('\n');
 }
 
@@ -632,11 +706,8 @@ export async function runStageWithTools(
   userPrompt: string,
   ctx: PipelineContext,
   res: ServerResponse,
-  brandCtx?: BrandContext,
 ): Promise<StageResult> {
-  // If brandCtx not provided (e.g. from fix loop), load it now
-  const resolvedBrandCtx = brandCtx ?? loadBrandContextFromDb();
-  const systemPrompt = await loadStagePrompt(stage, ctx, resolvedBrandCtx);
+  const systemPrompt = await loadStagePrompt(stage, ctx);
   const model = STAGE_MODELS[stage];
   const tools = STAGE_TOOLS[stage];
 
@@ -657,13 +728,11 @@ export async function runStageWithTools(
       messages,
     });
 
-    // Process content blocks
+    // Process content blocks — accumulate text for narrator but don't emit agent reasoning to UI
     for (const block of response.content) {
       if (block.type === 'text') {
         accumulatedText += block.text;
-        emitText(res, ctx.creationId, block.text);
-      } else if (block.type === 'tool_use') {
-        emitToolStart(res, ctx.creationId, block.name);
+        // Agent reasoning text is NOT emitted to UI — only stage badges and narrator summaries are shown
       }
     }
 
@@ -683,7 +752,7 @@ export async function runStageWithTools(
       for (const block of response.content) {
         if (block.type === 'tool_use') {
           toolCallCount++;
-          const result = await executeTool(block.name, block.input as Record<string, unknown>, ctx.workingDir);
+          const result = await executeTool(block.name, block.input as Record<string, unknown>, ctx.workingDir, [ctx.htmlOutputPath]);
           emitToolDone(res, ctx.creationId, block.name);
           toolResults.push({
             type: 'tool_result',
@@ -724,91 +793,120 @@ export async function runApiPipeline(
   // Ensure working directory exists
   await fs.mkdir(ctx.workingDir, { recursive: true });
 
-  // Load brand context from DB ONCE for all stages — eliminates ~48 read_file tool calls per run
-  const brandCtx = loadBrandContextFromDb();
-
   // ── Stage 1: Copy ──────────────────────────────────────────────────────────
-  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx, brandCtx), ctx, res, brandCtx);
+  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx), ctx, res);
   await generateStageNarrative('copy', copyResult.output, ctx, res);
 
   // ── Stage 2: Layout ────────────────────────────────────────────────────────
-  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx, brandCtx), ctx, res, brandCtx);
+  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res);
   await generateStageNarrative('layout', layoutResult.output, ctx, res);
 
   // ── Stage 3: Styling ───────────────────────────────────────────────────────
-  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx, brandCtx), ctx, res, brandCtx);
+  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res);
   await generateStageNarrative('styling', stylingResult.output, ctx, res);
 
-  // ── Stage 4: Spec-check ────────────────────────────────────────────────────
-  await runStageWithTools('spec-check', buildSpecCheckPrompt(ctx), ctx, res, brandCtx);
-  await generateStageNarrative('spec-check', '', ctx, res);
-
-  // Read spec report
-  const specReportPath = path.join(ctx.workingDir, 'spec-report.json');
-  let specReport: { overall: string; blocking_issues?: Array<{ description: string; severity: string; fix_target: string }> } = { overall: 'pass' };
+  // Fallback: if agent wrote to styled.html in workingDir instead of htmlOutputPath, copy it
   try {
-    const raw = await fs.readFile(specReportPath, 'utf-8');
-    specReport = JSON.parse(raw);
+    await fs.access(ctx.htmlOutputPath);
   } catch {
-    // No spec report or parse error — treat as pass (best-effort)
+    // htmlOutputPath doesn't exist — check for common agent mistakes
+    const fallbackPaths = [
+      path.join(ctx.workingDir, 'styled.html'),
+      path.join(ctx.workingDir, 'output.html'),
+      path.join(ctx.workingDir, 'index.html'),
+    ];
+    for (const fallback of fallbackPaths) {
+      try {
+        await fs.access(fallback);
+        await fs.mkdir(path.dirname(ctx.htmlOutputPath), { recursive: true });
+        await fs.copyFile(fallback, ctx.htmlOutputPath);
+        console.log(`[api-pipeline] Fallback: copied ${path.basename(fallback)} to htmlOutputPath`);
+        break;
+      } catch { /* try next */ }
+    }
   }
 
-  if (specReport.overall === 'pass') {
-    return;
+  // ── Stage 4: Spec-check (best-effort — don't let failures kill the pipeline) ──
+  try {
+    await runStageWithTools('spec-check', buildSpecCheckPrompt(ctx), ctx, res);
+    await generateStageNarrative('spec-check', '', ctx, res);
+  } catch (specErr) {
+    console.error(`[api-pipeline] Spec-check failed (non-fatal):`, specErr);
+    emitStageStatus(res, ctx.creationId, 'spec-check', 'error');
+    // Continue — the HTML file is already written, spec-check is a quality gate, not blocking
   }
 
-  // ── Fix loop: up to 3 iterations ──────────────────────────────────────────
-  const MAX_FIX_ITERATIONS = 3;
-  for (let fixIter = 1; fixIter <= MAX_FIX_ITERATIONS; fixIter++) {
-    const blockingIssues = specReport.blocking_issues ?? [];
-    if (blockingIssues.length === 0) break;
-
-    emitStageStatus(res, ctx.creationId, `fix-${fixIter}`, 'starting');
-
-    // Group issues by fix_target
-    const issuesByTarget = new Map<FixTarget, typeof blockingIssues>();
-    for (const issue of blockingIssues) {
-      const target = issue.fix_target as FixTarget;
-      if (!issuesByTarget.has(target)) issuesByTarget.set(target, []);
-      issuesByTarget.get(target)!.push(issue);
-    }
-
-    const fixTargets = Array.from(issuesByTarget.keys());
-    const hasCopyFix = fixTargets.includes('copy');
-
-    // Run fix agents for each affected target
-    for (const [target, issues] of issuesByTarget) {
-      await runStageWithTools(target, buildFixPrompt(target, issues, ctx), ctx, res);
-    }
-
-    // Cascade rule: if copy was fixed, re-run layout and styling too
-    if (hasCopyFix) {
-      if (!issuesByTarget.has('layout')) {
-        await runStageWithTools('layout', buildLayoutPrompt(ctx, brandCtx), ctx, res, brandCtx);
-      }
-      if (!issuesByTarget.has('styling')) {
-        await runStageWithTools('styling', buildStylingPrompt(ctx, brandCtx), ctx, res, brandCtx);
-      }
-    }
-
-    // Re-run spec-check
-    await runStageWithTools('spec-check', buildSpecCheckPrompt(ctx), ctx, res, brandCtx);
-
-    // Re-read spec report
+  // Read spec report and run fix loop (best-effort — HTML is already saved)
+  try {
+    const specReportPath = path.join(ctx.workingDir, 'spec-report.json');
+    let specReport: { overall: string; blocking_issues?: Array<{ description: string; severity: string; fix_target: string }> } = { overall: 'pass' };
     try {
       const raw = await fs.readFile(specReportPath, 'utf-8');
       specReport = JSON.parse(raw);
     } catch {
-      specReport = { overall: 'pass' };
+      // No spec report or parse error — treat as pass (best-effort)
     }
 
-    emitStageStatus(res, ctx.creationId, `fix-${fixIter}`, 'done');
-
-    if (specReport.overall === 'pass') break;
-
-    if (fixIter === MAX_FIX_ITERATIONS) {
-      emitStageStatus(res, ctx.creationId, 'fix-loop', 'max-iterations-reached');
+    if (specReport.overall === 'pass') {
+      return;
     }
+
+    // ── Fix loop: up to 3 iterations ──────────────────────────────────────────
+    const MAX_FIX_ITERATIONS = 3;
+    for (let fixIter = 1; fixIter <= MAX_FIX_ITERATIONS; fixIter++) {
+      const blockingIssues = specReport.blocking_issues ?? [];
+      if (blockingIssues.length === 0) break;
+
+      emitStageStatus(res, ctx.creationId, `fix-${fixIter}`, 'starting');
+
+      // Group issues by fix_target
+      const issuesByTarget = new Map<FixTarget, typeof blockingIssues>();
+      for (const issue of blockingIssues) {
+        const target = issue.fix_target as FixTarget;
+        if (!issuesByTarget.has(target)) issuesByTarget.set(target, []);
+        issuesByTarget.get(target)!.push(issue);
+      }
+
+      const fixTargets = Array.from(issuesByTarget.keys());
+      const hasCopyFix = fixTargets.includes('copy');
+
+      // Run fix agents for each affected target
+      for (const [target, issues] of issuesByTarget) {
+        await runStageWithTools(target, buildFixPrompt(target, issues, ctx), ctx, res);
+      }
+
+      // Cascade rule: if copy was fixed, re-run layout and styling too
+      if (hasCopyFix) {
+        if (!issuesByTarget.has('layout')) {
+          await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res);
+        }
+        if (!issuesByTarget.has('styling')) {
+          await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res);
+        }
+      }
+
+      // Re-run spec-check
+      await runStageWithTools('spec-check', buildSpecCheckPrompt(ctx), ctx, res);
+
+      // Re-read spec report
+      try {
+        const raw = await fs.readFile(specReportPath, 'utf-8');
+        specReport = JSON.parse(raw);
+      } catch {
+        specReport = { overall: 'pass' };
+      }
+
+      emitStageStatus(res, ctx.creationId, `fix-${fixIter}`, 'done');
+
+      if (specReport.overall === 'pass') break;
+
+      if (fixIter === MAX_FIX_ITERATIONS) {
+        emitStageStatus(res, ctx.creationId, 'fix-loop', 'max-iterations-reached');
+      }
+    }
+  } catch (fixLoopErr) {
+    console.error(`[api-pipeline] Fix loop failed (non-fatal):`, fixLoopErr);
+    // HTML file is already written — fix loop failure doesn't block the pipeline
   }
 }
 

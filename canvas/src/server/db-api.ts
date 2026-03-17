@@ -571,3 +571,9 @@ export function getBrandPatterns(category?: string): BrandPattern[] {
     : db.prepare('SELECT * FROM brand_patterns ORDER BY sort_order').all()) as Record<string, unknown>[];
   return rows.map(rowToBrandPattern);
 }
+
+export function getBrandPatternBySlug(slug: string): BrandPattern | undefined {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM brand_patterns WHERE slug = ?').get(slug) as Record<string, unknown> | undefined;
+  return row ? rowToBrandPattern(row) : undefined;
+}

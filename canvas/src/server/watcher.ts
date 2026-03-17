@@ -63,6 +63,8 @@ const SINGULAR_PATTERNS = [
   /^(?:create|make|generate|write|design)\s+(?:a|an|one)\s+/i,
   /\ba\s+one-pager\b/i,
   /\ban?\s+image\b/i,
+  /\b(?:a\s+)?single\s+(?:instagram|linkedin|post|one-pager|social|image)\b/i,
+  /\bjust\s+(?:a\s+)?(?:single\s+)?(?:post|instagram|linkedin|one-pager)\b/i,
 ];
 
 // Patterns that indicate campaign intent (overrides singularity)
@@ -96,8 +98,19 @@ export function parseChannelHints(
   isSingleCreation: boolean;
   inferredType?: string;
 } {
-  // Check for singularity BEFORE channel-only hints
-  // A singular prompt creates exactly 1 creation; campaign patterns override singularity
+  // Channel-only hints FIRST (existing behavior): "just linkedin" = 3 linkedin creations
+  if (/just linkedin|linkedin only|only linkedin/i.test(prompt)) {
+    return { channels: ['linkedin'], creationCounts: { linkedin: 3 }, isSingleCreation: false };
+  }
+  if (/just instagram|instagram only|only instagram/i.test(prompt)) {
+    return { channels: ['instagram'], creationCounts: { instagram: 3 }, isSingleCreation: false };
+  }
+  if (/one-pager only|just (?:a )?one-pager/i.test(prompt)) {
+    return { channels: ['one-pager'], creationCounts: { 'one-pager': 1 }, isSingleCreation: false };
+  }
+
+  // Singularity check: a singular prompt creates exactly 1 creation
+  // Campaign patterns override singularity
   const isSingular = SINGULAR_PATTERNS.some(p => p.test(prompt));
   const isCampaign = CAMPAIGN_PATTERNS.some(p => p.test(prompt));
   const isSingleCreation = isSingular && !isCampaign;
@@ -110,17 +123,6 @@ export function parseChannelHints(
       isSingleCreation: true,
       inferredType,
     };
-  }
-
-  // Channel-only hints (existing behavior): these are not singular
-  if (/just linkedin|linkedin only|only linkedin/i.test(prompt)) {
-    return { channels: ['linkedin'], creationCounts: { linkedin: 3 }, isSingleCreation: false };
-  }
-  if (/just instagram|instagram only|only instagram/i.test(prompt)) {
-    return { channels: ['instagram'], creationCounts: { instagram: 3 }, isSingleCreation: false };
-  }
-  if (/one-pager only|just (?:a )?one-pager/i.test(prompt)) {
-    return { channels: ['one-pager'], creationCounts: { 'one-pager': 1 }, isSingleCreation: false };
   }
 
   // No hint — return full default spread
@@ -929,6 +931,7 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
               userState: row.user_state ? JSON.parse(row.user_state as string) : null,
               status: row.status as string,
               source: row.source as string,
+              generationStatus: (row.generation_status as string) ?? 'complete',
               templateId: (row.template_id as string | null) ?? null,
               createdAt: row.created_at as number,
             };
@@ -1196,27 +1199,26 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
 
           // POST /api/generate/cancel -- force-clear stuck generation lock
           if (req.url === '/api/generate/cancel' && req.method === 'POST') {
-            // Kill all active campaign children
+            // Kill all active campaign children (CLI mode)
             if (activeChildren.size > 0) {
               for (const [, child] of activeChildren) {
                 try { child.kill('SIGKILL'); } catch { /* already dead */ }
               }
               activeChildren.clear();
-              activeCampaignGeneration = null;
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: true, message: 'Campaign generation cancelled' }));
-              return;
             }
             // Also check legacy single-child lock
             if (activeChild) {
               try { activeChild.kill('SIGKILL'); } catch { /* already dead */ }
               activeChild = null;
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: true, message: 'Generation cancelled' }));
-            } else {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: true, message: 'No active generation' }));
             }
+            // Always clear the campaign-level lock (covers API mode too)
+            const wasCampaign = activeCampaignGeneration;
+            activeCampaignGeneration = null;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: true,
+              message: wasCampaign ? `Campaign ${wasCampaign} cancelled` : 'No active generation',
+            }));
             return;
           }
 
@@ -1468,7 +1470,7 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             (res as any).flushHeaders?.();
 
             // Stream campaignId to client IMMEDIATELY after DB creation
-            res.write(`data: ${JSON.stringify({ type: 'session', campaignId, creationCount: creationSlideIterMap.length, isSingleCreation })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: 'session', campaignId, creationCount: creationSlideIterMap.length, isSingleCreation, creationIds: creationSlideIterMap.map(m => m.creation.id) })}\n\n`);
 
             if (engine === 'cli') {
               // ── CLI MODE: spawn claude -p subagents (legacy) ───────────────

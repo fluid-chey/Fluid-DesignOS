@@ -38,7 +38,10 @@ export function PromptSidebar() {
   const resetGeneration = useGenerationStore((s) => s.reset);
   const activeCampaignId = useGenerationStore((s) => s.activeCampaignId);
   const generationStatus = useGenerationStore((s) => s.status);
+  const isSingleCreation = useGenerationStore((s) => s.isSingleCreation);
+  const creationIds = useGenerationStore((s) => s.creationIds);
   const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
+  const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
   const campaignCurrentView = useCampaignStore((s) => s.currentView);
   const campaignActiveCampaignId = useCampaignStore((s) => s.activeCampaignId);
   const campaigns = useCampaignStore((s) => s.campaigns);
@@ -90,15 +93,20 @@ export function PromptSidebar() {
 
   const [submittedPrompt, setSubmittedPrompt] = useState('');
 
-  // Navigate to the newly created/updated campaign when generation completes.
+  // Navigate to the newly created/updated campaign (or creation) when generation completes.
   // No delay — the 'done' SSE event fires only after all subagents complete (Plan 02).
   const prevStatusRef = useRef(generationStatus);
   useEffect(() => {
     if (prevStatusRef.current === 'generating' && generationStatus === 'complete' && activeCampaignId) {
-      navigateToCampaign(activeCampaignId);
+      if (isSingleCreation && creationIds.length === 1) {
+        // Single-creation prompt: navigate directly to the creation
+        navigateToCreation(creationIds[0]);
+      } else {
+        navigateToCampaign(activeCampaignId);
+      }
     }
     prevStatusRef.current = generationStatus;
-  }, [generationStatus, activeCampaignId, navigateToCampaign]);
+  }, [generationStatus, activeCampaignId, isSingleCreation, creationIds, navigateToCampaign, navigateToCreation]);
 
   // Reset "Add to campaign" dismissed state when campaign view changes
   useEffect(() => {

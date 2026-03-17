@@ -20,6 +20,141 @@ import { StatusBadge } from './components/StatusBadge';
 
 type CreationFlow = null | 'gallery' | 'customizer';
 
+/**
+ * Shows standalone creations (single-asset prompts) in the Creations tab.
+ * Fetches the __standalone__ campaign's creations and renders them as a grid.
+ */
+function StandaloneCreationsView() {
+  const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
+  const [standaloneCreations, setStandaloneCreations] = useState<Creation[]>([]);
+  const [standaloneLoading, setStandaloneLoading] = useState(true);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Find the __standalone__ campaign
+        const campaignsRes = await fetch('/api/campaigns');
+        if (!campaignsRes.ok || cancelled) return;
+        const campaigns = await campaignsRes.json();
+        const standalone = campaigns.find((c: { title: string }) => c.title === '__standalone__');
+        if (!standalone || cancelled) { setStandaloneLoading(false); return; }
+
+        // Fetch its creations
+        const crRes = await fetch(`/api/campaigns/${standalone.id}/creations`);
+        if (!crRes.ok || cancelled) { setStandaloneLoading(false); return; }
+        const creations: Creation[] = await crRes.json();
+        if (cancelled) return;
+        setStandaloneCreations(creations);
+        setStandaloneLoading(false);
+
+        // Fetch latest iteration preview for each creation
+        const prevMap: Record<string, string> = {};
+        await Promise.all(creations.map(async (cr) => {
+          try {
+            const slidesRes = await fetch(`/api/creations/${cr.id}/slides`);
+            if (!slidesRes.ok) return;
+            const slides = await slidesRes.json();
+            if (slides.length === 0) return;
+            const itersRes = await fetch(`/api/slides/${slides[0].id}/iterations`);
+            if (!itersRes.ok) return;
+            const iters = await itersRes.json();
+            if (iters.length === 0) return;
+            const latest = iters.reduce((best: any, it: any) =>
+              it.iterationIndex > best.iterationIndex ? it : best
+            );
+            prevMap[cr.id] = latest.id;
+          } catch { /* skip */ }
+        }));
+        if (!cancelled) setPreviews(prevMap);
+      } catch {
+        if (!cancelled) setStandaloneLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (standaloneLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', fontSize: '0.85rem' }}>
+        Loading creations...
+      </div>
+    );
+  }
+
+  if (standaloneCreations.length === 0) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        height: '100%', minHeight: 280, padding: '2rem', color: '#666', fontSize: '0.85rem',
+        fontFamily: "'Inter', sans-serif", textAlign: 'center',
+      }}>
+        <p style={{ margin: 0, maxWidth: 320 }}>
+          No standalone creations yet. Use the prompt to generate a single post.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+      gap: '1rem',
+      padding: '1rem',
+      overflowY: 'auto',
+    }}>
+      {standaloneCreations.map((cr) => (
+        <div
+          key={cr.id}
+          onClick={() => navigateToCreation(cr.id)}
+          style={{
+            backgroundColor: '#1a1a1e',
+            borderRadius: 8,
+            overflow: 'hidden',
+            cursor: 'pointer',
+            border: '1px solid #2a2a2e',
+            transition: 'border-color 0.15s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#44B2FF')}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2a2e')}
+        >
+          <div style={{ aspectRatio: '1', backgroundColor: '#111', position: 'relative', overflow: 'hidden' }}>
+            {previews[cr.id] ? (
+              <iframe
+                src={`/api/iterations/${previews[cr.id]}/html`}
+                style={{
+                  transform: 'scale(0.2)',
+                  transformOrigin: 'top left',
+                  width: '500%',
+                  height: '500%',
+                  pointerEvents: 'none',
+                  border: 'none',
+                }}
+                sandbox="allow-same-origin"
+                title={cr.title}
+              />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#444', fontSize: '0.75rem' }}>
+                No preview
+              </div>
+            )}
+          </div>
+          <div style={{ padding: '0.5rem 0.65rem' }}>
+            <div style={{ fontSize: '0.78rem', color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {cr.title}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: '#666', marginTop: '0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {cr.creationType}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function App() {
   const currentView = useCampaignStore((s) => s.currentView);
   const activeCampaignId = useCampaignStore((s) => s.activeCampaignId);
@@ -225,25 +360,7 @@ export function App() {
     // Creations tab at dashboard, or either tab when drilled in: show creations hierarchy (creations → slides → iterations)
     switch (currentView) {
       case 'dashboard':
-        return (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            minHeight: 280,
-            padding: '2rem',
-            color: '#666',
-            fontSize: '0.9rem',
-            fontFamily: "'Inter', sans-serif",
-            textAlign: 'center',
-          }}>
-            <p style={{ margin: 0, maxWidth: 320 }}>
-              Creations are assets (e.g. posts, one-pagers) that live inside campaigns. Select a campaign from the <strong>Campaigns</strong> tab to view and add creations.
-            </p>
-          </div>
-        );
+        return <StandaloneCreationsView />;
 
       case 'campaign':
         return (
