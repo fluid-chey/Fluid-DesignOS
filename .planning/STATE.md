@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 14.1-02-PLAN.md (Phase 14.1 Plan 02 — CLI orchestrators replaced with thin /api/generate wrappers; old fluid-social/one-pager/theme-section skills deleted)
-last_updated: "2026-03-17T20:42:41.110Z"
+stopped_at: Completed 14.1-03-PLAN.md (Phase 14.1 Plan 03 — Rewrite brand-intelligence skill to DB tools, delete brand/ directory)
+last_updated: "2026-03-17T20:44:15.252Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 19
-  completed_phases: 16
+  completed_phases: 17
   total_plans: 57
-  completed_plans: 55
+  completed_plans: 56
   percent: 100
 ---
 
@@ -96,6 +96,7 @@ Progress: [████████████████████] 100% (1
 | Phase 14-design-dna P02 | 2min | 2 tasks | 2 files |
 | Phase 14.1-brand-agnostic-pipeline P01 | 4min | 2 tasks | 2 files |
 | Phase 14.1-brand-agnostic-pipeline P02 | 2min | 2 tasks | 4 files |
+| Phase 14.1-brand-agnostic-pipeline P03 | 3min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -251,6 +252,9 @@ Recent decisions affecting current work:
 - [Phase 14-design-dna]: buildStylingPrompt explicitly references fontSrc/cssUrl/imgSrc field names so agents use pre-formatted values verbatim
 - [Phase 14.1-01]: buildSystemPrompt is synchronous (no await) — removes file I/O from the hot path; brandName optional field enables brand identity injection without hardcoding in prompts
 - [Phase 14.1-02]: fluid-campaign skill does not exist — Task 2 trivially passes with zero stale references; generate-social/one-pager/theme-section are thin POST /api/generate wrappers; fluid-design-os usage hint updated from /fluid-social to /generate-social
+- [Phase 14.1-03]: brand-intelligence/SKILL.md now routes agents to DB tools (list_brand_sections, read_brand_section, list_brand_assets) instead of brand/*.md files
+- [Phase 14.1-03]: CLAUDE.md Brand Intelligence section replaced with Brand Data section pointing to SQLite DB; brand/ directory deleted
+- [Phase 14.1-03]: feedback-ingest.cjs ASSET_DOC_MAP/TOPIC_BRAND_DOC_MAP updated to use DB section slugs instead of brand/ file paths
 
 ### Parallel Development Note
 
@@ -284,6 +288,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-17T20:42:41.108Z
-Stopped at: Completed 14.1-02-PLAN.md (Phase 14.1 Plan 02 — CLI orchestrators replaced with thin /api/generate wrappers; old fluid-social/one-pager/theme-section skills deleted)
+Last session: 2026-03-17T20:44:15.249Z
+Stopped at: Completed 14.1-03-PLAN.md (Phase 14.1 Plan 03 — Rewrite brand-intelligence skill to DB tools, delete brand/ directory)
 Resume file: None
