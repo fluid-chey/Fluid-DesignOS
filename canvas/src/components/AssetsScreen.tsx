@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FluidDAMModal, type SelectedDAMAsset } from './DAMPicker';
+import { useAssets } from '../hooks/useAssets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,34 +48,22 @@ function getRelativeTime(ts: number): string {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AssetsScreen() {
-  // Saved assets state (existing)
-  const [assets, setAssets] = useState<SavedAsset[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Saved assets via shared hook (deduped with BuildHero)
+  const { assets, loading, error: assetsError, invalidate: fetchAssets } = useAssets();
   const [error, setError] = useState<string | null>(null);
   const [damOpen, setDamOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Surface hook-level errors into local error state
+  useEffect(() => {
+    if (assetsError) setError(assetsError);
+  }, [assetsError]);
 
   // Brand assets + DAM sync state (new)
   const [brandAssets, setBrandAssets] = useState<BrandAssetUI[]>([]);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'no-token'>('idle');
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
-
-  const fetchAssets = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/assets');
-      if (!res.ok) throw new Error('Failed to load assets');
-      const data = await res.json();
-      setAssets(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load assets');
-      setAssets([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const fetchBrandAssets = useCallback(async () => {
     try {
@@ -88,9 +77,9 @@ export function AssetsScreen() {
     }
   }, []);
 
-  // On mount: fetch everything and detect DAM token presence
+  // On mount: fetch brand assets and detect DAM token presence
+  // (saved assets are handled by the useAssets hook)
   useEffect(() => {
-    fetchAssets();
     fetchBrandAssets().then(async (loaded) => {
       if (!loaded) return;
       // If any brand assets have source=dam, DAM was synced before — show bar
@@ -124,7 +113,7 @@ export function AssetsScreen() {
         setSyncError('DAM unreachable — showing cached assets');
       }
     });
-  }, [fetchAssets, fetchBrandAssets]);
+  }, [fetchBrandAssets]);
 
   const handleSync = async () => {
     setSyncStatus('syncing');

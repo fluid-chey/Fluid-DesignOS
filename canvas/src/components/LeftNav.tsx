@@ -97,7 +97,7 @@ export function LeftNav() {
   const chatSidebarOpen = useCampaignStore((s) => s.chatSidebarOpen);
   const setActiveNavTab = useCampaignStore((s) => s.setActiveNavTab);
   const toggleChatSidebar = useCampaignStore((s) => s.toggleChatSidebar);
-  const [tooltip, setTooltip] = useState<{ label: string; top: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ label: string; top: number; left: number } | null>(null);
 
   return (
     <div style={{
@@ -125,7 +125,7 @@ export function LeftNav() {
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.color = '#aaa';
                 const rect = e.currentTarget.getBoundingClientRect();
-                setTooltip({ label, top: rect.top + rect.height / 2 });
+                setTooltip({ label, top: rect.top + rect.height / 2, left: rect.right + 8 });
               }}
               onMouseLeave={(e) => {
                 if (!isActive) e.currentTarget.style.color = '#666';
@@ -158,7 +158,7 @@ export function LeftNav() {
         <div
           style={{
             position: 'fixed',
-            left: 52 + 8,
+            left: tooltip.left,
             top: tooltip.top,
             transform: 'translateY(-50%)',
             padding: '6px 10px',
@@ -184,7 +184,7 @@ export function LeftNav() {
           title="AI Chat"
           onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
-            setTooltip({ label: 'AI Chat', top: rect.top + rect.height / 2 });
+            setTooltip({ label: 'AI Chat', top: rect.top + rect.height / 2, left: rect.right + 8 });
           }}
           onMouseLeave={() => setTooltip(null)}
           onClick={toggleChatSidebar}
