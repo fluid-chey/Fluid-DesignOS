@@ -245,14 +245,14 @@ Plans:
 
 ### Phase 12: Post-API Migration Cleanup & Audit
 
-**Goal:** Audit the full codebase for CLI-era artifacts, dead code, and stale infrastructure left over from the CLI-to-API migration. Update CLI validation tools to read from DB instead of static `rules.json`. Remove dead CLI generation paths, stale tests, unused imports, and orphaned planning directories. Verify infrastructure coherence -- API pipeline, DB schema, brand seeder, MCP server, and validation tools should tell a consistent story with no contradictions.
+**Goal:** Audit the full codebase for CLI-era artifacts, dead code, and stale infrastructure left over from the CLI-to-API migration. Update CLI validation tools to read from DB instead of static `rules.json`. Remove dead CLI generation paths, stale tests, unused imports, and orphaned planning directories. Slim project-level skill .md files to behavioral contracts (strip embedded brand data). Verify infrastructure coherence -- API pipeline, DB schema, brand seeder, MCP server, skill files, and validation tools should tell a consistent story with no contradictions.
 **Depends on:** Phase 11
 **Plans:** 3 plans
 
 Plans:
 - [ ] 12-01-PLAN.md — CLI dead code removal from watcher.ts (iterate + campaign spawn paths) + stale test cleanup
 - [ ] 12-02-PLAN.md — Validation tools DB migration (brand-compliance.cjs reads SQLite) + orphan directory cleanup + STATE.md update
-- [ ] 12-03-PLAN.md — Pre-existing test failure fixes, MCP tool audit, stale reference sweep, CLAUDE.md update
+- [ ] 12-03-PLAN.md — Pre-existing test failure fixes, skill file slimming (strip brand data), MCP tool audit, stale reference sweep, CLAUDE.md update
 
 ### Phase 13: DAM Sync
 
