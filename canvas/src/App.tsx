@@ -380,7 +380,7 @@ export function App() {
             iframeEl={currentView === 'slide' && activeIterationId ? editIframeEl : iframeRef.current}
           />
         }
-        onNewCreation={activeCampaignId ? handleNewCreation : undefined}
+        onNewCreation={handleNewCreation}
       >
         {renderMainContent()}
       </AppShell>

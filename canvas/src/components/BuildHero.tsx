@@ -345,7 +345,10 @@ export function BuildHero() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '24px 1.5rem',
+        paddingTop: '240px',
+        paddingBottom: '24px',
+        paddingLeft: '1.5rem',
+        paddingRight: '1.5rem',
         gap: 0,
         fontFamily: 'inherit',
         overflowY: 'auto',
@@ -380,29 +383,77 @@ export function BuildHero() {
         </div>
       </div>
 
-      {/* Main Input Container */}
-      <div style={{ position: 'relative', width: '100%', maxWidth: 896 }}>
-        {/* Gradient border glow (kept per request) */}
+      {/* Main Input Container — animated shine border with glow */}
+      <style>{`
+        @keyframes build-hero-shine-rotate {
+          to { transform: rotate(-360deg); }
+        }
+      `}</style>
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        maxWidth: 896,
+        padding: 24,
+        overflow: 'visible',
+      }}>
+        <div style={{
+          position: 'relative',
+          borderRadius: 12,
+          overflow: 'hidden',
+          minHeight: 192,
+          zIndex: 1,
+          boxShadow: [
+            '0 0 24px rgba(68,178,255,0.2)',
+            '0 0 48px rgba(68,178,255,0.08)',
+            '0 0 16px rgba(249,115,22,0.1)',
+            '0 0 32px rgba(168,85,247,0.06)',
+          ].join(', '),
+        }}>
+        {/* Sharp rotating border — trailing fade for smooth comet effect */}
         <div
           style={{
             position: 'absolute',
-            inset: -1,
-            borderRadius: 10,
-            background: 'linear-gradient(90deg, rgba(255,102,20,0.35) 0%, rgba(239,68,68,0.2) 50%, rgba(68,178,255,0.35) 100%)',
-            filter: 'blur(8px)',
-            opacity: 0.8,
+            width: '200%',
+            height: '200%',
+            left: '-50%',
+            top: '-50%',
+            background: `conic-gradient(
+              from 0deg,
+              #f97316 0deg,
+              #fbbf24 25deg,
+              #4ade80 50deg,
+              #22d3ee 75deg,
+              #44B2FF 100deg,
+              #a78bfa 125deg,
+              #ec4899 150deg,
+              #f97316 180deg,
+              rgba(249,115,22,0.4) 200deg,
+              rgba(249,115,22,0.1) 230deg,
+              transparent 260deg,
+              transparent 360deg
+            )`,
+            animation: 'build-hero-shine-rotate 10s cubic-bezier(0.35, 0, 0.25, 1) infinite',
             pointerEvents: 'none',
+            zIndex: 1,
           }}
         />
+        {/* Inner content — inset so gradient ring is visible (1px border); box-shadow = glow on border */}
         <div
           style={{
-            position: 'relative',
+            position: 'absolute',
+            inset: 1,
+            borderRadius: 11,
+            zIndex: 2,
             background: BG_CARD,
-            borderRadius: 8,
             padding: '1.5rem',
-            border: `1px solid ${BORDER}`,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            minHeight: 184,
+            boxShadow: [
+              '0 0 0 1px rgba(255,255,255,0.06)',
+              '0 0 20px rgba(68,178,255,0.25)',
+              '0 0 40px rgba(68,178,255,0.12)',
+              '0 0 16px rgba(249,115,22,0.15)',
+              '0 0 32px rgba(168,85,247,0.1)',
+              '0 4px 12px rgba(0,0,0,0.3)',
+            ].join(', '),
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -1101,6 +1152,7 @@ export function BuildHero() {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
 
