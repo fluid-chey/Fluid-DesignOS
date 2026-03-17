@@ -660,21 +660,15 @@ describe('runApiPipeline: 4-stage pipeline with pass spec', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Engine routing: default uses API, explicit 'cli' uses spawn
+// Engine routing: API is the only engine
 // ---------------------------------------------------------------------------
 
 describe('Engine routing in /api/generate', () => {
   it('body.engine defaults to "api" when not provided', () => {
-    // Test that the default engine is 'api'
+    // Test that the default engine is 'api' — only engine supported
     const body: { engine?: string } = {};
     const engine = body.engine ?? 'api';
     expect(engine).toBe('api');
-  });
-
-  it('body.engine="cli" enables CLI path', () => {
-    const body = { engine: 'cli' };
-    const engine = body.engine ?? 'api';
-    expect(engine).toBe('cli');
   });
 
   it('body.engine="api" is explicit API path', () => {
