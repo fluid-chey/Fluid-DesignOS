@@ -6,13 +6,7 @@ import {
   BG_PRIMARY, BG_CARD, BG_SECONDARY, BORDER, BORDER_HOVER,
   ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
 } from './tokens';
-
-/** Saved asset from /api/assets (same shape as IdeasGetStarted.SelectedAsset). */
-interface SavedAssetForIdeas {
-  id: string;
-  url: string;
-  name?: string | null;
-}
+import { useAssets } from '../hooks/useAssets';
 
 const CREATION_TYPES = [
   { id: 'campaign', label: 'Campaign' },
@@ -214,7 +208,7 @@ export function BuildHero() {
   const [videoDimensionDropdownOpen, setVideoDimensionDropdownOpen] = useState(false);
   const [damModalOpen, setDamModalOpen] = useState(false);
   const [selectedDamAssets, setSelectedDamAssets] = useState<Array<{ id: string; url: string; name?: string }>>([]);
-  const [savedAssets, setSavedAssets] = useState<SavedAssetForIdeas[]>([]);
+  const { assets: savedAssetsRaw } = useAssets();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const creationDropdownRef = useRef<HTMLDivElement>(null);
   const socialPostFormatDropdownRef = useRef<HTMLDivElement>(null);
@@ -278,21 +272,11 @@ export function BuildHero() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [videoDimensionDropdownOpen]);
 
-  // Load saved assets (from Assets tab) so Ideas Get Started can suggest remixes
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/assets')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: Array<{ id: string; url: string; name?: string | null }>) => {
-        if (!cancelled && Array.isArray(data)) {
-          setSavedAssets(data.map((a) => ({ id: a.id, url: a.url, name: a.name ?? undefined })));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSavedAssets([]);
-      });
-    return () => { cancelled = true; };
-  }, []);
+  // Map saved assets to the shape IdeasGetStarted expects
+  const savedAssets = useMemo(
+    () => savedAssetsRaw.map((a) => ({ id: a.id, url: a.url, name: a.name ?? undefined })),
+    [savedAssetsRaw],
+  );
 
   const videoDimensionsForFormat = VIDEO_DIMENSIONS.filter((d) =>
     d.formats.includes(videoFormatId as 'story' | 'video')
