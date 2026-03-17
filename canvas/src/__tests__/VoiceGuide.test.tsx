@@ -101,14 +101,16 @@ describe('VoiceGuide', () => {
   it('first tab is active by default with correct highlight', async () => {
     render(<VoiceGuide />);
     const nav = document.querySelector('nav[aria-label="Voice Guide documents"]');
-    // Wait for docs to load
+    // Wait for both docs to load AND the second useEffect to set activeDocSlug.
+    // The component has two async steps: (1) fetch resolves -> docs state set,
+    // (2) useEffect on docs fires -> activeDocSlug set to docs[0].slug.
+    // We must wait for aria-current to appear, not just for buttons to exist.
     await waitFor(() => {
       const buttons = nav!.querySelectorAll('button');
       expect(buttons.length).toBeGreaterThan(0);
+      const first = buttons[0] as HTMLElement;
+      expect(first.getAttribute('aria-current')).toBe('page');
     });
-    const firstButton = nav!.querySelectorAll('button')[0] as HTMLElement;
-    // Active tab has aria-current="page"
-    expect(firstButton.getAttribute('aria-current')).toBe('page');
   });
 
   it('shows Loading... while fetch is pending', () => {
