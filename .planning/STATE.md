@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 12 context gathered
-last_updated: "2026-03-17T01:26:01.118Z"
-last_activity: 2026-03-16 -- Phase 04.2 complete, roadmap synced
+status: in_progress
+stopped_at: Phase 12 plan 02 complete
+last_updated: "2026-03-17T02:30:00.000Z"
+last_activity: 2026-03-17 -- Phase 12 plan 02 complete (DB migration, orphan cleanup)
 progress:
-  total_phases: 19
+  total_phases: 15
   completed_phases: 14
-  total_plans: 45
-  completed_plans: 45
-  percent: 80
+  total_plans: 48
+  completed_plans: 47
+  percent: 85
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** An agent using this system produces assets that look and sound like Fluid made them from the very first prompt
-**Current focus:** Phases 1-10 + 4.1 + 4.2 complete. Next: Phase 11 (API Pipeline Hardening + DB-Backed Brand Intelligence).
+**Current focus:** Phases 1-11 complete. Current: Phase 12 (Post-API Migration Cleanup & Audit). Next: Phase 13 (DAM Sync).
 
 ## Current Position
 
-Phase: 11 — API Pipeline Hardening + DB-Backed Brand Intelligence (context + research gathered, ready for planning)
-Status: All execution phases through 10 complete. Phase 04.2 (asset linking) also complete. Phase 04.3 removed. Former Phase 9 (chat UI) absorbed into Phase 11.
-Last activity: 2026-03-16 -- Phase 04.2 complete, roadmap synced
+Phase: 12 — Post-API Migration Cleanup & Audit
+Status: Planning complete, execution in progress (plan 02 of 03 complete).
+Last activity: 2026-03-17 -- Phase 12 plan 02 complete (DB migration + orphan directory cleanup)
 
-Progress: [████████████████░░░░] 80% (12/15 phases, 42/42 existing plans)
+Progress: [█████████████████░░░] 85% (14/15 phases, 47/48 plans)
 
 ## Performance Metrics
 
@@ -245,18 +245,11 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ### Roadmap Evolution
 
-- Phase 04.1 inserted after Phase 4: Canvas Polish & Integration Hardening (URGENT) — addresses permissions, file watcher auto-discovery, MCP→agent triggering, canvas UX overhaul (star/favorite, remove aggressive blocking, infer winner), generation speed optimization, skill path hardening
-- Phase 6 added: Marketing Skills Integration — deep integration of 30 marketing domain skills (~/.agents/skills/) into subagent system for composable marketing intelligence
-- Phase 04.2 inserted after Phase 4.1: Asset Linking & Output Refactor — replace base64-inlined images/fonts with URL-linked assets served via Vite, shared brand assets folder, per-session assets, reducing HTML from 2-3MB to ~50KB
-- Phase 04.3 inserted then removed: Install Process Safety — no longer needed
-- Phase 7 added: Merge Jonathan's codebase into Fluid DesignOS — consolidate Jonathan's implementation with existing system, documentation in Reference/Context
-- Phase 8 added: AI sidebar to campaign dashboard end-to-end — fix disconnected data paths (sidebar generates to disk, dashboard reads SQLite), multi-asset campaign creation, preview rendering at all navigation levels, MCP push_asset bridge
-- Phase 9 (Conversational chat UI) added then absorbed into Phase 11
-- Phase 9 renumbered: App Navigation Overhaul (completed 2026-03-13)
-- Phase 10: Anthropic API Generation Pipeline — replace CLI `claude -p` spawning with direct Anthropic SDK calls (completed 2026-03-16)
-- Phase 11: API Pipeline Hardening + DB-Backed Brand Intelligence — combined scope: prompt routing, preview path fixes, token cost reduction, Claude-style chat UX, Voice Guide/Patterns/Templates DB migration
-- Phase 12: Pipeline Integration — subagents read from DB via MCP, slim skill .md files
-- Phase 13: DAM Sync — Fluid DAM as upstream source of truth
+- Phases 01-09 complete: brand intelligence foundation, social posts, website sections, canvas, polish, asset linking, learning loop, marketing skills, Jonathan's codebase merge, campaign dashboard, app navigation overhaul
+- Phase 10: Anthropic API Generation Pipeline — replaced CLI `claude -p` spawning with direct Anthropic SDK calls (completed 2026-03-16)
+- Phase 11: API Pipeline Hardening + DB-Backed Brand Intelligence — combined scope: prompt routing, preview path fixes, token cost reduction, Claude-style chat UX, Voice Guide + Patterns DB migration (completed)
+- Phase 12: Post-API Migration Cleanup & Audit — migrate validation tools from rules.json to SQLite DB, delete orphaned directories, end-to-end tests (current, plan 02/03 done)
+- Phase 13: DAM Sync — Fluid DAM as upstream source of truth (next)
 
 ### Blockers/Concerns
 
@@ -266,6 +259,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:26:01.115Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-api-pipeline-hardening-routing-context-injection-cost-ux/12-CONTEXT.md
+Last session: 2026-03-17T02:30:00.000Z
+Stopped at: Phase 12 plan 02 complete (12-02-PLAN.md executed)
+Resume file: .planning/phases/12-api-pipeline-hardening-routing-context-injection-cost-ux/12-03-PLAN.md
