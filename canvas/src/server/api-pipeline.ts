@@ -7,7 +7,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import type { ServerResponse } from 'node:http';
 import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline } from './db-api';
@@ -52,6 +51,7 @@ export interface PipelineContext {
   htmlOutputPath: string; // absolute path where final HTML goes
   creationId: string;
   campaignId: string;
+  brandName?: string;  // Loaded from DB at pipeline entry; prompts use "the brand" if absent
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ export const STAGE_TOOLS: Record<PipelineStage, Anthropic.Tool[]> = {
 
 // ---------------------------------------------------------------------------
 // Project root (three levels up from canvas/src/server/ = Fluid-DesignOS root)
-// brand/, tools/, patterns/ all live at this level
+// tools/, patterns/ all live at this level
 // ---------------------------------------------------------------------------
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
@@ -465,156 +465,32 @@ async function loadDesignDna(ctx: PipelineContext, archetypeSlug?: string): Prom
 }
 
 // ---------------------------------------------------------------------------
-// Stage prompt loader
+// Stage prompt builder
 // ---------------------------------------------------------------------------
 
-/** Mapping from creationType to skill file path */
-const SKILL_FILES: Record<string, string> = {
-  instagram: path.join(os.homedir(), '.agents/skills/fluid-social/SKILL.md'),
-  linkedin: path.join(os.homedir(), '.agents/skills/fluid-social/SKILL.md'),
-  'one-pager': path.join(os.homedir(), '.agents/skills/fluid-one-pager/SKILL.md'),
-  'theme-section': path.join(os.homedir(), '.agents/skills/fluid-theme-section/SKILL.md'),
-};
-
-/** Fallback prompts when skill file cannot be loaded */
-function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext): string {
-  switch (stage) {
-    case 'copy':
-      return [
-        `You are a Fluid brand copywriter. Generate marketing copy for a ${ctx.creationType} post.`,
-        ``,
-        `Use list_brand_sections(category="voice-guide") to discover available voice guide docs.`,
-        `Then read_brand_section the most relevant ones (e.g. "voice-and-style", plus the product-specific doc if applicable).`,
-        ``,
-        `Write copy to ${ctx.workingDir}/copy.md.`,
-      ].join('\n');
-    case 'layout':
-      return [
-        `You are a Fluid layout agent. Create HTML layout for a ${ctx.creationType} post.`,
-        `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
-        ``,
-        `Use list_brand_sections(category="layout-archetype") to discover layout types.`,
-        `Then read_brand_section to load the archetype details.`,
-        ``,
-        `Write layout to ${ctx.workingDir}/layout.html.`,
-      ].join('\n');
-    case 'styling':
-      return [
-        `You are a Fluid styling agent. Apply brand styling.`,
-        `Read ${ctx.workingDir}/copy.md and ${ctx.workingDir}/layout.html using the read_file tool.`,
-        ``,
-        `Use list_brand_sections to discover available brand specs. Load relevant sections:`,
-        `- "design-tokens" category for colors, typography, opacity`,
-        `- "pattern" category for brushstrokes, circles, textures, footer structure`,
-        `Read only the sections you actually need for this creation.`,
-        ``,
-        `Use list_brand_assets tool to discover available fonts, brushstrokes, and other assets.`,
-        `Reference all assets via the URLs returned by list_brand_assets. NEVER embed base64 data URIs. NEVER hardcode specific asset filenames.`,
-        ``,
-        `CRITICAL: Write the final HTML using write_file to EXACTLY this path: ${ctx.htmlOutputPath}`,
-        `Do NOT write to styled.html or any other filename.`,
-      ].join('\n');
-    case 'spec-check':
-      return `You are a Fluid spec-check agent. Validate ${ctx.htmlOutputPath}. Use run_brand_check tool. Write report to ${ctx.workingDir}/spec-report.json.`;
-  }
-}
-
-/** Map stage names to the section heading patterns in skill files */
-const STAGE_HEADING_PATTERNS: Record<PipelineStage, RegExp> = {
-  copy: /copy\s*agent/i,
-  layout: /layout\s*agent/i,
-  styling: /styling\s*agent/i,
-  'spec-check': /spec.?check\s*agent/i,
-};
-
 /**
- * Extract the section for a given stage from skill file content.
- * Skill files use headings like "## Step 3a: Copy Agent".
+ * Build the system prompt for a pipeline stage.
+ * Generic process instructions — no brand-specific content.
+ * Agents load brand context at runtime via DB tools.
  */
-function extractStageSection(content: string, stage: PipelineStage): string | null {
-  const lines = content.split('\n');
-  const headingPattern = STAGE_HEADING_PATTERNS[stage];
-
-  let sectionStart = -1;
-  let sectionLevel = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
-
-    if (headingMatch && headingPattern.test(headingMatch[2])) {
-      sectionStart = i;
-      sectionLevel = headingMatch[1].length;
-      continue;
-    }
-
-    // If we found the section start, look for the next heading at same or higher level
-    if (sectionStart !== -1 && i > sectionStart) {
-      const nextHeading = line.match(/^(#{1,6})\s+/);
-      if (nextHeading && nextHeading[1].length <= sectionLevel) {
-        // Found end of section
-        return lines.slice(sectionStart, i).join('\n').trim();
-      }
-    }
-  }
-
-  if (sectionStart !== -1) {
-    // Section goes to end of file
-    return lines.slice(sectionStart).join('\n').trim();
-  }
-
-  return null;
-}
-
-/**
- * Load the system prompt for a pipeline stage.
- * Primary: reads skill .md file from disk and extracts stage-specific section.
- * Fallback: hardcoded minimal prompt if file read or parse fails.
- */
-export async function loadStagePrompt(stage: PipelineStage, ctx: PipelineContext): Promise<string> {
-  const skillPath = SKILL_FILES[ctx.creationType];
-
-  if (!skillPath) {
-    console.warn(`[api-pipeline] No skill file mapping for creationType "${ctx.creationType}", using fallback`);
-    return getFallbackPrompt(stage, ctx);
-  }
-
-  let skillContent: string;
-  try {
-    skillContent = await fs.readFile(skillPath, 'utf-8');
-  } catch (err) {
-    console.warn(`[api-pipeline] Failed to read skill file "${skillPath}": ${err}. Using fallback.`);
-    return getFallbackPrompt(stage, ctx);
-  }
-
-  const stageSection = extractStageSection(skillContent, stage);
-  if (!stageSection) {
-    console.warn(`[api-pipeline] Could not extract "${stage}" section from "${skillPath}". Using fallback.`);
-    return getFallbackPrompt(stage, ctx);
-  }
-
-  // Compose the final system prompt
-  const availableTools =
-    stage === 'spec-check'
-      ? 'read_file, write_file, run_brand_check'
-      : stage === 'styling'
-        ? 'read_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_assets'
-        : 'read_file, write_file, list_files, list_brand_sections, read_brand_section';
-
-  return [
-    `You are a Fluid ${stage} agent working on a ${ctx.creationType} creation.`,
-    '',
-    '## Stage Instructions',
-    stageSection,
+export function buildSystemPrompt(stage: PipelineStage, ctx: PipelineContext): string {
+  const brandRef = ctx.brandName ? `for ${ctx.brandName}` : 'for the brand';
+  const base = [
+    `You are a ${stage} agent working on a ${ctx.creationType} creation ${brandRef}.`,
     '',
     '## Context',
     `- Working directory: ${ctx.workingDir}`,
     `- HTML output path: ${ctx.htmlOutputPath}`,
     `- Creation type: ${ctx.creationType}`,
-    '',
-    '## Available Tools',
-    availableTools,
-  ].join('\n');
+  ];
+
+  const toolSection = stage === 'spec-check'
+    ? '## Available Tools\nread_file, write_file, run_brand_check'
+    : stage === 'styling'
+      ? '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_assets'
+      : '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section';
+
+  return [...base, '', toolSection].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -688,7 +564,7 @@ export function emitStageNarrative(
 
 export function buildCopyPrompt(ctx: PipelineContext): string {
   return [
-    `Generate Fluid brand copy for a ${ctx.creationType} marketing creation.`,
+    `Generate marketing copy for a ${ctx.creationType} creation.`,
     `Topic: ${ctx.prompt}`,
     ``,
     `Use list_brand_sections(category="voice-guide") to see available voice guide docs.`,
@@ -701,7 +577,7 @@ export function buildCopyPrompt(ctx: PipelineContext): string {
 
 export function buildLayoutPrompt(ctx: PipelineContext, designDna?: string): string {
   return [
-    `Create structural HTML layout for a Fluid ${ctx.creationType} post.`,
+    `Create structural HTML layout for a ${ctx.creationType} creation.`,
     `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
     ``,
     `Use list_brand_sections(category="layout-archetype") to discover layout types, then read_brand_section to load details.`,
@@ -717,7 +593,7 @@ export function buildLayoutPrompt(ctx: PipelineContext, designDna?: string): str
 
 export function buildStylingPrompt(ctx: PipelineContext, designDna?: string): string {
   return [
-    `Apply Fluid brand styling to create a complete HTML output.`,
+    `Apply brand styling to create a complete HTML output.`,
     `Read copy from ${ctx.workingDir}/copy.md and layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
     ``,
     `Use list_brand_sections to discover available brand specs, then read_brand_section to load what you need:`,
@@ -743,7 +619,7 @@ export function buildStylingPrompt(ctx: PipelineContext, designDna?: string): st
 
 function buildSpecCheckPrompt(ctx: PipelineContext): string {
   return [
-    `Validate the HTML at ${ctx.htmlOutputPath} against Fluid brand specs.`,
+    `Validate the HTML at ${ctx.htmlOutputPath} against the brand's design specs.`,
     `Use run_brand_check tool on that file.`,
     `Write a JSON report to ${ctx.workingDir}/spec-report.json with format:`,
     `{ "overall": "pass" | "fail", "blocking_issues": [{ "description": "...", "severity": "...", "fix_target": "copy" | "layout" | "styling" }] }`,
@@ -753,7 +629,7 @@ function buildSpecCheckPrompt(ctx: PipelineContext): string {
 
 function buildFixPrompt(target: FixTarget, issues: Array<{ description: string; severity: string; fix_target: string }>, ctx: PipelineContext): string {
   return [
-    `FIX: You are the Fluid ${target} agent. Re-read and fix the following issues in your domain.`,
+    `FIX: You are the ${target} agent. Re-read and fix the following issues in your domain.`,
     `Issues: ${JSON.stringify(issues, null, 2)}`,
     ``,
     `Read the relevant files in ${ctx.workingDir}/ and fix only the issues listed above.`,
@@ -809,7 +685,7 @@ export async function runStageWithTools(
   ctx: PipelineContext,
   res: ServerResponse,
 ): Promise<StageResult> {
-  const systemPrompt = await loadStagePrompt(stage, ctx);
+  const systemPrompt = buildSystemPrompt(stage, ctx);
   const model = STAGE_MODELS[stage];
   const tools = STAGE_TOOLS[stage];
 
@@ -885,7 +761,7 @@ export async function runStageWithTools(
 // ---------------------------------------------------------------------------
 
 /**
- * Run the full 4-stage Fluid generation pipeline for one creation.
+ * Run the full 4-stage generation pipeline for one creation.
  * Stages: copy -> layout -> styling -> spec-check -> (fix loop up to 3x)
  */
 export async function runApiPipeline(
