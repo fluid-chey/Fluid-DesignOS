@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: Phase 12 plan 02 complete
-last_updated: "2026-03-17T02:30:00.000Z"
-last_activity: 2026-03-17 -- Phase 12 plan 02 complete (DB migration, orphan cleanup)
+status: executing
+stopped_at: "Completed 12-01-PLAN.md: CLI dead code removal from watcher.ts"
+last_updated: "2026-03-17T02:01:53.357Z"
+last_activity: 2026-03-17 -- Phase 12 plan 02 complete (DB migration + orphan directory cleanup)
 progress:
   total_phases: 15
   completed_phases: 14
   total_plans: 48
-  completed_plans: 47
+  completed_plans: 46
   percent: 85
 ---
 
@@ -85,6 +85,7 @@ Progress: [█████████████████░░░] 85% (14
 | Phase 11-api-pipeline-hardening-routing-context-injection-cost-ux P02 | 5min | 2 tasks | 6 files |
 | Phase 11-api-pipeline-hardening-routing-context-injection-cost-ux P04 | 8min | 2 tasks | 5 files |
 | Phase 11-api-pipeline-hardening-routing-context-injection-cost-ux P03 | 9min | 1 tasks | 4 files |
+| Phase 12-api-pipeline-hardening-routing-context-injection-cost-ux P01 | 10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -227,6 +228,7 @@ Recent decisions affecting current work:
 - [Phase 11-api-pipeline-hardening-routing-context-injection-cost-ux]: Haiku narrator (claude-haiku-4-5-20251001) generates 1-sentence narrations after each pipeline stage with graceful fallback
 - [Phase 11]: Brand context loaded once per pipeline run via loadBrandContextFromDb() — single DB read passed to all stages eliminates ~48 read_file tool calls per run
 - [Phase 11]: build*Prompt functions exported for testability; runStageWithTools accepts optional brandCtx with DB fallback for backward compat
+- [Phase 12]: CLI dead code removed from watcher.ts — API pipeline (runApiPipeline) is now the only generation path. generate-endpoint.test.ts deleted.
 
 ### Parallel Development Note
 
@@ -259,6 +261,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-17T02:30:00.000Z
-Stopped at: Phase 12 plan 02 complete (12-02-PLAN.md executed)
-Resume file: .planning/phases/12-api-pipeline-hardening-routing-context-injection-cost-ux/12-03-PLAN.md
+Last session: 2026-03-17T02:01:53.354Z
+Stopped at: Completed 12-01-PLAN.md: CLI dead code removal from watcher.ts
+Resume file: None

@@ -247,7 +247,7 @@ Plans:
 
 **Goal:** Audit the full codebase for CLI-era artifacts, dead code, and stale infrastructure left over from the CLI-to-API migration. Update CLI validation tools to read from DB instead of static `rules.json`. Remove dead CLI generation paths, stale tests, unused imports, and orphaned planning directories. Slim project-level skill .md files to behavioral contracts (strip embedded brand data). Verify infrastructure coherence -- API pipeline, DB schema, brand seeder, MCP server, skill files, and validation tools should tell a consistent story with no contradictions.
 **Depends on:** Phase 11
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md — CLI dead code removal from watcher.ts (iterate + campaign spawn paths) + stale test cleanup
@@ -280,5 +280,5 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 >
 | 9. App Navigation Overhaul | 2/2 | Complete | 2026-03-13 |
 | 10. Anthropic API Generation Pipeline | 2/2 | Complete | 2026-03-16 |
 | 11. API Pipeline Hardening + DB Brand Intelligence | 4/4 | Complete | 2026-03-16 |
-| 12. Post-API Migration Cleanup & Audit | 0/3 | In Progress | |
+| 12. Post-API Migration Cleanup & Audit | 1/3 | In Progress|  |
 | 13. DAM Sync | 0/? | Not Started | |
