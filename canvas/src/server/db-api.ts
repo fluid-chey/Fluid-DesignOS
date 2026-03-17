@@ -131,7 +131,7 @@ export function createCreation(input: {
 export function getCreations(campaignId: string): Creation[] {
   const db = getDb();
   const rows = db.prepare(
-    'SELECT * FROM creations WHERE campaign_id = ? ORDER BY created_at ASC'
+    'SELECT * FROM creations WHERE campaign_id = ? ORDER BY created_at DESC'
   ).all(campaignId) as Record<string, unknown>[];
   return rows.map(rowToCreation);
 }

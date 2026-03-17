@@ -275,7 +275,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 > 10 > 11 > 12 > 13 > 14 > 14.1
+Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 > 10 > 11 > 12 > 13 > 14 > 14.1 > 15 > 16
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -296,6 +296,8 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 >
 | 13. DAM Sync | 2/2 | Complete    | 2026-03-17 |
 | 14. Design DNA | 0/3 | Planned | — |
 | 14.1 Brand-Agnostic Pipeline | 0/3 | Planned | — |
+| 15. Brand Data Architecture | 0/4 | Planned | — |
+| 16. Smart Context Pipeline | 0/3 | Planned | — |
 
 ### Phase 14: Design DNA — template-extracted style rules, per-deliverable design intelligence, and exemplar-referenced generation pipeline
 
@@ -332,3 +334,36 @@ Plans:
 - [ ] 14.1-01-PLAN.md — Brand-agnostic stage prompts in api-pipeline.ts (delete SKILL_FILES/loadStagePrompt, rewrite prompt builders)
 - [ ] 14.1-02-PLAN.md — CLI orchestrators → thin API wrappers (rewrite 3 skill files to POST /api/generate)
 - [ ] 14.1-03-PLAN.md — Cleanup: brand-intelligence rewrite, CLAUDE.md update, brand/ archive, skill-map.json retirement
+
+### Phase 15: Brand Data Architecture
+
+**Goal:** Reorganize how brand data is structured in the DB and presented in the UI. Users understand what each page is for and can intuitively find/edit brand data. Data is structured for optimal agent consumption. Asset categories align between app, DB, and DAM.
+**Depends on:** Phase 14.1
+**Success Criteria** (what must be TRUE):
+  1. Patterns page organized into Foundations (colors, typography, spacing/opacity) and Rules (asset usage, visual techniques) — layout archetypes removed
+  2. Assets page uses new categories (Fonts, Images, Brand Elements, Decorations) with optional short descriptions per asset — categories match DAM folder structure
+  3. Templates page shows each template as unified card: text header (purpose, characteristics) + HTML preview — "archetype" nomenclature retired
+  4. All brand pages have subtitles explaining their purpose and internal grouping where applicable
+**Plans:** 4 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — Patterns page: remove archetypes, Foundations/Rules grouping, DB recategorization
+- [ ] 15-02-PLAN.md — Assets page: new categories, description field, asset-scanner + DAM sync alignment
+- [ ] 15-03-PLAN.md — Templates page: unified template + header cards, drop archetype nomenclature
+- [ ] 15-04-PLAN.md — UI communication: page subtitles, internal grouping, empty state guidance
+
+### Phase 16: Smart Context Pipeline
+
+**Goal:** Replace agent self-discovery of brand context with deterministic, creation-type-aware pre-injection. Each pipeline stage receives exactly the brand data it needs. The context mapping is configurable and observable for iterative refinement.
+**Depends on:** Phase 15
+**Success Criteria** (what must be TRUE):
+  1. A dev-editable context map defines (creation type, stage) → exact brand sections to inject
+  2. Pipeline pre-loads brand context from DB per the context map and injects it into stage system prompts — agents receive brand context without calling discovery tools
+  3. Each generation logs what brand context was loaded per stage (token count, sections used, any fallback discovery tool calls)
+  4. Discovery tool usage during pre-injected stages is tracked as "context gap" signals for mapping refinement
+**Plans:** 3 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — Context mapping definition: (creation type, stage) → brand sections config, template matching strategy
+- [ ] 16-02-PLAN.md — Pipeline pre-injection: loadBrandContext(), system prompt injection, token budget tracking, product module detection
+- [ ] 16-03-PLAN.md — Observability: context logging per generation, context preview in chat sidebar, gap signal tracking
