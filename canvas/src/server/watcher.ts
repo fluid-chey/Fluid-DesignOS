@@ -1162,26 +1162,17 @@ export function fluidWatcherPlugin(): Plugin {
           // POST /api/slides/:id/iterations
           if (slideIterationsMatch && method === 'POST') {
             try {
-              const body = JSON.parse(await readBody(req));
+              const rawBody = await readBody(req);
+              const body = JSON.parse(rawBody);
               if (body.iterationIndex == null || !body.htmlPath || !body.source) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'iterationIndex, htmlPath, and source are required' }));
                 return;
               }
-              const slideId = slideIterationsMatch[1];
-              // Verify the slide exists before attempting insert (debug FK failures)
-              const { getDb: getDbForCheck } = await import('../lib/db.js');
-              const checkDb = getDbForCheck();
-              const slideExists = checkDb.prepare('SELECT id FROM slides WHERE id = ?').get(slideId);
-              if (!slideExists) {
-                console.error(`[api] FK will fail: slide ${slideId} not found in slides table`);
-                console.error('[api] Total slides in DB:', checkDb.prepare('SELECT COUNT(*) as c FROM slides').get());
-                res.writeHead(404, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: `Slide ${slideId} not found` }));
-                return;
-              }
+              const targetSlideId = slideIterationsMatch[1];
+              console.log(`[api] Creating iteration for slide ${targetSlideId}`);
               const iteration = createIteration({
-                slideId,
+                slideId: targetSlideId,
                 iterationIndex: body.iterationIndex,
                 htmlPath: body.htmlPath,
                 slotSchema: body.slotSchema ?? null,
