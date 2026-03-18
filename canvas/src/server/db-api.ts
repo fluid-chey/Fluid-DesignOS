@@ -883,6 +883,7 @@ export interface ContextMapEntry {
   id: string;
   creationType: string;
   stage: string;
+  page: string;
   sections: string[];
   priority: number;
   maxTokens: number | null;
@@ -895,6 +896,7 @@ function rowToContextMapEntry(row: Record<string, unknown>): ContextMapEntry {
     id: row.id as string,
     creationType: row.creation_type as string,
     stage: row.stage as string,
+    page: (row.page as string) ?? 'patterns',
     sections: JSON.parse(row.sections as string) as string[],
     priority: row.priority as number,
     maxTokens: (row.max_tokens as number | null) ?? null,
@@ -915,6 +917,7 @@ export function upsertContextMapEntry(input: {
   id?: string;
   creationType: string;
   stage: string;
+  page?: string;
   sections: string[];
   priority?: number;
   maxTokens?: number | null;
@@ -925,11 +928,12 @@ export function upsertContextMapEntry(input: {
   if (input.id) {
     // UPDATE existing row
     db.prepare(
-      'UPDATE context_map SET sections = ?, priority = ?, max_tokens = ?, updated_at = ? WHERE id = ?'
+      'UPDATE context_map SET sections = ?, priority = ?, max_tokens = ?, page = ?, updated_at = ? WHERE id = ?'
     ).run(
       JSON.stringify(input.sections),
       input.priority ?? 50,
       input.maxTokens ?? null,
+      input.page ?? 'patterns',
       now,
       input.id
     );
@@ -939,11 +943,12 @@ export function upsertContextMapEntry(input: {
     // INSERT new row
     const id = nanoid();
     db.prepare(
-      'INSERT INTO context_map (id, creation_type, stage, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO context_map (id, creation_type, stage, page, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       id,
       input.creationType,
       input.stage,
+      input.page ?? 'patterns',
       JSON.stringify(input.sections),
       input.priority ?? 50,
       input.maxTokens ?? null,
@@ -1018,20 +1023,27 @@ export function insertContextLog(input: {
  * Load the full context map from DB, keyed by "creationType:stage".
  * Called once at pipeline start, cached for entire run.
  */
-export function loadContextMap(): Map<string, { sections: string[]; priority: number; maxTokens: number | null }> {
+export function loadContextMap(): Map<string, Array<{ page: string; sections: string[]; priority: number; maxTokens: number | null }>> {
   const db = getDb();
   const rows = db.prepare(
-    'SELECT creation_type, stage, sections, priority, max_tokens FROM context_map ORDER BY priority DESC'
-  ).all() as Array<{ creation_type: string; stage: string; sections: string; priority: number; max_tokens: number | null }>;
+    'SELECT creation_type, stage, page, sections, priority, max_tokens FROM context_map ORDER BY priority DESC'
+  ).all() as Array<{ creation_type: string; stage: string; page: string; sections: string; priority: number; max_tokens: number | null }>;
 
-  const map = new Map<string, { sections: string[]; priority: number; maxTokens: number | null }>();
+  const map = new Map<string, Array<{ page: string; sections: string[]; priority: number; maxTokens: number | null }>>();
   for (const row of rows) {
     const key = `${row.creation_type}:${row.stage}`;
-    map.set(key, {
+    const entry = {
+      page: row.page ?? 'patterns',
       sections: JSON.parse(row.sections),
       priority: row.priority,
       maxTokens: row.max_tokens,
-    });
+    };
+    const existing = map.get(key);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      map.set(key, [entry]);
+    }
   }
   return map;
 }

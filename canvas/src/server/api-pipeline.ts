@@ -692,17 +692,30 @@ function expandWildcards(slugsOrWildcards: string[]): string[] {
  * Expands wildcards, loads section content, enforces token budget, returns formatted string.
  */
 function loadContextForStage(
-  contextMap: Map<string, { sections: string[]; priority: number; maxTokens: number | null }>,
+  contextMap: Map<string, Array<{ page: string; sections: string[]; priority: number; maxTokens: number | null }>>,
   creationType: string,
   stage: PipelineStage,
 ): { injectedContext: string; sectionSlugs: string[]; tokenEstimate: number } {
   const key = `${creationType}:${stage}`;
-  const entry = contextMap.get(key);
-  if (!entry) {
+  const entries = contextMap.get(key);
+  if (!entries || entries.length === 0) {
     return { injectedContext: '', sectionSlugs: [], tokenEstimate: 0 };
   }
 
-  const expandedSlugs = expandWildcards(entry.sections);
+  // Merge sections from all page entries for this (creationType, stage) combo
+  const allSections: string[] = [];
+  let combinedMaxTokens: number | null = null;
+  for (const entry of entries) {
+    allSections.push(...entry.sections);
+    // Use the largest token budget across entries, or null if any is unlimited
+    if (entry.maxTokens === null) {
+      combinedMaxTokens = null;
+    } else if (combinedMaxTokens !== null) {
+      combinedMaxTokens = Math.max(combinedMaxTokens, entry.maxTokens);
+    }
+  }
+
+  const expandedSlugs = expandWildcards([...new Set(allSections)]);
 
   // Load content for each slug — check voice_guide_docs first, then brand_patterns
   const sectionContents: Array<{ slug: string; content: string; tokens: number }> = [];
@@ -721,17 +734,14 @@ function loadContextForStage(
     }
   }
 
-  // Enforce token budget: drop lowest-priority (entry.priority applies to entire group)
-  // Sort by content length ascending — drop largest sections first when over budget
+  // Enforce token budget — drop largest sections first when over budget
   let totalTokens = sectionContents.reduce((sum, s) => sum + s.tokens, 0);
-  if (entry.maxTokens && totalTokens > entry.maxTokens) {
-    // Sort descending by token count — drop biggest first
+  if (combinedMaxTokens && totalTokens > combinedMaxTokens) {
     sectionContents.sort((a, b) => b.tokens - a.tokens);
-    while (totalTokens > entry.maxTokens && sectionContents.length > 1) {
+    while (totalTokens > combinedMaxTokens && sectionContents.length > 1) {
       const dropped = sectionContents.pop()!;
       totalTokens -= dropped.tokens;
     }
-    // Re-sort back to original order (by slug alphabetically for stability)
     sectionContents.sort((a, b) => a.slug.localeCompare(b.slug));
   }
 
@@ -1108,7 +1118,7 @@ export async function runApiPipeline(
   await fs.mkdir(ctx.workingDir, { recursive: true });
 
   // ── Load context map once for entire pipeline run ─────────────────────────
-  let contextMap: Map<string, { sections: string[]; priority: number; maxTokens: number | null }>;
+  let contextMap: Map<string, Array<{ page: string; sections: string[]; priority: number; maxTokens: number | null }>>;
   try {
     contextMap = loadContextMap();
   } catch {

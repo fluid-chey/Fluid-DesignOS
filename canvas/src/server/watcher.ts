@@ -931,6 +931,7 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             const entry = upsertContextMapEntry({
               creationType: body.creation_type,
               stage: body.stage,
+              page: body.page,
               sections: body.sections,
               priority: body.priority,
               maxTokens: body.max_tokens,
@@ -949,6 +950,7 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
               id,
               creationType: body.creation_type,
               stage: body.stage,
+              page: body.page,
               sections: body.sections,
               priority: body.priority,
               maxTokens: body.max_tokens,

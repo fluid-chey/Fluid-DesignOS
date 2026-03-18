@@ -8,6 +8,7 @@ interface ContextMapEntry {
   id: string;
   creation_type: string;
   stage: string;
+  page: string;
   sections: string[];
   priority: number;
   max_tokens: number | null;
@@ -21,6 +22,7 @@ interface ContextMapEntry {
 
 const CREATION_TYPE_OPTIONS = ['instagram', 'linkedin', 'one-pager'];
 const STAGE_OPTIONS = ['copy', 'layout', 'styling', 'spec-check'];
+const PAGE_OPTIONS = ['voice-guide', 'patterns', 'templates', 'assets'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Icons
@@ -86,6 +88,7 @@ export function SettingsScreen() {
     const updated: Partial<ContextMapEntry> = {};
     if (field === 'creation_type') updated.creation_type = value;
     else if (field === 'stage') updated.stage = value;
+    else if (field === 'page') updated.page = value;
     else if (field === 'sections') updated.sections = value.split(',').map((s) => s.trim()).filter(Boolean);
     else if (field === 'priority') updated.priority = Math.min(100, Math.max(1, parseInt(value, 10) || entry.priority));
     else if (field === 'max_tokens') updated.max_tokens = value === '' ? null : parseInt(value, 10) || null;
@@ -131,6 +134,7 @@ export function SettingsScreen() {
       id: tempId,
       creation_type: 'instagram',
       stage: 'copy',
+      page: 'patterns',
       sections: [],
       priority: 50,
       max_tokens: null,
@@ -157,6 +161,7 @@ export function SettingsScreen() {
         body: JSON.stringify({
           creation_type: entry.creation_type,
           stage: entry.stage,
+          page: entry.page,
           sections,
           priority: entry.priority,
           max_tokens: entry.max_tokens,
@@ -218,8 +223,8 @@ export function SettingsScreen() {
     };
 
     if (isEditing) {
-      if (field === 'creation_type' || field === 'stage') {
-        const options = field === 'creation_type' ? CREATION_TYPE_OPTIONS : STAGE_OPTIONS;
+      if (field === 'creation_type' || field === 'stage' || field === 'page') {
+        const options = field === 'creation_type' ? CREATION_TYPE_OPTIONS : field === 'page' ? PAGE_OPTIONS : STAGE_OPTIONS;
         return (
           <td style={cellStyle}>
             <select
@@ -425,7 +430,7 @@ export function SettingsScreen() {
               }}>
                 <thead>
                   <tr>
-                    {['Creation Type', 'Stage', 'Sections', 'Priority', 'Token Budget', ''].map((header) => (
+                    {['Creation Type', 'Stage', 'Page', 'Sections', 'Priority', 'Token Budget', ''].map((header) => (
                       <th
                         key={header}
                         style={{
@@ -456,6 +461,7 @@ export function SettingsScreen() {
                       >
                         {renderCell(entry, 'creation_type', entry.creation_type)}
                         {renderCell(entry, 'stage', entry.stage)}
+                        {renderCell(entry, 'page', entry.page)}
                         {renderCell(entry, 'sections', entry.sections.join(', '))}
                         {renderCell(entry, 'priority', String(entry.priority))}
                         {renderCell(entry, 'max_tokens', entry.max_tokens != null ? String(entry.max_tokens) : '')}
@@ -489,7 +495,7 @@ export function SettingsScreen() {
                       {confirmDeleteId === entry.id && (
                         <tr key={`${entry.id}-confirm`}>
                           <td
-                            colSpan={6}
+                            colSpan={7}
                             style={{
                               padding: '8px 12px',
                               backgroundColor: '#3e2a2a',

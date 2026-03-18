@@ -635,24 +635,24 @@ export function seedContextMapIfEmpty(): number {
 
   const now = Date.now();
   const insert = db.prepare(
-    'INSERT INTO context_map (id, creation_type, stage, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO context_map (id, creation_type, stage, page, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   const defaults = [
-    { creationType: 'instagram', stage: 'copy', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 1 },
-    { creationType: 'linkedin', stage: 'copy', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 2 },
-    { creationType: 'one-pager', stage: 'copy', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 3 },
-    { creationType: 'instagram', stage: 'layout', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 4 },
-    { creationType: 'linkedin', stage: 'layout', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 5 },
-    { creationType: 'one-pager', stage: 'layout', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 6 },
-    { creationType: 'instagram', stage: 'styling', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 7 },
-    { creationType: 'linkedin', stage: 'styling', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 8 },
-    { creationType: 'one-pager', stage: 'styling', sections: ['design-tokens:*'], priority: 60, maxTokens: 8000, sortOrder: 9 },
+    { creationType: 'instagram', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 1 },
+    { creationType: 'linkedin', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 2 },
+    { creationType: 'one-pager', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 3 },
+    { creationType: 'instagram', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 4 },
+    { creationType: 'linkedin', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 5 },
+    { creationType: 'one-pager', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 6 },
+    { creationType: 'instagram', stage: 'styling', page: 'patterns', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 7 },
+    { creationType: 'linkedin', stage: 'styling', page: 'patterns', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 8 },
+    { creationType: 'one-pager', stage: 'styling', page: 'patterns', sections: ['design-tokens:*'], priority: 60, maxTokens: 8000, sortOrder: 9 },
   ];
 
   const insertMany = db.transaction(() => {
     for (const d of defaults) {
-      insert.run(nanoid(), d.creationType, d.stage, JSON.stringify(d.sections), d.priority, d.maxTokens, d.sortOrder, now);
+      insert.run(nanoid(), d.creationType, d.stage, d.page, JSON.stringify(d.sections), d.priority, d.maxTokens, d.sortOrder, now);
     }
   });
   insertMany();
