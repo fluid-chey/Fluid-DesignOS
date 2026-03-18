@@ -71,7 +71,9 @@ The canvas app runs at `/app/`. Jonathan's template library is served at `/`.
 ├── assets/              # Brand assets (SVG brushstrokes, fonts, logos, photos)
 ├── .fluid/              # Runtime output (campaigns/ + working/)
 ├── .planning/           # GSD project management artifacts
-└── CLAUDE.md            # Agent instructions (brand doc loading rules)
+├── AGENTS.md            # Agent instructions (architecture, conventions, rules)
+├── CLAUDE.md            # Pointer → AGENTS.md (Claude Code)
+└── .cursorrules         # Pointer → AGENTS.md (Cursor)
 ```
 
 ## Brand Intelligence
