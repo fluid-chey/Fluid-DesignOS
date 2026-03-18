@@ -131,9 +131,9 @@ describe('PIPELINE_TOOLS schemas', () => {
 // ---------------------------------------------------------------------------
 
 describe('executeTool: read_file', () => {
-  it('reads CLAUDE.md and returns contents', async () => {
+  it('reads AGENTS.md and returns contents', async () => {
     const workingDir = PROJECT_ROOT;
-    const result = await executeTool('read_file', { path: 'CLAUDE.md' }, workingDir);
+    const result = await executeTool('read_file', { path: 'AGENTS.md' }, workingDir);
     expect(result.toLowerCase()).toContain('cli tools');
     expect(result.length).toBeGreaterThan(100);
   });

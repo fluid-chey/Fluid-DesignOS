@@ -39,7 +39,7 @@ canvas/                        # The app (React + Vite + SQLite)
       watcher.ts               # Vite plugin: all API routes + file watcher + HMR
       api-pipeline.ts          # Anthropic SDK integration, generation pipeline
       db-api.ts                # Campaign/Creation/Slide/Iteration CRUD
-      brand-seeder.ts          # Seeds DB from voice-guide/*.md + patterns/index.html
+      brand-seeder.ts          # Seeds DB from voice-guide/*.md + pattern-seeds/*.md
     lib/
       db.ts                    # SQLite singleton (WAL, FK constraints)
       campaign-types.ts        # TypeScript interfaces for data model
@@ -52,10 +52,11 @@ canvas/                        # The app (React + Vite + SQLite)
   fluid.db                     # SQLite database (production)
   vite.config.ts               # Base /app/, fluidWatcherPlugin, port 5174
 
-tools/                         # CLI validation tools (Node.js CommonJS)
+tools/                         # CLI validation + verification tools (Node.js CommonJS)
 assets/                        # Brand assets (SVGs, fonts, textures, logos, photos)
 templates/                     # Template library (social/, gold-standard/, one-pagers/)
-patterns/                      # Copy-pasteable brand building blocks (index.html)
+pattern-seeds/                 # Clean markdown pattern files (seeded into DB)
+patterns/                      # Legacy visual pattern page (archival — DB is source of truth)
 voice-guide/                   # Brand voice docs (13 .md files, seeded into DB)
 feedback/                      # Agent-written usage data for learning loop
 Reference/                     # Archival source material (NEVER load directly)
@@ -102,7 +103,7 @@ SQLite with WAL mode (concurrent reads from MCP + Vite), foreign keys ON.
 **Tables:**
 - `campaigns`, `creations`, `slides`, `iterations`, `annotations` — campaign hierarchy
 - `voice_guide_docs` — brand voice rules (seeded from `voice-guide/*.md`)
-- `brand_patterns` — visual design tokens + patterns (seeded from `patterns/index.html`)
+- `brand_patterns` — visual design tokens + patterns (seeded from `pattern-seeds/*.md`)
 - `templates` — template definitions with slot schemas
 - `template_design_rules` — per-template brand rules with weights
 - `brand_assets` — asset registry (scanned from `assets/` directory)
@@ -110,7 +111,19 @@ SQLite with WAL mode (concurrent reads from MCP + Vite), foreign keys ON.
 - `context_map` — maps (creation_type, stage) to brand sections for smart context injection
 - `context_log` — audit trail of what brand context was injected per generation
 
-**Seeding:** On first app startup, `brand-seeder.ts` populates `voice_guide_docs` and `brand_patterns` from source files. Also auto-imports from `canvas/seed-data.json` if present.
+**Seeding:** On first app startup, `brand-seeder.ts` populates `voice_guide_docs` from `voice-guide/*.md` and `brand_patterns` from `pattern-seeds/*.md`. Also auto-imports brand config from `canvas/seed-data.json` if present (brand data only — no user data like campaigns/creations).
+
+**Sharing DB state between teammates:**
+`fluid.db` is gitignored — each developer has their own local copy. To share brand data, templates, and design rules:
+
+```bash
+node tools/db-export.cjs                 # Export DB → canvas/seed-data.json (commit to git)
+node tools/db-import.cjs [--merge]       # Import seed-data.json into local DB
+```
+
+On first startup, if `canvas/seed-data.json` exists and the DB is empty, it auto-imports. For existing DBs, run `db-import.cjs --merge` manually. If things are broken, delete `canvas/fluid.db` and restart — it rebuilds from seeds + seed-data.json.
+
+**Integrity:** On every startup, `PRAGMA foreign_key_check` runs to detect and clean orphaned records automatically.
 
 ## Brand Data
 
@@ -159,7 +172,9 @@ copy → layout → styling → spec-check (→ fix if needed)
 - **Styling:** Sonnet (complex CSS composition)
 - **Spec-check:** Sonnet (holistic brand judgment)
 
-**Smart context injection:** The `context_map` table maps (creation_type, pipeline_stage) to specific brand sections. Agents receive pre-loaded brand context instead of discovering it via tools. Token budgets: Copy ~2K, Layout ~3K, Styling ~5K, Spec-check ~4K.
+**Smart context injection:** The `context_map` table maps (creation_type, pipeline_stage) to specific brand sections. Agents receive pre-loaded brand context instead of discovering it via tools. Token budgets: Copy ~8K, Layout ~6K, Styling ~10K. Safety caps truncate any single section exceeding its budget.
+
+**Design DNA:** For social posts, layout and styling stages receive Design DNA (visual compositor contract + platform rules + archetype notes + HTML exemplar) in the system prompt. Injected once — not duplicated in the user prompt.
 
 ## API Endpoints
 
@@ -213,8 +228,9 @@ node tools/brand-compliance.cjs <file>              # Validate HTML against bran
 node tools/schema-validation.cjs <file>              # Validate .liquid against Gold Standard schema
 node tools/dimension-check.cjs <file> --target <type> # Check dimensions (instagram, linkedin_landscape, linkedin_tall)
 node tools/scaffold.cjs <section-name>               # Generate Gold Standard .liquid skeleton
-node tools/db-export.cjs                             # Export DB to canvas/seed-data.json
+node tools/db-export.cjs                             # Export DB to canvas/seed-data.json (brand data only)
 node tools/db-import.cjs [--merge] [--force]         # Import seed-data.json into DB
+node tools/verify-context-sizes.cjs                  # Check pattern sizes + simulate pipeline token usage
 node tools/feedback-ingest.cjs [--dry-run]           # Analyze feedback, generate proposals
 ```
 
@@ -257,5 +273,7 @@ npm run test:watch          # Watch mode
 - Do NOT duplicate brand doc content in prompts; use DB tools to load brand data.
 - `Reference/` is archival only — never load directly.
 - `feedback/` is for agents to write usage data back (learning loop).
-- `voice-guide/*.md` and `patterns/index.html` are seed sources — the DB is the live copy.
+- `voice-guide/*.md` and `pattern-seeds/*.md` are seed sources — the DB is the live copy.
+- Pattern content is clean markdown with code snippets — never raw HTML or base64. All assets referenced via `/api/brand-assets/serve/` URLs.
+- `seed-data.json` contains brand config only (no campaigns/creations/slides/iterations). User data stays local to each developer's DB.
 - The app must be running (`npm run dev`) for MCP tools and API endpoints to work.
