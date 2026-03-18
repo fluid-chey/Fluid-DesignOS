@@ -9,7 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import type { ServerResponse } from 'node:http';
-import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype } from './db-api';
+import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog } from './db-api';
 
 // Load .env file — try multiple paths since __dirname is unreliable in Vite middleware
 const envPaths = [
@@ -662,6 +662,102 @@ async function loadDesignDna(ctx: PipelineContext, archetypeSlug?: string): Prom
 }
 
 // ---------------------------------------------------------------------------
+// Context injection helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand wildcard entries like "design-tokens:*" to all matching slugs.
+ * voice-guide:* → all voice_guide_docs slugs
+ * Other categories → brand_patterns WHERE category = prefix
+ */
+function expandWildcards(slugsOrWildcards: string[]): string[] {
+  const expanded: string[] = [];
+  for (const entry of slugsOrWildcards) {
+    if (entry.endsWith(':*')) {
+      const category = entry.slice(0, -2); // strip ':*'
+      if (category === 'voice-guide') {
+        expanded.push(...getVoiceGuideDocs().map(d => d.slug));
+      } else {
+        expanded.push(...getBrandPatterns(category).map(p => p.slug));
+      }
+    } else {
+      expanded.push(entry);
+    }
+  }
+  return [...new Set(expanded)]; // deduplicate
+}
+
+/**
+ * Assemble the pre-injected brand context string for a given stage.
+ * Expands wildcards, loads section content, enforces token budget, returns formatted string.
+ */
+function loadContextForStage(
+  contextMap: Map<string, Array<{ page: string; sections: string[]; priority: number; maxTokens: number | null }>>,
+  creationType: string,
+  stage: PipelineStage,
+): { injectedContext: string; sectionSlugs: string[]; tokenEstimate: number } {
+  const key = `${creationType}:${stage}`;
+  const entries = contextMap.get(key);
+  if (!entries || entries.length === 0) {
+    return { injectedContext: '', sectionSlugs: [], tokenEstimate: 0 };
+  }
+
+  // Merge sections from all page entries for this (creationType, stage) combo
+  const allSections: string[] = [];
+  let combinedMaxTokens: number | null = null;
+  for (const entry of entries) {
+    allSections.push(...entry.sections);
+    // Use the largest token budget across entries, or null if any is unlimited
+    if (entry.maxTokens === null) {
+      combinedMaxTokens = null;
+    } else if (combinedMaxTokens !== null) {
+      combinedMaxTokens = Math.max(combinedMaxTokens, entry.maxTokens);
+    }
+  }
+
+  const expandedSlugs = expandWildcards([...new Set(allSections)]);
+
+  // Load content for each slug — check voice_guide_docs first, then brand_patterns
+  const sectionContents: Array<{ slug: string; content: string; tokens: number }> = [];
+  for (const slug of expandedSlugs) {
+    let content: string | undefined;
+    const vgDoc = getVoiceGuideDoc(slug);
+    if (vgDoc) {
+      content = vgDoc.content;
+    } else {
+      const bp = getBrandPatternBySlug(slug);
+      if (bp) content = bp.content;
+    }
+    if (content) {
+      const tokens = Math.ceil(content.length / 4); // 4-chars-per-token heuristic
+      sectionContents.push({ slug, content, tokens });
+    }
+  }
+
+  // Enforce token budget — drop largest sections first when over budget
+  let totalTokens = sectionContents.reduce((sum, s) => sum + s.tokens, 0);
+  if (combinedMaxTokens && totalTokens > combinedMaxTokens) {
+    sectionContents.sort((a, b) => b.tokens - a.tokens);
+    while (totalTokens > combinedMaxTokens && sectionContents.length > 1) {
+      const dropped = sectionContents.pop()!;
+      totalTokens -= dropped.tokens;
+    }
+    sectionContents.sort((a, b) => a.slug.localeCompare(b.slug));
+  }
+
+  if (sectionContents.length === 0) {
+    return { injectedContext: '', sectionSlugs: [], tokenEstimate: 0 };
+  }
+
+  const slugList = sectionContents.map(s => s.slug);
+  const manifest = `## Injected Brand Context\nSections: ${slugList.join(', ')}\nEstimated tokens: ~${totalTokens}\n`;
+  const body = sectionContents.map(s => `### ${s.slug}\n${s.content}`).join('\n\n');
+  const injectedContext = `${manifest}\n${body}`;
+
+  return { injectedContext, sectionSlugs: slugList, tokenEstimate: totalTokens };
+}
+
+// ---------------------------------------------------------------------------
 // Stage prompt builder
 // ---------------------------------------------------------------------------
 
@@ -670,7 +766,7 @@ async function loadDesignDna(ctx: PipelineContext, archetypeSlug?: string): Prom
  * Generic process instructions — no brand-specific content.
  * Agents load brand context at runtime via DB tools.
  */
-export function buildSystemPrompt(stage: PipelineStage, ctx: PipelineContext): string {
+export function buildSystemPrompt(stage: PipelineStage, ctx: PipelineContext, injectedContext?: string): string {
   const brandRef = ctx.brandName ? `for ${ctx.brandName}` : 'for the brand';
   const base = [
     `You are a ${stage} agent working on a ${ctx.creationType} creation ${brandRef}.`,
@@ -689,7 +785,12 @@ export function buildSystemPrompt(stage: PipelineStage, ctx: PipelineContext): s
         ? '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section, list_voice_guide, read_voice_guide, list_templates, read_template'
         : '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_patterns, read_brand_pattern';
 
-  return [...base, '', toolSection].join('\n');
+  const parts = [...base];
+  if (injectedContext) {
+    parts.push('', injectedContext);
+  }
+  parts.push('', toolSection);
+  return parts.join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -755,6 +856,22 @@ export function emitStageNarrative(
   text: string,
 ): void {
   writeNDJSON(res, { type: 'stage_narrative', creationId, stage, text });
+}
+
+export function emitContextInjected(
+  res: ServerResponse,
+  creationId: string,
+  stage: string,
+  sections: string[],
+  tokenEstimate: number,
+): void {
+  writeNDJSON(res, {
+    type: 'context_injected',
+    creationId,
+    stage,
+    sections,
+    tokenEstimate,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -885,8 +1002,9 @@ export async function runStageWithTools(
   userPrompt: string,
   ctx: PipelineContext,
   res: ServerResponse,
+  injectedContext?: string,
 ): Promise<StageResult> {
-  const systemPrompt = buildSystemPrompt(stage, ctx);
+  const systemPrompt = buildSystemPrompt(stage, ctx, injectedContext);
   const model = STAGE_MODELS[stage];
   const tools = STAGE_TOOLS[stage];
 
@@ -897,6 +1015,7 @@ export async function runStageWithTools(
   let accumulatedText = '';
   let toolCallCount = 0;
   const MAX_ITERATIONS = 10;
+  const gapToolCalls: Array<{ tool: string; input: Record<string, unknown>; timestamp: number }> = [];
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     const response = await anthropic.messages.create({
@@ -938,6 +1057,12 @@ export async function runStageWithTools(
             tool_use_id: block.id,
             content: result,
           });
+          // Gap signal: log if discovery tools called during a pre-injected stage
+          if (injectedContext && (block.name === 'list_brand_sections' || block.name === 'read_brand_section')) {
+            try {
+              gapToolCalls.push({ tool: block.name, input: block.input as Record<string, unknown>, timestamp: Date.now() });
+            } catch { /* best-effort */ }
+          }
         }
       }
 
@@ -954,6 +1079,26 @@ export async function runStageWithTools(
   }
 
   emitStageStatus(res, ctx.creationId, stage, 'done');
+
+  // Log context injection results
+  if (injectedContext) {
+    try {
+      // Derive section slugs from injected context manifest header
+      const sectionMatch = injectedContext.match(/Sections: (.+)\n/);
+      const logSlugs = sectionMatch ? sectionMatch[1].split(', ') : [];
+      const tokenMatch = injectedContext.match(/Estimated tokens: ~(\d+)/);
+      const logTokens = tokenMatch ? parseInt(tokenMatch[1]) : 0;
+      insertContextLog({
+        generationId: ctx.creationId,
+        creationType: ctx.creationType,
+        stage,
+        injectedSections: logSlugs,
+        tokenEstimate: logTokens,
+        gapToolCalls,
+      });
+    } catch { /* best-effort logging */ }
+  }
+
   return { stage, output: accumulatedText, toolCalls: toolCallCount };
 }
 
@@ -972,8 +1117,20 @@ export async function runApiPipeline(
   // Ensure working directory exists
   await fs.mkdir(ctx.workingDir, { recursive: true });
 
+  // ── Load context map once for entire pipeline run ─────────────────────────
+  let contextMap: Map<string, Array<{ page: string; sections: string[]; priority: number; maxTokens: number | null }>>;
+  try {
+    contextMap = loadContextMap();
+  } catch {
+    contextMap = new Map(); // Graceful fallback — agents self-discover via tools
+  }
+
   // ── Stage 1: Copy ──────────────────────────────────────────────────────────
-  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx), ctx, res);
+  const copyCtx = loadContextForStage(contextMap, ctx.creationType, 'copy');
+  if (copyCtx.sectionSlugs.length > 0) {
+    emitContextInjected(res, ctx.creationId, 'copy', copyCtx.sectionSlugs, copyCtx.tokenEstimate);
+  }
+  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx), ctx, res, copyCtx.injectedContext);
   await generateStageNarrative('copy', copyResult.output, ctx, res);
 
   // ── Detect archetype from copy output and load Design DNA ──────────────────
@@ -992,11 +1149,21 @@ export async function runApiPipeline(
   const designDna = await loadDesignDna(ctx, detectedArchetype);
 
   // ── Stage 2: Layout ────────────────────────────────────────────────────────
-  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx, designDna), ctx, res);
+  const layoutCtx = loadContextForStage(contextMap, ctx.creationType, 'layout');
+  const layoutInjected = designDna ? `${designDna}\n\n${layoutCtx.injectedContext}` : layoutCtx.injectedContext;
+  if (layoutCtx.sectionSlugs.length > 0) {
+    emitContextInjected(res, ctx.creationId, 'layout', layoutCtx.sectionSlugs, layoutCtx.tokenEstimate);
+  }
+  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx, designDna), ctx, res, layoutInjected);
   await generateStageNarrative('layout', layoutResult.output, ctx, res);
 
   // ── Stage 3: Styling ───────────────────────────────────────────────────────
-  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx, designDna), ctx, res);
+  const stylingCtx = loadContextForStage(contextMap, ctx.creationType, 'styling');
+  const stylingInjected = designDna ? `${designDna}\n\n${stylingCtx.injectedContext}` : stylingCtx.injectedContext;
+  if (stylingCtx.sectionSlugs.length > 0) {
+    emitContextInjected(res, ctx.creationId, 'styling', stylingCtx.sectionSlugs, stylingCtx.tokenEstimate);
+  }
+  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx, designDna), ctx, res, stylingInjected);
   await generateStageNarrative('styling', stylingResult.output, ctx, res);
 
   // Fallback: if agent wrote to styled.html in workingDir instead of htmlOutputPath, copy it

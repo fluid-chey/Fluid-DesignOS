@@ -175,6 +175,30 @@ function initSchema(db: Database.Database): void {
       sort_order INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS context_map (
+      id          TEXT PRIMARY KEY,
+      creation_type TEXT NOT NULL,
+      stage       TEXT NOT NULL,
+      page        TEXT NOT NULL DEFAULT 'patterns',
+      sections    TEXT NOT NULL,
+      priority    INTEGER NOT NULL DEFAULT 50,
+      max_tokens  INTEGER,
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      updated_at  INTEGER NOT NULL,
+      UNIQUE(creation_type, stage, page)
+    );
+
+    CREATE TABLE IF NOT EXISTS context_log (
+      id              TEXT PRIMARY KEY,
+      generation_id   TEXT NOT NULL,
+      creation_type   TEXT NOT NULL,
+      stage           TEXT NOT NULL,
+      injected_sections TEXT NOT NULL,
+      token_estimate  INTEGER NOT NULL,
+      gap_tool_calls  TEXT NOT NULL DEFAULT '[]',
+      created_at      INTEGER NOT NULL
+    );
   `);
 
   // Migration: add generation_status to existing databases that predate this column.
@@ -195,6 +219,9 @@ function initSchema(db: Database.Database): void {
 
   // Index for efficient DAM sync lookup
   try { db.exec("CREATE UNIQUE INDEX idx_brand_assets_dam_id ON brand_assets(dam_asset_id) WHERE dam_asset_id IS NOT NULL"); } catch {}
+
+  // Migration: add page column to context_map
+  try { db.exec("ALTER TABLE context_map ADD COLUMN page TEXT NOT NULL DEFAULT 'patterns'"); } catch {}
 
   // Migration: add description column to brand_assets
   try { db.exec("ALTER TABLE brand_assets ADD COLUMN description TEXT"); } catch {}

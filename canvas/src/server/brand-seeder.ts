@@ -621,6 +621,45 @@ export async function seedTemplatesIfEmpty(): Promise<void> {
   }
 }
 
+// ─── Context Map ─────────────────────────────────────────────────────────────
+
+/**
+ * Seeds the context_map table with default brand context mappings for 9 type/stage combos.
+ * Idempotent: skips if COUNT(*) > 0.
+ * @returns number of rows that exist after seeding
+ */
+export function seedContextMapIfEmpty(): number {
+  const db = getDb();
+  const count = (db.prepare('SELECT COUNT(*) as c FROM context_map').get() as { c: number }).c;
+  if (count > 0) return count;
+
+  const now = Date.now();
+  const insert = db.prepare(
+    'INSERT INTO context_map (id, creation_type, stage, page, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+
+  const defaults = [
+    { creationType: 'instagram', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 1 },
+    { creationType: 'linkedin', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 2 },
+    { creationType: 'one-pager', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 3 },
+    { creationType: 'instagram', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 4 },
+    { creationType: 'linkedin', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 5 },
+    { creationType: 'one-pager', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 6 },
+    { creationType: 'instagram', stage: 'styling', page: 'patterns', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 7 },
+    { creationType: 'linkedin', stage: 'styling', page: 'patterns', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 8 },
+    { creationType: 'one-pager', stage: 'styling', page: 'patterns', sections: ['design-tokens:*'], priority: 60, maxTokens: 8000, sortOrder: 9 },
+  ];
+
+  const insertMany = db.transaction(() => {
+    for (const d of defaults) {
+      insert.run(nanoid(), d.creationType, d.stage, d.page, JSON.stringify(d.sections), d.priority, d.maxTokens, d.sortOrder, now);
+    }
+  });
+  insertMany();
+
+  return defaults.length;
+}
+
 export async function seedDesignRulesIfEmpty(): Promise<void> {
   const db = getDb();
   const count = (db.prepare('SELECT COUNT(*) as c FROM template_design_rules').get() as { c: number }).c;
