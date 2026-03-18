@@ -6,6 +6,8 @@ import { ChatSidebar } from './ChatSidebar';
 import { VoiceGuide } from './VoiceGuide';
 import { BuildHero } from './BuildHero';
 import { AssetsScreen } from './AssetsScreen';
+import { TemplatesScreen } from './TemplatesScreen';
+import { PatternsScreen } from './PatternsScreen';
 
 interface AppShellProps {
   /**
@@ -212,22 +214,10 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }:
         );
 
       case 'templates':
-        return (
-          <iframe
-            src="/templates/"
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Template Library"
-          />
-        );
+        return <TemplatesScreen />;
 
       case 'patterns':
-        return (
-          <iframe
-            src="/patterns/"
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Pattern Library"
-          />
-        );
+        return <PatternsScreen />;
 
       case 'voice-guide':
         return <VoiceGuide />;

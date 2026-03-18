@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 13-02-PLAN.md (Phase 13 Plan 02 — DAM sync wiring + AssetsScreen UI)
-last_updated: "2026-03-17T15:36:58.434Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-17T22:46:23.024Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
-  total_phases: 16
+  total_phases: 20
   completed_phases: 16
-  total_plans: 51
-  completed_plans: 51
+  total_plans: 58
+  completed_plans: 59
   percent: 100
 ---
 
@@ -92,6 +92,14 @@ Progress: [████████████████████] 100% (1
 | Phase 13-dam-sync P01 | 4 | 2 tasks | 6 files |
 | Phase 13-dam-sync P02 | 7 | 2 tasks | 3 files |
 | Phase 13-dam-sync P02 | 7 | 3 tasks | 3 files |
+| Phase 14-design-dna P01 | 3 | 2 tasks | 4 files |
+| Phase 14-design-dna P02 | 2min | 2 tasks | 2 files |
+| Phase 14.1-brand-agnostic-pipeline P01 | 4min | 2 tasks | 2 files |
+| Phase 14.1-brand-agnostic-pipeline P02 | 2min | 2 tasks | 4 files |
+| Phase 14.1-brand-agnostic-pipeline P03 | 3min | 2 tasks | 16 files |
+| Phase 15-brand-data-architecture P01 | 3min | 2 tasks | 5 files |
+| Phase 15-brand-data-architecture P03 | 3 | 1 tasks | 2 files |
+| Phase 15-brand-data-architecture P02 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -242,6 +250,18 @@ Recent decisions affecting current work:
 - [Phase 13-dam-sync]: Probe-on-mount to detect DAM token: POST /api/dam-sync probe if no dam assets exist; 400=no-token (hide bar), 200/500=token configured (show bar)
 - [Phase 13-dam-sync]: getAllBrandAssets added without dam_deleted filter for UI soft-delete visibility; getBrandAssets still excludes for MCP/pipeline backward compat
 - [Phase 13-dam-sync]: Probe-on-mount to detect DAM token: POST /api/dam-sync probe if no dam assets exist; 400=no-token (hide bar), 200/500=token configured (show bar)
+- [Phase 14-design-dna]: Visual Compositor Contract seeded into brand_patterns (visual-style category) — accessible via getBrandPatterns existing API; design rules use scope hierarchy: global-social > platform > archetype
+- [Phase 14-design-dna]: designDna variable scoped at runApiPipeline level so fix loop cascade inherits without re-loading DB
+- [Phase 14-design-dna]: buildStylingPrompt explicitly references fontSrc/cssUrl/imgSrc field names so agents use pre-formatted values verbatim
+- [Phase 14.1-01]: buildSystemPrompt is synchronous (no await) — removes file I/O from the hot path; brandName optional field enables brand identity injection without hardcoding in prompts
+- [Phase 14.1-02]: fluid-campaign skill does not exist — Task 2 trivially passes with zero stale references; generate-social/one-pager/theme-section are thin POST /api/generate wrappers; fluid-design-os usage hint updated from /fluid-social to /generate-social
+- [Phase 14.1-03]: brand-intelligence/SKILL.md now routes agents to DB tools (list_brand_sections, read_brand_section, list_brand_assets) instead of brand/*.md files
+- [Phase 14.1-03]: CLAUDE.md Brand Intelligence section replaced with Brand Data section pointing to SQLite DB; brand/ directory deleted
+- [Phase 14.1-03]: feedback-ingest.cjs ASSET_DOC_MAP/TOPIC_BRAND_DOC_MAP updated to use DB section slugs instead of brand/ file paths
+- [Phase 15-brand-data-architecture]: PatternsScreen uses component-level group mapping (design-tokens -> foundations, all others -> rules) — no DB schema change needed
+- [Phase 15-03]: TemplatesTab type and activeTab state removed entirely — unified scrollable page with collapsible sections
+- [Phase 15-03]: Archetype rules shown per-template card filtered by archetypeSlug rather than grouped in a single section
+- [Phase 15-02]: CATEGORY_MAP in asset-scanner.ts (not brand-seeder.ts) maps filesystem dirs to semantic categories; DB migration recategorizes existing rows idempotently
 
 ### Parallel Development Note
 
@@ -264,7 +284,8 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 - Phase 10: Anthropic API Generation Pipeline — replaced CLI `claude -p` spawning with direct Anthropic SDK calls (completed 2026-03-16)
 - Phase 11: API Pipeline Hardening + DB-Backed Brand Intelligence — combined scope: prompt routing, preview path fixes, token cost reduction, Claude-style chat UX, Voice Guide + Patterns DB migration (completed)
 - Phase 12: Post-API Migration Cleanup & Audit — migrate validation tools from rules.json to SQLite DB, delete orphaned directories, verify infrastructure coherence (completed 2026-03-17)
-- Phase 13: DAM Sync — Fluid DAM as upstream source of truth (next)
+- Phase 13: DAM Sync — Fluid DAM as upstream source of truth (completed 2026-03-17)
+- Phase 14 added: Design DNA — template-extracted style rules, per-deliverable design intelligence, and exemplar-referenced generation pipeline
 
 ### Blockers/Concerns
 
@@ -274,6 +295,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-17T15:29:50.137Z
-Stopped at: Completed 13-02-PLAN.md (Phase 13 Plan 02 — DAM sync wiring + AssetsScreen UI)
+Last session: 2026-03-17T22:46:23.021Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
