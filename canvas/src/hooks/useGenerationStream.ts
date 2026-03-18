@@ -22,6 +22,8 @@ interface GenerateOptions {
     currentRound: number;
     originalPrompt: string;
   };
+  /** Where the generation was initiated from (for UI routing) */
+  source?: 'sidebar' | 'hero';
 }
 
 /**
@@ -44,7 +46,7 @@ export function useGenerationStream() {
 
   const generate = useCallback(
     async (prompt: string, opts?: GenerateOptions) => {
-      startGeneration();
+      startGeneration(opts?.source ?? null);
 
       try {
         const response = await fetch('/api/generate', {

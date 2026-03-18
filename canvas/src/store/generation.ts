@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 import type { StreamUIMessage } from '../lib/stream-parser';
 
+type GenerationSource = 'sidebar' | 'hero' | null;
+
 interface GenerationStore {
   status: 'idle' | 'generating' | 'complete' | 'error';
+  /** Where the generation was initiated from */
+  source: GenerationSource;
   events: StreamUIMessage[];
   activeSessionId: string | null;
   activeCampaignId: string | null;
@@ -12,7 +16,7 @@ interface GenerationStore {
   creationIds: string[];
 
   addEvent: (event: StreamUIMessage) => void;
-  startGeneration: () => void;
+  startGeneration: (source?: GenerationSource) => void;
   setSessionId: (sessionId: string) => void;
   setCampaignId: (campaignId: string) => void;
   setSessionMeta: (meta: { isSingleCreation?: boolean; creationIds?: string[] }) => void;
@@ -23,6 +27,7 @@ interface GenerationStore {
 
 export const useGenerationStore = create<GenerationStore>((set) => ({
   status: 'idle',
+  source: null,
   events: [],
   activeSessionId: null,
   activeCampaignId: null,
@@ -37,9 +42,10 @@ export const useGenerationStore = create<GenerationStore>((set) => ({
     }));
   },
 
-  startGeneration: () => {
+  startGeneration: (source: GenerationSource = null) => {
     set({
       status: 'generating',
+      source,
       events: [],
       activeSessionId: null,
       activeCampaignId: null,
@@ -75,6 +81,7 @@ export const useGenerationStore = create<GenerationStore>((set) => ({
   reset: () => {
     set({
       status: 'idle',
+      source: null,
       events: [],
       activeSessionId: null,
       activeCampaignId: null,

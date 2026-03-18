@@ -888,6 +888,13 @@ export function buildCopyPrompt(ctx: PipelineContext): string {
     ``,
     `Write structured copy (headline, subtext, accent color, archetype selection) to ${ctx.workingDir}/copy.md.`,
     `Include an "Archetype:" line in your output specifying which visual archetype to use. Options: problem-first, quote, stat-proof, app-highlight, manifesto, partner-alert, feature-spotlight.`,
+    ``,
+    `RULES:`,
+    `- For Instagram: body copy MUST be 1-2 sentences maximum. Do NOT exceed this.`,
+    `- For LinkedIn: body copy may be 2-3 sentences.`,
+    `- For stat-proof archetype: the HEADLINE must be a giant number or short stat phrase (e.g., "6X", "4 DAYS", "82%", "$75,000"). NOT a full sentence.`,
+    `- Accent color options: orange=#FF8B58 (urgency/pain), blue=#42b1ff (trust/tech), green=#44b574 (success/proof), purple=#c985e5 (premium/analytical). Pick ONE.`,
+    `- If this is part of a campaign with multiple creations, ensure your tagline is DISTINCT from other posts — do not reuse similar phrasing.`,
   ].join('\n');
 }
 
@@ -923,6 +930,14 @@ export function buildStylingPrompt(ctx: PipelineContext, designDna?: string): st
     `Use @font-face with the fontSrc field from list_brand_assets(category="fonts") — it is already formatted as url('...') format('...'), use it verbatim.`,
     `For images, use cssUrl for background-image and imgSrc for img src attributes — both returned by list_brand_assets.`,
     `NEVER embed base64 data URIs. NEVER hardcode specific asset filenames — always discover them via the tool.`,
+    ``,
+    `NON-NEGOTIABLE STYLING RULES:`,
+    `- BACKGROUND: Social posts (instagram, linkedin) MUST use pure #000000 black. NOT #111, NOT #1a1a1a, NOT any dark gray. One-pagers use #050505.`,
+    `- ASSET URLS: Always use /api/brand-assets/serve/{name} with NO subdirectories and NO file extensions.`,
+    `  Correct: /api/brand-assets/serve/brush-texture-01, /api/brand-assets/serve/flfontbold, /api/brand-assets/serve/wecommerce-flags`,
+    `  WRONG: /api/brand-assets/serve/brushstrokes/brush-texture-01.png, /api/brand-assets/serve/fonts/flfontbold.ttf`,
+    `- CSS FONT FALLBACKS: Always use "sans-serif" as the fallback. NEVER use Georgia, Times New Roman, serif, or cursive.`,
+    `- POSITIONING: Social posts use position:absolute for ALL major layout elements (not flexbox/grid for the main composition).`,
     ...(designDna ? [
       '',
       designDna,

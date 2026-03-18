@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { useSessionStore } from '../store/sessions';
 import { useCampaignStore } from '../store/campaign';
 import { useGenerationStore } from '../store/generation';
 
 /**
  * Listens for fluid:file-change HMR custom events from the Vite dev server
- * and triggers a refresh of both sessions and the current campaign view.
+ * and triggers a refresh of the current campaign view.
  * Debounced to avoid excessive re-renders.
  *
  * PAUSES during active generation to prevent partial/in-progress files
@@ -15,7 +14,6 @@ import { useGenerationStore } from '../store/generation';
  * pushed by MCP tools appear without a manual reload.
  */
 export function useFileWatcher() {
-  const refreshSessions = useSessionStore((s) => s.refreshSessions);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -27,12 +25,9 @@ export function useFileWatcher() {
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        // Refresh legacy session store (flat-file sessions)
-        refreshSessions();
-
         // Refresh campaign data for the current view
         const campaignStore = useCampaignStore.getState();
-        const { currentView, activeCampaignId, activeCreationId, activeSlideId } = campaignStore;
+        const { currentView, activeCampaignId, activeCreationId } = campaignStore;
 
         switch (currentView) {
           case 'dashboard':
@@ -58,5 +53,5 @@ export function useFileWatcher() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [refreshSessions]);
+  }, []);
 }

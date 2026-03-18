@@ -86,13 +86,25 @@ function StandaloneCreationsView() {
   if (standaloneCreations.length === 0) {
     return (
       <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        height: '100%', minHeight: 280, padding: '2rem', color: '#666', fontSize: '0.85rem',
-        fontFamily: "'Inter', sans-serif", textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        minHeight: 300,
+        gap: '1rem',
+        color: '#555',
       }}>
-        <p style={{ margin: 0, maxWidth: 320 }}>
-          No standalone creations yet. Use the prompt to generate a single post.
-        </p>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+             stroke="#2a2a2e" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+        <div style={{ fontSize: '0.9rem', color: '#555' }}>No creations yet</div>
+        <div style={{ fontSize: '0.8rem', color: '#3a3a3a' }}>
+          Use the prompt to generate a single post
+        </div>
       </div>
     );
   }
@@ -464,11 +476,17 @@ export function App() {
               <div style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', height: '100%', minHeight: 300,
-                gap: '1rem', color: '#444',
+                gap: '1rem', color: '#555',
               }}>
-                <div style={{ fontSize: '0.9rem' }}>No creations in this campaign yet</div>
-                <div style={{ fontSize: '0.8rem', color: '#333' }}>
-                  Add a creation with &quot;create New&quot; above
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                     stroke="#2a2a2e" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <div style={{ fontSize: '0.9rem', color: '#555' }}>No creations in this campaign yet</div>
+                <div style={{ fontSize: '0.8rem', color: '#3a3a3a' }}>
+                  Add a creation with &quot;Create New&quot; above
                 </div>
               </div>
             }

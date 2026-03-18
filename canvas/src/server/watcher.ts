@@ -1,5 +1,4 @@
 import type { Plugin, ViteDevServer } from 'vite';
-import { watch } from 'chokidar';
 import { runApiPipeline, type PipelineContext } from './api-pipeline';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -51,7 +50,7 @@ import {
 } from './db-api';
 import { getDb } from '../lib/db';
 import { scanAndSeedBrandAssets } from './asset-scanner';
-import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, seedGlobalVisualStyleIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty } from './brand-seeder';
+import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, seedGlobalVisualStyleIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
 import { runDamSync } from './dam-sync';
 
 // ─── Creation dimensions by type ────────────────────────────────────────────
@@ -177,70 +176,39 @@ function buildCreationList(
 }
 
 /**
- * Vite plugin that watches .fluid/working/ and pushes HMR custom events
- * to connected clients when files change.
+ * Vite plugin that registers API routes and pushes HMR custom events
+ * to connected clients when campaign data changes.
  */
-export function fluidWatcherPlugin(workingDir: string): Plugin {
+export function fluidWatcherPlugin(): Plugin {
   let server: ViteDevServer | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let activeCampaignGeneration: string | null = null; // campaign-level lock
+
+  const sendUpdate = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      server?.ws.send({
+        type: 'custom',
+        event: 'fluid:file-change',
+        data: { timestamp: Date.now() },
+      });
+    }, 300);
+  };
 
   return {
     name: 'fluid-watcher',
     configureServer(srv) {
       server = srv;
-      const absDir = path.resolve(srv.config.root, workingDir);
-
-      // Ensure the working directory exists
-      fs.mkdir(absDir, { recursive: true }).catch(() => {});
-
-      const watcher = watch(absDir, {
-        ignoreInitial: true,
-        depth: 4,
-        persistent: true,
-        awaitWriteFinish: {
-          stabilityThreshold: 200,
-          pollInterval: 100,
-        },
-      });
-
-      const sendUpdate = () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          server?.ws.send({
-            type: 'custom',
-            event: 'fluid:file-change',
-            data: { timestamp: Date.now() },
-          });
-        }, 300);
-      };
-
-      watcher.on('add', sendUpdate);
-      watcher.on('change', sendUpdate);
-      watcher.on('unlink', sendUpdate);
-      watcher.on('addDir', sendUpdate);
-
-      // Periodic re-scan fallback: catches edge cases chokidar misses
-      let lastKnownMtime = 0;
-      const rescanInterval = setInterval(async () => {
-        try {
-          const stat = await fs.stat(absDir);
-          const mtime = stat.mtimeMs;
-          if (mtime > lastKnownMtime) {
-            lastKnownMtime = mtime;
-            sendUpdate();
-          }
-        } catch { /* dir may not exist yet */ }
-      }, 5000);
-
-      // Cleanup on server close
-      srv.httpServer?.on('close', () => {
-        watcher.close();
-        clearInterval(rescanInterval);
-      });
 
       const projectRoot = path.resolve(srv.config.root, '..');
       const templatesDir = path.resolve(projectRoot, 'templates');
+
+      // Import from seed-data.json if DB is fresh (before file-based seeders)
+      try {
+        importSeedDataIfFresh(projectRoot);
+      } catch (err) {
+        console.warn('[watcher] Seed data import failed:', err);
+      }
 
       // Auto-scan brand assets into DB on startup, then seed patterns
       // (patterns depend on brand_assets table for DB URL rewriting)
@@ -1693,56 +1661,6 @@ export function fluidWatcherPlugin(workingDir: string): Plugin {
             return;
           }
 
-          if (req.url === '/api/sessions') {
-            const sessions = await discoverSessionsFromDir(absDir);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(sessions));
-            return;
-          }
-
-          const sessionMatch = req.url.match(/^\/api\/sessions\/([^/]+)$/);
-          if (sessionMatch) {
-            const sessionId = sessionMatch[1];
-            const data = await loadSessionFromDir(absDir, sessionId);
-            if (!data) {
-              res.writeHead(404, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Session not found' }));
-              return;
-            }
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(data));
-            return;
-          }
-
-          // GET /api/annotations/:sessionId
-          const annotGetMatch = req.url.match(/^\/api\/annotations\/([^/]+)$/);
-          if (annotGetMatch && req.method === 'GET') {
-            const sessionId = annotGetMatch[1];
-            const annotPath = path.join(absDir, sessionId, 'annotations.json');
-            try {
-              const raw = await fs.readFile(annotPath, 'utf-8');
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(raw);
-            } catch {
-              res.writeHead(404, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'No annotations' }));
-            }
-            return;
-          }
-
-          // POST /api/annotations/:sessionId
-          if (annotGetMatch && req.method === 'POST') {
-            const sessionId = annotGetMatch[1];
-            const annotDir = path.join(absDir, sessionId);
-            await fs.mkdir(annotDir, { recursive: true });
-            const annotPath = path.join(annotDir, 'annotations.json');
-            const body = await readBody(req);
-            await fs.writeFile(annotPath, body, 'utf-8');
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true }));
-            return;
-          }
-
           next();
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1765,22 +1683,6 @@ function readBody(req: import('http').IncomingMessage): Promise<string> {
   });
 }
 
-/**
- * Discover sessions from the working directory.
- * Session directories match pattern YYYYMMDD-HHMMSS.
- */
-async function discoverSessionsFromDir(workingDir: string) {
-  const { discoverSessions } = await import('../lib/sessions.js');
-  return discoverSessions(workingDir);
-}
-
-/**
- * Load a specific session's full data.
- */
-async function loadSessionFromDir(workingDir: string, sessionId: string) {
-  const { loadSession } = await import('../lib/sessions.js');
-  return loadSession(workingDir, sessionId);
-}
 
 /**
  * MIME type map for static asset serving.
@@ -1808,135 +1710,6 @@ export function serveFluidAsset(filePath: string): { contentType: string } {
   return { contentType: MIME_TYPES[ext] || 'application/octet-stream' };
 }
 
-/**
- * Server-managed lineage update after generation completes.
- * Discovers HTML files written by the LLM into the round directory,
- * then atomically updates lineage.json with the new round/variations.
- *
- * The LLM NEVER touches lineage.json — this function owns it.
- */
-async function updateLineageAfterGeneration(
-  sessionDir: string,
-  roundDir: string,
-  roundNumber: number,
-  prompt: string,
-  isIteration: boolean
-): Promise<void> {
-  const lineagePath = path.join(sessionDir, 'lineage.json');
-
-  // Read current lineage
-  let lineage: any;
-  try {
-    const raw = await fs.readFile(lineagePath, 'utf-8');
-    lineage = JSON.parse(raw);
-  } catch {
-    // Should not happen — lineage.json is created before generation starts
-    return;
-  }
-
-  // Discover HTML files the LLM wrote into the round directory
-  let roundFiles: string[];
-  try {
-    roundFiles = await fs.readdir(roundDir);
-  } catch {
-    roundFiles = [];
-  }
-
-  // Clean up if LLM ignored instructions and wrote lineage.json in round dir
-  if (roundFiles.includes('lineage.json')) {
-    await fs.unlink(path.join(roundDir, 'lineage.json')).catch(() => {});
-  }
-
-  const htmlFiles = roundFiles.filter(
-    (f) => f.endsWith('.html') && !f.startsWith('.') && f !== 'copy.html' && f !== 'layout.html' && f !== 'index.html'
-  );
-
-  const variations = htmlFiles.map((f, i) => ({
-    id: `r${roundNumber}-v${i + 1}`,
-    path: `round-${roundNumber}/${f}`,
-    status: 'unmarked' as const,
-    specCheck: 'draft' as const,
-  }));
-
-  if (!lineage.rounds) lineage.rounds = [];
-
-  if (isIteration) {
-    // Append new round — never modify existing rounds
-    lineage.rounds.push({
-      roundNumber,
-      prompt,
-      variations,
-      winnerId: null,
-      timestamp: new Date().toISOString(),
-    });
-  } else {
-    // First round: update the placeholder round with discovered variations
-    const round1 = lineage.rounds.find((r: any) => r.roundNumber === 1);
-    if (round1) {
-      round1.variations = variations;
-    }
-  }
-
-  // Atomic write: write to temp file then rename
-  const tmpPath = lineagePath + '.tmp';
-  await fs.writeFile(tmpPath, JSON.stringify(lineage, null, 2), 'utf-8');
-  await fs.rename(tmpPath, lineagePath);
-}
-
-/**
- * Auto-ingest HTML files from a round directory into the campaign hierarchy.
- * Checks which files already have iteration records (created via push_asset)
- * and creates records for any orphans. This ensures all generated versions
- * appear in the campaign dashboard even if the agent wrote them directly to disk.
- */
-async function autoIngestHtmlToIterations(
-  roundDir: string,
-  slideId: string,
-  campaignId: string,
-  creationId: string,
-  projectRoot: string,
-): Promise<void> {
-  let roundFiles: string[];
-  try {
-    roundFiles = await fs.readdir(roundDir);
-  } catch {
-    return; // round dir may not exist
-  }
-
-  const htmlFiles = roundFiles.filter(
-    (f) => f.endsWith('.html') && !f.startsWith('.') && f !== 'copy.html' && f !== 'layout.html' && f !== 'index.html'
-  );
-
-  if (htmlFiles.length === 0) return;
-
-  // Check existing iterations for this slide to avoid duplicates
-  const existingIterations = getIterations(slideId);
-  const existingPaths = new Set(existingIterations.map((it) => it.htmlPath));
-
-  for (let i = 0; i < htmlFiles.length; i++) {
-    // Build the relative path that would be stored in the DB.
-    // push_asset stores paths as: campaigns/{campaignId}/{creationId}/{slideId}/{iterationId}.html
-    // For disk-written files, we use the working dir path relative to project root.
-    const absPath = path.join(roundDir, htmlFiles[i]);
-    const relPath = path.relative(projectRoot, absPath);
-
-    // Skip if an iteration already references this path
-    if (existingPaths.has(relPath)) continue;
-
-    // Also check if any iteration htmlPath contains this filename (push_asset uses different paths)
-    const alreadyCovered = existingIterations.length > 0;
-
-    // Only create iterations if NONE exist for this slide (meaning agent didn't use push_asset at all)
-    if (alreadyCovered) continue;
-
-    createIteration({
-      slideId,
-      iterationIndex: i,
-      htmlPath: relPath,
-      source: 'ai',
-    });
-  }
-}
 
 /**
  * Discover templates from the project's templates/ directory.

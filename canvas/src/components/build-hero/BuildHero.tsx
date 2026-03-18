@@ -45,7 +45,7 @@ export function BuildHero() {
     const prefix = creationType ? `[${creationType.label}] ` : '';
     const fullPrompt = `${prefix}${text}`;
     setSubmittedPrompt(fullPrompt);
-    generate(fullPrompt, { skillType: 'social' });
+    generate(fullPrompt, { skillType: 'social', source: 'hero' });
     setInputValue('');
   }, [inputValue, isGenerating, creationTypeId, generate]);
 
