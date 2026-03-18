@@ -213,7 +213,7 @@ const PATTERN_STYLES = `
 
   /* Asset previews */
   .pattern-content .asset-preview {
-    background: #000;
+    background: #111;
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 8px;
     padding: 24px;
@@ -224,6 +224,9 @@ const PATTERN_STYLES = `
   .pattern-content .asset-preview img {
     max-width: 100%;
     height: auto;
+    /* Override inline opacity/blend for preview visibility — textures are white on dark */
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
   }
   .pattern-content .asset-grid {
     display: grid;
