@@ -231,4 +231,21 @@ function initSchema(db: Database.Database): void {
   db.exec("UPDATE brand_assets SET category = 'images' WHERE category = 'photos'");
   db.exec("UPDATE brand_assets SET category = 'brand-elements' WHERE category = 'logos'");
   db.exec("UPDATE brand_assets SET category = 'decorations' WHERE category IN ('brushstrokes','circles','lines','scribbles','underlines','xs')");
+
+  // FK integrity check: clean up orphaned records that break FK chains
+  const fkViolations = db.pragma('foreign_key_check') as Array<{ table: string; rowid: number; parent: string; fkid: number }>;
+  if (fkViolations.length > 0) {
+    console.warn(`[db] Found ${fkViolations.length} FK violations — cleaning up orphaned records`);
+    // Group by table and delete orphaned rows
+    const tables = [...new Set(fkViolations.map(v => v.table))];
+    for (const table of tables) {
+      const rowids = fkViolations.filter(v => v.table === table).map(v => v.rowid);
+      for (const rowid of rowids) {
+        try {
+          db.prepare(`DELETE FROM ${table} WHERE rowid = ?`).run(rowid);
+        } catch { /* row may already be deleted by cascade */ }
+      }
+    }
+    console.warn(`[db] Cleaned up orphaned records in: ${tables.join(', ')}`);
+  }
 }
