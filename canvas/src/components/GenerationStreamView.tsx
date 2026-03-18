@@ -99,7 +99,7 @@ export function GenerationStreamView({
     // Add user turn to history, then fire generation
     setHistory((h) => [...h, { role: 'user', content: text }]);
     setFollowUp('');
-    generate(text, { skillType: 'social', existingCampaignId: activeCampaignId ?? undefined });
+    generate(text, { skillType: 'social', source: 'hero', existingCampaignId: activeCampaignId ?? undefined });
   }, [followUp, isGenerating, generate, activeCampaignId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

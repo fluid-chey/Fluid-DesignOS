@@ -9,7 +9,7 @@ export default defineConfig({
   envDir: path.resolve(__dirname, '..'),
   plugins: [
     react(),
-    fluidWatcherPlugin('../.fluid/working'),
+    fluidWatcherPlugin(),
   ],
   resolve: {
     alias: {

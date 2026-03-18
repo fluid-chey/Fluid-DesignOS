@@ -9,6 +9,7 @@
 import { nanoid } from 'nanoid';
 import { getDb } from '../lib/db';
 import * as fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import * as path from 'node:path';
 
 // ─── Voice Guide ─────────────────────────────────────────────────────────────
@@ -621,6 +622,45 @@ export async function seedTemplatesIfEmpty(): Promise<void> {
   }
 }
 
+// ─── Context Map ─────────────────────────────────────────────────────────────
+
+/**
+ * Seeds the context_map table with default brand context mappings for 9 type/stage combos.
+ * Idempotent: skips if COUNT(*) > 0.
+ * @returns number of rows that exist after seeding
+ */
+export function seedContextMapIfEmpty(): number {
+  const db = getDb();
+  const count = (db.prepare('SELECT COUNT(*) as c FROM context_map').get() as { c: number }).c;
+  if (count > 0) return count;
+
+  const now = Date.now();
+  const insert = db.prepare(
+    'INSERT INTO context_map (id, creation_type, stage, page, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+
+  const defaults = [
+    { creationType: 'instagram', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 1 },
+    { creationType: 'linkedin', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 2 },
+    { creationType: 'one-pager', stage: 'copy', page: 'voice-guide', sections: ['voice-guide:*'], priority: 80, maxTokens: 8000, sortOrder: 3 },
+    { creationType: 'instagram', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 4 },
+    { creationType: 'linkedin', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 5 },
+    { creationType: 'one-pager', stage: 'layout', page: 'patterns', sections: ['design-tokens:*', 'layout-archetype:*'], priority: 70, maxTokens: 6000, sortOrder: 6 },
+    { creationType: 'instagram', stage: 'styling', page: 'patterns', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 7 },
+    { creationType: 'linkedin', stage: 'styling', page: 'patterns', sections: ['design-tokens:*', 'pattern:*'], priority: 60, maxTokens: 10000, sortOrder: 8 },
+    { creationType: 'one-pager', stage: 'styling', page: 'patterns', sections: ['design-tokens:*'], priority: 60, maxTokens: 8000, sortOrder: 9 },
+  ];
+
+  const insertMany = db.transaction(() => {
+    for (const d of defaults) {
+      insert.run(nanoid(), d.creationType, d.stage, d.page, JSON.stringify(d.sections), d.priority, d.maxTokens, d.sortOrder, now);
+    }
+  });
+  insertMany();
+
+  return defaults.length;
+}
+
 export async function seedDesignRulesIfEmpty(): Promise<void> {
   const db = getDb();
   const count = (db.prepare('SELECT COUNT(*) as c FROM template_design_rules').get() as { c: number }).c;
@@ -642,4 +682,75 @@ export async function seedDesignRulesIfEmpty(): Promise<void> {
       now
     );
   }
+}
+
+// ─── JSON Seed Import (from seed-data.json) ──────────────────────────────────
+
+/** Tables in dependency order (parents first for FK safety). */
+const SEED_TABLES_ORDERED = [
+  'voice_guide_docs',
+  'brand_patterns',
+  'template_design_rules',
+  'templates',
+  'context_map',
+  'campaigns',
+  'creations',
+  'slides',
+  'iterations',
+  'annotations',
+] as const;
+
+/**
+ * Merge from canvas/seed-data.json on every startup.
+ * Uses INSERT OR IGNORE so only rows with new IDs are added —
+ * existing local data is never overwritten.
+ *
+ * @param projectRoot — absolute path to the project root (parent of canvas/)
+ * @returns number of new rows imported (0 if seed file missing or nothing new)
+ */
+export function importSeedDataIfFresh(projectRoot: string): boolean {
+  const seedPath = path.resolve(projectRoot, 'canvas/seed-data.json');
+  if (!fsSync.existsSync(seedPath)) return false;
+
+  const db = getDb();
+
+  let data: Record<string, Array<Record<string, unknown>>>;
+  try {
+    data = JSON.parse(fsSync.readFileSync(seedPath, 'utf-8'));
+  } catch {
+    console.warn('[seed-import] Failed to parse seed-data.json');
+    return false;
+  }
+
+  let totalImported = 0;
+
+  const importAll = db.transaction(() => {
+    for (const table of SEED_TABLES_ORDERED) {
+      const rows = data[table];
+      if (!rows || rows.length === 0) continue;
+
+      const columns = Object.keys(rows[0]);
+      const placeholders = columns.map(() => '?').join(', ');
+      // INSERT OR IGNORE: skips rows whose primary key already exists locally
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`
+      );
+
+      for (const row of rows) {
+        try {
+          const result = insert.run(...columns.map(col => row[col] ?? null));
+          if (result.changes > 0) totalImported++;
+        } catch {
+          // Skip rows with FK violations, etc.
+        }
+      }
+    }
+  });
+
+  importAll();
+
+  if (totalImported > 0) {
+    console.log(`[seed-import] Merged ${totalImported} new rows from seed-data.json`);
+  }
+  return totalImported > 0;
 }

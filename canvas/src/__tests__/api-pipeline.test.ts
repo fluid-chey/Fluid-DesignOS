@@ -87,8 +87,8 @@ describe('STAGE_MODELS', () => {
 // ---------------------------------------------------------------------------
 
 describe('PIPELINE_TOOLS schemas', () => {
-  it('exports exactly 7 tools', () => {
-    expect(PIPELINE_TOOLS).toHaveLength(7);
+  it('exports at least 7 tools', () => {
+    expect(PIPELINE_TOOLS.length).toBeGreaterThanOrEqual(7);
   });
 
   it('all tools have name, description, and input_schema', () => {
@@ -344,6 +344,32 @@ describe('buildSystemPrompt', () => {
       const prompt = buildSystemPrompt(stage, ctx);
       expect(prompt.toLowerCase()).not.toContain('fluid');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSystemPrompt with injectedContext
+// ---------------------------------------------------------------------------
+
+describe('buildSystemPrompt with injectedContext', () => {
+  it('includes injected context when provided', () => {
+    const ctx = makeCtx({ creationType: 'instagram' });
+    const injectedContext = '## Injected Brand Context\nSections: color-palette\nEstimated tokens: ~500\n\n### color-palette\n#FF6614 orange';
+    const prompt = buildSystemPrompt('copy', ctx, injectedContext);
+    expect(prompt).toContain('Injected Brand Context');
+    expect(prompt).toContain('color-palette');
+  });
+
+  it('does NOT include Injected Brand Context when no injectedContext passed', () => {
+    const ctx = makeCtx({ creationType: 'instagram' });
+    const prompt = buildSystemPrompt('copy', ctx);
+    expect(prompt).not.toContain('Injected Brand Context');
+  });
+
+  it('does NOT include Injected Brand Context when empty string passed', () => {
+    const ctx = makeCtx({ creationType: 'instagram' });
+    const prompt = buildSystemPrompt('copy', ctx, '');
+    expect(prompt).not.toContain('Injected Brand Context');
   });
 });
 

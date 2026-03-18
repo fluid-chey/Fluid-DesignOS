@@ -1,51 +1,34 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useGenerationStream } from '../hooks/useGenerationStream';
 import { StreamMessage } from './StreamMessage';
-import { useSessionStore } from '../store/sessions';
 import { useGenerationStore } from '../store/generation';
-import { useAnnotationStore } from '../store/annotations';
 import { useCampaignStore } from '../store/campaign';
-import { useAnnotations } from '../hooks/useAnnotations';
-import { buildIterationContext } from '../lib/context-bundler';
 import type { StreamUIMessage } from '../lib/stream-parser';
-
-/** Format a YYYYMMDD-HHMMSS session ID into a readable date string. */
-function formatSessionId(id: string): string {
-  const match = id.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
-  if (!match) return id;
-  const [, y, mo, d, h, mi] = match;
-  const date = new Date(+y, +mo - 1, +d, +h, +mi);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    + ' ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
+import { ContextPanel } from './ContextPanel';
 
 /**
  * Left sidebar with prompt input and streaming agent output display.
  * Always visible regardless of main pane view.
- * Session-aware: switches between "Create with AI" (new) and "Iterate on [Title]" mode.
- * Includes a collapsible "Recent Sessions" list at the bottom.
  */
 export function PromptSidebar() {
   const { generate, cancelGeneration, status, events, errorMessage } = useGenerationStream();
   const [prompt, setPrompt] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sessions = useSessionStore((s) => s.sessions);
-  const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const activeSessionData = useSessionStore((s) => s.activeSessionData);
-  const setActiveSessionId = useSessionStore((s) => s.setActiveSessionId);
-  const clearSelection = useSessionStore((s) => s.clearSelection);
   const resetGeneration = useGenerationStore((s) => s.reset);
   const activeCampaignId = useGenerationStore((s) => s.activeCampaignId);
   const generationStatus = useGenerationStore((s) => s.status);
+  const generationSource = useGenerationStore((s) => s.source);
   const isSingleCreation = useGenerationStore((s) => s.isSingleCreation);
   const creationIds = useGenerationStore((s) => s.creationIds);
+
+  // When generation was started from BuildHero, the main viewport handles display
+  const heroOwnsGeneration = generationSource === 'hero';
   const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
   const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
   const campaignCurrentView = useCampaignStore((s) => s.currentView);
   const campaignActiveCampaignId = useCampaignStore((s) => s.activeCampaignId);
   const campaigns = useCampaignStore((s) => s.campaigns);
-  const { annotations } = useAnnotations();
 
   // "Add to existing campaign" mode — active when user is viewing a campaign
   const isAddToCampaignMode =
@@ -56,11 +39,6 @@ export function PromptSidebar() {
   // Find the campaign title for the banner
   const activeCampaignTitle = campaigns.find((c) => c.id === campaignActiveCampaignId)?.title
     ?? campaignActiveCampaignId ?? '';
-
-  // Mode detection
-  const isIterateMode = !!activeSessionId && !!activeSessionData;
-  const projectTitle = activeSessionData?.lineage?.title ?? (activeSessionId ? formatSessionId(activeSessionId) : '');
-  const annotationCount = annotations.filter((a) => a.type === 'pin').length;
 
   const isGenerating = status === 'generating';
 
@@ -97,6 +75,11 @@ export function PromptSidebar() {
   // No delay — the 'done' SSE event fires only after all subagents complete (Plan 02).
   const prevStatusRef = useRef(generationStatus);
   useEffect(() => {
+    // Skip auto-navigation when BuildHero's GenerationStreamView owns the experience
+    if (heroOwnsGeneration) {
+      prevStatusRef.current = generationStatus;
+      return;
+    }
     if (prevStatusRef.current === 'generating' && generationStatus === 'complete' && activeCampaignId) {
       if (isSingleCreation && creationIds.length === 1) {
         // Single-creation prompt: navigate directly to the creation
@@ -106,7 +89,7 @@ export function PromptSidebar() {
       }
     }
     prevStatusRef.current = generationStatus;
-  }, [generationStatus, activeCampaignId, isSingleCreation, creationIds, navigateToCampaign, navigateToCreation]);
+  }, [generationStatus, activeCampaignId, isSingleCreation, creationIds, navigateToCampaign, navigateToCreation, heroOwnsGeneration]);
 
   // Reset "Add to campaign" dismissed state when campaign view changes
   useEffect(() => {
@@ -120,59 +103,17 @@ export function PromptSidebar() {
     setSubmittedPrompt(text);
 
     // Base generate options — include existingCampaignId when in add-to-campaign mode
-    const baseOpts = {
+    const opts = {
       skillType: 'social' as const,
+      source: 'sidebar' as const,
       ...(showAddToCampaignBanner && campaignActiveCampaignId
         ? { existingCampaignId: campaignActiveCampaignId }
         : {}),
     };
 
-    if (isIterateMode && activeSessionData) {
-      // Iteration mode: bundle context and pass to generate
-      try {
-        const storeStatuses = useAnnotationStore.getState().statuses;
-        const iterCtx = buildIterationContext({
-          variations: activeSessionData.variations,
-          annotations,
-          statuses: storeStatuses,
-          currentRound: activeSessionData.lineage.rounds
-            ? Math.max(...activeSessionData.lineage.rounds.map((r) => r.roundNumber), 0)
-            : 0,
-          originalPrompt: activeSessionData.lineage.rounds?.[0]?.prompt || '',
-        });
-        generate(text, {
-          ...baseOpts,
-          sessionId: activeSessionId!,
-          iterationContext: iterCtx,
-        });
-      } catch (err) {
-        // If no winner selected, fall through to normal generation
-        generate(text, baseOpts);
-      }
-    } else {
-      generate(text, baseOpts);
-    }
+    generate(text, opts);
     setPrompt('');
   };
-
-  const handleNewSession = () => {
-    clearSelection();
-    resetGeneration();
-    setPrompt('');
-    setSubmittedPrompt('');
-  };
-
-  // Clear stale generation log when switching sessions
-  const prevSessionRef = useRef(activeSessionId);
-  useEffect(() => {
-    if (activeSessionId !== prevSessionRef.current) {
-      prevSessionRef.current = activeSessionId;
-      if (status !== 'generating') {
-        resetGeneration();
-        setSubmittedPrompt('');
-      }
-    }
-  }, [activeSessionId, status, resetGeneration]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -181,12 +122,8 @@ export function PromptSidebar() {
     }
   };
 
-  // Contextual text based on mode
-  const headerText = isIterateMode ? `Iterate on ${projectTitle}` : 'Create with AI';
-  const placeholderText = isIterateMode ? 'Describe changes...' : 'Describe what you want to create...';
-  const buttonText = isIterateMode
-    ? (isGenerating ? 'Iterating...' : 'Iterate')
-    : (isGenerating ? 'Generating...' : 'Generate');
+  const placeholderText = 'Describe what you want to create...';
+  const buttonText = isGenerating ? 'Generating...' : 'Generate';
 
   return (
     <div
@@ -206,42 +143,9 @@ export function PromptSidebar() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: '0.75rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {headerText}
+              Create with AI
             </span>
-            {isIterateMode && annotationCount > 0 && (
-              <span
-                style={{
-                  fontSize: '0.6rem',
-                  color: '#a78bfa',
-                  backgroundColor: '#1e1e1e',
-                  padding: '0.1rem 0.35rem',
-                  borderRadius: 8,
-                  fontWeight: 600,
-                }}
-              >
-                {annotationCount} annotation{annotationCount !== 1 ? 's' : ''}
-              </span>
-            )}
           </div>
-          {isIterateMode && (
-            <button
-              onClick={handleNewSession}
-              style={{
-                background: 'none',
-                border: '1px solid #2a2a2e',
-                color: '#888',
-                fontSize: '0.68rem',
-                padding: '0.15rem 0.4rem',
-                borderRadius: 4,
-                cursor: 'pointer',
-                fontWeight: 500,
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              + New
-            </button>
-          )}
         </div>
       </div>
 
@@ -257,7 +161,14 @@ export function PromptSidebar() {
           gap: '4px',
         }}
       >
-        {displayMessages.length === 0 && !isGenerating ? (
+        {heroOwnsGeneration ? (
+          /* BuildHero's GenerationStreamView is handling the display */
+          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '2rem' }}>
+            <span style={{ fontSize: '0.82rem', color: '#555', textAlign: 'center' }}>
+              {isGenerating ? 'Generating in main view...' : 'Enter a prompt below to get started.'}
+            </span>
+          </div>
+        ) : displayMessages.length === 0 && !isGenerating ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '2rem' }}>
             <span style={{ fontSize: '0.82rem', color: '#555', textAlign: 'center' }}>
               Enter a prompt below to get started.
@@ -267,9 +178,19 @@ export function PromptSidebar() {
           <>
             {/* Spacer pushes messages to bottom when few; shrinks as messages accumulate */}
             <div style={{ flex: 1 }} />
-            {displayMessages.map((msg) => (
-              <StreamMessage key={msg.id} message={msg} />
-            ))}
+            {displayMessages.map((msg) => {
+              if (msg.type === 'context-injected') {
+                return (
+                  <ContextPanel
+                    key={msg.id}
+                    sections={msg.sections || []}
+                    tokenEstimate={msg.tokenEstimate || 0}
+                    gapCount={msg.gapCount}
+                  />
+                );
+              }
+              return <StreamMessage key={msg.id} message={msg} />;
+            })}
             {status === 'complete' && (
               <div style={{ textAlign: 'center', color: '#22c55e', fontSize: '0.75rem', padding: '0.5rem 0' }}>
                 Done

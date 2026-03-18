@@ -110,6 +110,34 @@ describe('parseStreamEvent', () => {
   });
 });
 
+describe('context_injected events', () => {
+  beforeEach(() => {
+    resetCounter();
+  });
+
+  it('converts context_injected events to context-injected messages', () => {
+    const event = {
+      type: 'context_injected',
+      stage: 'copy',
+      sections: ['color-palette', 'typography'],
+      tokenEstimate: 1500,
+    };
+    const msg = parseStreamEvent(event);
+    expect(msg).not.toBeNull();
+    expect(msg!.type).toBe('context-injected');
+    expect(msg!.content).toBe('copy');
+    expect(msg!.stage).toBe('copy');
+    expect(msg!.sections).toEqual(['color-palette', 'typography']);
+    expect(msg!.tokenEstimate).toBe(1500);
+  });
+
+  it('returns null for unknown event types', () => {
+    const event = { type: 'completely_unknown_event_type' };
+    const msg = parseStreamEvent(event);
+    expect(msg).toBeNull();
+  });
+});
+
 describe('useGenerationStore', () => {
   beforeEach(() => {
     useGenerationStore.setState({
