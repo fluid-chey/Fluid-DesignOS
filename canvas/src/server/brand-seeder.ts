@@ -623,18 +623,17 @@ export async function seedDesignRulesIfEmpty(): Promise<void> {
 
 // ─── JSON Seed Import (from seed-data.json) ──────────────────────────────────
 
-/** Tables in dependency order (parents first for FK safety). */
+/**
+ * Brand configuration tables to import from seed-data.json.
+ * Only includes brand data — NOT user data (campaigns, creations, slides, iterations).
+ * User data has FK chains that break when imported into existing DBs.
+ */
 const SEED_TABLES_ORDERED = [
   'voice_guide_docs',
   'brand_patterns',
   'template_design_rules',
   'templates',
   'context_map',
-  'campaigns',
-  'creations',
-  'slides',
-  'iterations',
-  'annotations',
 ] as const;
 
 /**
