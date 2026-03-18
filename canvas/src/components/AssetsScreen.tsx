@@ -323,53 +323,97 @@ export function AssetsScreen() {
       flexDirection: 'column',
       height: '100%',
       minHeight: 0,
-      overflowY: 'auto',
-      padding: '1.5rem 1.5rem 2rem',
     }}>
-      {/* ── Page heading row ── */}
+      {/* ── Fixed header bar ── */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '1.25rem',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
+        flexShrink: 0,
+        borderBottom: '1px solid #1e1e1e',
+        backgroundColor: '#0d0d0d',
+        padding: '14px 1rem',
       }}>
-        <div>
-          <h1 style={{
-            margin: 0,
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            color: '#e0e0e0',
-            letterSpacing: '-0.02em',
-          }}>
-            Assets
-          </h1>
-          <p style={{ fontSize: 14, fontWeight: 400, color: '#888', marginTop: 4, marginBottom: 0 }}>
-            Fonts, images, logos, and decorative elements available to the generation pipeline
-          </p>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '10px',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+        }}>
+          <div>
+            <h1 style={{
+              margin: 0,
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: '#e0e0e0',
+              letterSpacing: '-0.02em',
+            }}>
+              Assets
+            </h1>
+            <p style={{ fontSize: 14, fontWeight: 400, color: '#888', marginTop: 4, marginBottom: 0 }}>
+              Fonts, images, logos, and decorative elements available to the generation pipeline
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAddFromDAM}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '8px 14px',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: '#0d0d0d',
+              backgroundColor: '#44B2FF',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            <PlusIcon />
+            Add from Fluid DAM
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handleAddFromDAM}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '8px 14px',
-            fontSize: '0.8125rem',
-            fontWeight: 500,
-            color: '#0d0d0d',
-            backgroundColor: '#44B2FF',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-          }}
-        >
-          <PlusIcon />
-          Add from Fluid DAM
-        </button>
+
+        {/* Category tabs in header bar */}
+        {brandAssets.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+            {ASSET_CATEGORIES.map(cat => {
+              const isActive = activeCategory === cat.id;
+              const count = getCategoryCount(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategory(cat.id)}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.72rem',
+                    fontWeight: isActive ? 600 : 400,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase' as const,
+                    color: isActive ? '#e0e0e0' : '#666',
+                    backgroundColor: isActive ? '#1a1a1e' : 'transparent',
+                    border: 'none',
+                    borderBottom: isActive ? '2px solid #44B2FF' : '2px solid transparent',
+                    cursor: 'pointer',
+                    transition: 'all 150ms',
+                  }}
+                >
+                  {cat.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* ── Scrollable content ── */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '1.5rem 1.5rem 2rem',
+      }}>
 
       {/* ── Error banner ── */}
       {error && (
@@ -438,58 +482,17 @@ export function AssetsScreen() {
         </div>
       )}
 
-      {/* ── Category tab filter bar ── */}
-      {brandAssets.length > 0 && (
-        <>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: 8,
-            marginBottom: 16,
-            flexWrap: 'wrap',
-          }}>
-            {ASSET_CATEGORIES.map(cat => {
-              const isActive = activeCategory === cat.id;
-              const count = getCategoryCount(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setActiveCategory(cat.id)}
-                  style={{
-                    height: 32,
-                    paddingInline: 12,
-                    borderRadius: 16,
-                    fontSize: 12,
-                    fontWeight: 400,
-                    border: `1px solid ${isActive ? '#2a2a2e' : 'transparent'}`,
-                    cursor: 'pointer',
-                    transition: 'all 150ms',
-                    backgroundColor: isActive ? '#1a1a1e' : 'transparent',
-                    color: isActive ? '#fff' : '#888',
-                  }}
-                >
-                  {cat.label}
-                  {' '}
-                  <span style={{ color: '#555' }}>({count})</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Category description */}
-          {activeCategory !== 'all' && CATEGORY_DESCRIPTIONS[activeCategory] && (
-            <p style={{
-              fontSize: 12,
-              fontWeight: 400,
-              color: '#888',
-              padding: '0 0 16px 0',
-              margin: 0,
-            }}>
-              {CATEGORY_DESCRIPTIONS[activeCategory]}
-            </p>
-          )}
-        </>
+      {/* Category description (tabs moved to header) */}
+      {activeCategory !== 'all' && CATEGORY_DESCRIPTIONS[activeCategory] && (
+        <p style={{
+          fontSize: 12,
+          fontWeight: 400,
+          color: '#888',
+          padding: '0 0 16px 0',
+          margin: 0,
+        }}>
+          {CATEGORY_DESCRIPTIONS[activeCategory]}
+        </p>
       )}
 
       {/* Brand assets grid */}
@@ -789,6 +792,7 @@ export function AssetsScreen() {
         onCancel={() => setDamOpen(false)}
         onError={(msg) => setError(msg)}
       />
+      </div>
     </div>
   );
 }

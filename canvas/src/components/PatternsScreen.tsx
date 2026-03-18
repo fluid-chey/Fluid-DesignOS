@@ -349,15 +349,19 @@ export function PatternsScreen() {
   return (
     <div
       style={{
-        padding: 24,
-        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100%',
-        boxSizing: 'border-box',
         backgroundColor: '#0d0d0d',
       }}
     >
-      {/* Page heading + subtitle */}
-      <div style={{ marginBottom: 24 }}>
+      {/* Fixed header bar */}
+      <div style={{
+        flexShrink: 0,
+        borderBottom: '1px solid #1e1e1e',
+        backgroundColor: '#0d0d0d',
+        padding: '14px 1rem',
+      }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0 }}>
           Patterns
         </h1>
@@ -365,6 +369,14 @@ export function PatternsScreen() {
           Visual building blocks — color foundations, typographic rules, spacing systems, and compositional techniques
         </p>
       </div>
+
+      {/* Scrollable content */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: 24,
+        boxSizing: 'border-box',
+      }}>
 
       <CollapsibleSection
         label="Foundations"
@@ -429,6 +441,7 @@ export function PatternsScreen() {
           </div>
         )}
       </CollapsibleSection>
+      </div>
     </div>
   );
 }
