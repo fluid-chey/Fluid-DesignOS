@@ -5,10 +5,14 @@
 
 export interface StreamUIMessage {
   id: string;
-  type: 'text' | 'tool-start' | 'tool-done' | 'status' | 'error' | 'stage-running' | 'stage-done' | 'stage-narrative';
+  type: 'text' | 'tool-start' | 'tool-done' | 'status' | 'error' | 'stage-running' | 'stage-done' | 'stage-narrative' | 'context-injected';
   content: string;
   toolName?: string;
   stage?: string;
+  sections?: string[];
+  tokenEstimate?: number;
+  /** Number of fallback tool calls detected (gap signal) */
+  gapCount?: number;
   timestamp: number;
 }
 
@@ -118,6 +122,19 @@ export function parseStreamEvent(
       id: nextId(),
       type: 'status',
       content: `[${event.stage}] ${event.status}`,
+      timestamp: Date.now(),
+    };
+  }
+
+  // Context injected event — brand context loaded for a stage
+  if (event.type === 'context_injected') {
+    return {
+      id: nextId(),
+      type: 'context-injected',
+      content: event.stage,
+      stage: event.stage,
+      sections: event.sections,
+      tokenEstimate: event.tokenEstimate,
       timestamp: Date.now(),
     };
   }
