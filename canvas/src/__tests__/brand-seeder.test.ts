@@ -2,7 +2,7 @@
 
 /**
  * Tests for brand-seeder.ts: seedVoiceGuideIfEmpty and seedBrandPatternsIfEmpty.
- * Uses a temp DB and the real voice-guide/ dir + patterns/index.html.
+ * Uses a temp DB and the real voice-guide/ dir + pattern-seeds/ markdown files.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -16,7 +16,7 @@ import fs from 'node:fs';
 // Project root (Fluid-DesignOS/) is 3 levels up from canvas/src/__tests__/
 const PROJECT_ROOT = path.resolve(__dirname, '../../../');
 const VOICE_GUIDE_DIR = path.join(PROJECT_ROOT, 'voice-guide');
-const PATTERNS_HTML = path.join(PROJECT_ROOT, 'patterns/index.html');
+const PATTERN_SEEDS_DIR = path.join(PROJECT_ROOT, 'pattern-seeds');
 
 let testDir: string;
 
@@ -85,15 +85,15 @@ describe('seedVoiceGuideIfEmpty', () => {
 });
 
 describe('seedBrandPatternsIfEmpty', () => {
-  it('seeds rows from real patterns/index.html', async () => {
-    const count = await seedBrandPatternsIfEmpty(PATTERNS_HTML);
+  it('seeds rows from pattern-seeds markdown files', async () => {
+    const count = await seedBrandPatternsIfEmpty(PATTERN_SEEDS_DIR);
     expect(count).toBeGreaterThan(0);
-    expect(count).toBe(12); // 12 h2 section-title sections
+    expect(count).toBe(12); // 12 pattern-seeds .md files
   });
 
   it('is idempotent — second call returns existing count without re-inserting', async () => {
     const countBefore = getBrandPatterns().length;
-    const returned = await seedBrandPatternsIfEmpty(PATTERNS_HTML);
+    const returned = await seedBrandPatternsIfEmpty(PATTERN_SEEDS_DIR);
     const countAfter = getBrandPatterns().length;
     expect(countAfter).toBe(countBefore);
     expect(returned).toBe(12); // returns pre-existing count
@@ -144,7 +144,7 @@ describe('seedBrandPatternsIfEmpty', () => {
     // with a fake path — but the table is already populated so it returns early with existing count
     // Instead, verify graceful handling: seedBrandPatternsIfEmpty with missing file returns 0 only on empty table
     // This is covered by the idempotent test above (returns count when already seeded)
-    const result = await seedBrandPatternsIfEmpty(PATTERNS_HTML);
+    const result = await seedBrandPatternsIfEmpty(PATTERN_SEEDS_DIR);
     expect(typeof result).toBe('number');
   });
 });
