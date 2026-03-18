@@ -483,7 +483,11 @@ export async function executeTool(
       const slug = input.slug as string;
       const pattern = getBrandPatternBySlug(slug);
       if (!pattern) return `No brand pattern found with slug: ${slug}`;
-      return `# ${pattern.label} [${pattern.category}]\n\n${pattern.content}`;
+      const MAX_PATTERN_CHARS = 30_000;
+      const content = pattern.content.length > MAX_PATTERN_CHARS
+        ? pattern.content.slice(0, MAX_PATTERN_CHARS) + `\n\n[TRUNCATED — pattern is ${pattern.content.length} chars]`
+        : pattern.content;
+      return `# ${pattern.label} [${pattern.category}]\n\n${content}`;
     }
 
     case 'list_voice_guide': {
@@ -743,6 +747,18 @@ function loadContextForStage(
       totalTokens -= dropped.tokens;
     }
     sectionContents.sort((a, b) => a.slug.localeCompare(b.slug));
+  }
+
+  // Truncate any single section that still exceeds budget
+  if (combinedMaxTokens) {
+    for (const section of sectionContents) {
+      if (section.tokens > combinedMaxTokens) {
+        const maxChars = combinedMaxTokens * 4;
+        section.content = section.content.slice(0, maxChars) + `\n\n[TRUNCATED — section "${section.slug}" exceeds ${combinedMaxTokens} token budget]`;
+        section.tokens = combinedMaxTokens;
+        totalTokens = sectionContents.reduce((sum, s) => sum + s.tokens, 0);
+      }
+    }
   }
 
   if (sectionContents.length === 0) {
@@ -1169,7 +1185,7 @@ export async function runApiPipeline(
   if (layoutCtx.sectionSlugs.length > 0) {
     emitContextInjected(res, ctx.creationId, 'layout', layoutCtx.sectionSlugs, layoutCtx.tokenEstimate);
   }
-  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx, designDna), ctx, res, layoutInjected);
+  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res, layoutInjected);
   await generateStageNarrative('layout', layoutResult.output, ctx, res);
 
   // ── Stage 3: Styling ───────────────────────────────────────────────────────
@@ -1178,7 +1194,7 @@ export async function runApiPipeline(
   if (stylingCtx.sectionSlugs.length > 0) {
     emitContextInjected(res, ctx.creationId, 'styling', stylingCtx.sectionSlugs, stylingCtx.tokenEstimate);
   }
-  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx, designDna), ctx, res, stylingInjected);
+  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res, stylingInjected);
   await generateStageNarrative('styling', stylingResult.output, ctx, res);
 
   // Fallback: if agent wrote to styled.html in workingDir instead of htmlOutputPath, copy it

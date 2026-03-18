@@ -50,7 +50,7 @@ import {
 } from './db-api';
 import { getDb } from '../lib/db';
 import { scanAndSeedBrandAssets } from './asset-scanner';
-import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, seedGlobalVisualStyleIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
+import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, migratePatternsToMarkdown, seedGlobalVisualStyleIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
 import { runDamSync } from './dam-sync';
 
 // ─── Creation dimensions by type ────────────────────────────────────────────
@@ -210,12 +210,13 @@ export function fluidWatcherPlugin(): Plugin {
         console.warn('[watcher] Seed data import failed:', err);
       }
 
-      // Auto-scan brand assets into DB on startup, then seed patterns
-      // (patterns depend on brand_assets table for DB URL rewriting)
-      scanAndSeedBrandAssets(path.join(projectRoot, 'assets')).then(() => {
-        seedBrandPatternsIfEmpty(path.join(projectRoot, 'patterns/index.html')).catch(err =>
-          console.warn('[watcher] Brand patterns seeding failed:', err)
-        );
+      // Auto-scan brand assets into DB on startup, then seed patterns from markdown files
+      const patternSeedsDir = path.join(projectRoot, 'pattern-seeds');
+      scanAndSeedBrandAssets(path.join(projectRoot, 'assets')).then(async () => {
+        await seedBrandPatternsIfEmpty(patternSeedsDir);
+        // Migrate existing HTML patterns to clean markdown (safe to call multiple times)
+        const migrated = await migratePatternsToMarkdown(patternSeedsDir);
+        if (migrated > 0) console.log(`[watcher] Migrated ${migrated} patterns to markdown`);
       }).catch(err =>
         console.error('[asset-scan] Failed:', err)
       );

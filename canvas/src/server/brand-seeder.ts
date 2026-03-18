@@ -60,133 +60,70 @@ export async function seedVoiceGuideIfEmpty(voiceGuideDir: string): Promise<numb
 
 // ─── Brand Patterns ──────────────────────────────────────────────────────────
 
-/**
- * Maps pattern slugs to category names.
- * Slugs not in this map default to 'pattern'.
- */
-const CATEGORY_MAP: Record<string, string> = {
-  'color-palette': 'design-tokens',
-  'typography': 'design-tokens',
-  'opacity-patterns': 'design-tokens',
-  'layout-archetypes': 'layout-archetype',
-};
+const PATTERN_SOURCES: Array<{ slug: string; label: string; category: string; file: string }> = [
+  { slug: 'color-palette', label: 'Color Palette', category: 'design-tokens', file: 'color-palette.md' },
+  { slug: 'typography', label: 'Typography', category: 'design-tokens', file: 'typography.md' },
+  { slug: 'opacity-patterns', label: 'Opacity Patterns', category: 'design-tokens', file: 'opacity-patterns.md' },
+  { slug: 'brushstroke-textures', label: 'Brushstroke Textures', category: 'pattern', file: 'brushstroke-textures.md' },
+  { slug: 'circles-underlines', label: 'Circles & Underlines', category: 'pattern', file: 'circles-underlines.md' },
+  { slug: 'line-textures', label: 'Line Textures', category: 'pattern', file: 'line-textures.md' },
+  { slug: 'scribble-textures', label: 'Scribble Textures', category: 'pattern', file: 'scribble-textures.md' },
+  { slug: 'x-mark-textures', label: 'X-Mark Textures', category: 'pattern', file: 'x-mark-textures.md' },
+  { slug: 'photos-mockups', label: 'Photos & Mockups', category: 'pattern', file: 'photos-mockups.md' },
+  { slug: 'footer-structure', label: 'Footer Structure', category: 'pattern', file: 'footer-structure.md' },
+  { slug: 'flfont-tagline-patterns', label: 'FLFont Tagline Patterns', category: 'pattern', file: 'flfont-tagline-patterns.md' },
+  { slug: 'layout-archetypes', label: 'Layout Archetypes', category: 'layout-archetype', file: 'layout-archetypes.md' },
+];
 
 /**
- * Converts a heading label to a URL-safe slug.
- * e.g. "Color Palette" -> "color-palette", "Circles & Underlines" -> "circles-underlines"
- */
-function toSlug(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-interface PatternSection {
-  slug: string;
-  label: string;
-  category: string;
-  content: string;
-}
-
-/**
- * Parses patterns/index.html into sections by splitting on <h2 class="section-title"> headings.
- * Each section's content is the HTML between this h2 and the next h2.
- */
-function parsePatternsHtml(html: string): PatternSection[] {
-  const sections: PatternSection[] = [];
-
-  // Match all h2.section-title elements and their positions
-  const headingRegex = /<h2 class="section-title">(.*?)<\/h2>/g;
-  const matches: Array<{ label: string; index: number; endIndex: number }> = [];
-
-  let match: RegExpExecArray | null;
-  while ((match = headingRegex.exec(html)) !== null) {
-    matches.push({
-      label: match[1],
-      index: match.index,
-      endIndex: match.index + match[0].length,
-    });
-  }
-
-  for (let i = 0; i < matches.length; i++) {
-    const { label, endIndex } = matches[i];
-    const nextIndex = i + 1 < matches.length ? matches[i + 1].index : html.length;
-    const content = html.slice(endIndex, nextIndex).trim();
-    const slug = toSlug(label);
-    const category = CATEGORY_MAP[slug] ?? 'pattern';
-    sections.push({ slug, label, category, content });
-  }
-
-  return sections;
-}
-
-/**
- * Rewrites asset paths in HTML content to use DB-backed /api/brand-assets/serve/:name URLs.
- * Builds a lookup map from brand_assets (file_path -> name) and replaces known patterns:
- *   ../assets/fonts/flfontbold.ttf -> /api/brand-assets/serve/flfontbold
- *   assets/circles/circle-1.png   -> /api/brand-assets/serve/circle-1
- */
-function rewriteAssetPathsToDbUrls(content: string): string {
-  const db = getDb();
-  const rows = db.prepare('SELECT name, file_path FROM brand_assets WHERE (dam_deleted = 0 OR dam_deleted IS NULL)').all() as Array<{ name: string; file_path: string }>;
-
-  // Build lookup: various path forms -> DB serve URL
-  const pathToUrl = new Map<string, string>();
-  for (const row of rows) {
-    const url = `/api/brand-assets/serve/${encodeURIComponent(row.name)}`;
-    // file_path is e.g. "circles/circle-1.png"
-    pathToUrl.set(row.file_path, url);
-    pathToUrl.set(`assets/${row.file_path}`, url);
-    pathToUrl.set(`../assets/${row.file_path}`, url);
-    pathToUrl.set(`../../assets/${row.file_path}`, url);
-  }
-
-  // Sort by longest path first so more specific paths match before shorter ones
-  const sortedPaths = [...pathToUrl.entries()].sort((a, b) => b[0].length - a[0].length);
-
-  let result = content;
-  for (const [assetPath, dbUrl] of sortedPaths) {
-    // Escape special regex chars in the path
-    const escaped = assetPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(escaped, 'g'), dbUrl);
-  }
-  return result;
-}
-
-/**
- * Seeds brand_patterns table from patterns/index.html if the table is empty.
- * @param patternsHtmlPath — absolute path to patterns/index.html
+ * Seeds brand_patterns table from .md files in the pattern-seeds directory if the table is empty.
+ * @param patternSeedsDir — absolute path to the pattern-seeds/ directory
  * @returns number of rows that exist after seeding (inserted or pre-existing)
  */
-export async function seedBrandPatternsIfEmpty(patternsHtmlPath: string): Promise<number> {
+export async function seedBrandPatternsIfEmpty(patternSeedsDir: string): Promise<number> {
   const db = getDb();
-  // Check for HTML-sourced patterns specifically (not the text-only visual-compositor-contract)
   const htmlPatternCount = (db.prepare("SELECT COUNT(*) as c FROM brand_patterns WHERE category != 'visual-style'").get() as { c: number }).c;
   if (htmlPatternCount > 0) return htmlPatternCount;
-
-  let html: string;
-  try {
-    html = await fs.readFile(patternsHtmlPath, 'utf-8');
-  } catch {
-    return 0;
-  }
-
-  const sections = parsePatternsHtml(html);
-  if (sections.length === 0) return 0;
 
   const insert = db.prepare(
     'INSERT OR IGNORE INTO brand_patterns (id, slug, label, category, content, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
   let order = 0;
   let inserted = 0;
-  for (const section of sections) {
-    // Rewrite asset paths to DB-backed URLs at seed time
-    const rewrittenContent = rewriteAssetPathsToDbUrls(section.content);
-    insert.run(nanoid(), section.slug, section.label, section.category, rewrittenContent, order++, Date.now());
-    inserted++;
+  for (const source of PATTERN_SOURCES) {
+    try {
+      const content = await fs.readFile(path.join(patternSeedsDir, source.file), 'utf-8');
+      insert.run(nanoid(), source.slug, source.label, source.category, content, order++, Date.now());
+      inserted++;
+    } catch {
+      order++;
+    }
   }
   return inserted;
+}
+
+/**
+ * Migrate existing HTML-based pattern content to clean markdown from seed files.
+ * Overwrites content for all patterns that have a matching seed file.
+ * Safe to call multiple times — idempotent based on file content.
+ */
+export async function migratePatternsToMarkdown(patternSeedsDir: string): Promise<number> {
+  const db = getDb();
+  const update = db.prepare(
+    'UPDATE brand_patterns SET content = ?, updated_at = ? WHERE slug = ?'
+  );
+  let migrated = 0;
+  const now = Date.now();
+  for (const source of PATTERN_SOURCES) {
+    try {
+      const content = await fs.readFile(path.join(patternSeedsDir, source.file), 'utf-8');
+      const result = update.run(content, now, source.slug);
+      if (result.changes > 0) migrated++;
+    } catch {
+      // Skip missing files
+    }
+  }
+  return migrated;
 }
 
 // ─── Global Visual Style ─────────────────────────────────────────────────────

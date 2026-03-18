@@ -18,7 +18,7 @@ import fs from 'node:fs';
 // Project root (Fluid-DesignOS/) is 3 levels up from canvas/src/__tests__/
 const PROJECT_ROOT = path.resolve(__dirname, '../../../');
 const VOICE_GUIDE_DIR = path.join(PROJECT_ROOT, 'voice-guide');
-const PATTERNS_HTML = path.join(PROJECT_ROOT, 'patterns/index.html');
+const PATTERN_SEEDS_DIR = path.join(PROJECT_ROOT, 'pattern-seeds');
 
 let testDir: string;
 
@@ -28,7 +28,7 @@ beforeAll(async () => {
   process.env.FLUID_DB_PATH = path.join(testDir, 'test.db');
   getDb();
   await seedVoiceGuideIfEmpty(VOICE_GUIDE_DIR);
-  await seedBrandPatternsIfEmpty(PATTERNS_HTML);
+  await seedBrandPatternsIfEmpty(PATTERN_SEEDS_DIR);
 });
 
 afterAll(() => {

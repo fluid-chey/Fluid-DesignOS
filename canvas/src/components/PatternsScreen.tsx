@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,11 +37,10 @@ const DISPLAY_GROUPS: PatternGroup[] = [
     slugs: [
       'brushstroke-textures',
       'circles-underlines',
-      'lines',
-      'scribbles',
-      'x-marks',
+      'line-textures',
+      'scribble-textures',
+      'x-mark-textures',
       'photos-mockups',
-      'logos-icons',
       'footer-structure',
     ],
   },
@@ -47,37 +48,105 @@ const DISPLAY_GROUPS: PatternGroup[] = [
     id: 'patterns',
     title: 'Patterns',
     subtitle: 'Compositional rules, FLFont usage, and layout archetypes.',
-    slugs: ['flfont-taglines', 'layout-archetypes', 'visual-compositor-contract'],
+    slugs: ['flfont-tagline-patterns', 'layout-archetypes', 'visual-compositor-contract'],
   },
 ];
 
-// ─── Rewrite legacy paths and inject mask-image ──────────────────────────────
-
-function rewriteAndInjectMasks(html: string): string {
-  // Legacy fallback: rewrite ../assets/ and assets/ paths to /fluid-assets/ for old DB content
-  // (new seeds use /api/brand-assets/serve/ URLs directly)
-  let result = html
-    .replace(/\.\.\/assets\//g, '/fluid-assets/')
-    .replace(/(?<=['"])assets\//g, '/fluid-assets/');
-
-  // Inject mask-image inline from data-mask attributes so masks render immediately
-  result = result.replace(
-    /data-mask="([^"]+)"([^>]*?)style="([^"]*)"/g,
-    (_, maskUrl, between, existingStyle) => {
-      const maskCss = `-webkit-mask-image: url('${maskUrl}'); mask-image: url('${maskUrl}');`;
-      return `data-mask="${maskUrl}"${between}style="${existingStyle} ${maskCss}"`;
-    }
-  );
-
-  return result;
-}
-
-// ─── Pattern styles (from patterns/index.html <style> block) ──────────────────
+// ─── Pattern styles ─────────────────────────────────────────────────────────
 
 const PATTERN_STYLES = `
-  /* ============================================================
-     FONT FACES
-     ============================================================ */
+  /* Markdown content styles */
+  .pattern-content {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.75);
+  }
+  .pattern-content h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin: 32px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .pattern-content h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    margin: 24px 0 8px;
+  }
+  .pattern-content h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    margin: 16px 0 6px;
+  }
+  .pattern-content p {
+    margin: 8px 0;
+  }
+  .pattern-content strong {
+    color: #fff;
+    font-weight: 700;
+  }
+  .pattern-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .pattern-content th {
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.45);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .pattern-content td {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.75);
+  }
+  .pattern-content code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #FF8B58;
+  }
+  .pattern-content pre {
+    background: #111;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .pattern-content pre code {
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.75);
+  }
+  .pattern-content ul, .pattern-content ol {
+    padding-left: 24px;
+    margin: 8px 0;
+  }
+  .pattern-content li {
+    margin: 4px 0;
+  }
+  .pattern-content hr {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 24px 0;
+  }
+
+  /* ── Preview sandbox ──────────────────────────────────────── */
   @font-face {
     font-family: 'flfontbold';
     src: url('/api/brand-assets/serve/flfontbold') format('truetype');
@@ -90,293 +159,172 @@ const PATTERN_STYLES = `
     font-weight: 100 900;
     font-style: normal;
   }
-  @font-face {
-    font-family: 'Inter';
-    src: url('/api/brand-assets/serve/Inter-VariableFont') format('truetype');
-    font-weight: 100 900;
-    font-style: normal;
-  }
 
-  /* ============================================================
-     PATTERN CONTENT STYLES
-     ============================================================ */
-  .pattern-content {
+  .code-preview-sandbox {
     font-family: 'Inter', 'NeueHaas', sans-serif;
-    font-size: 15px;
-    line-height: 1.6;
     color: #fff;
-  }
-
-  /* Section subtitle */
-  .pattern-content .section-subtitle {
-    color: rgba(255,255,255,0.45);
+    background: #000;
+    padding: 24px;
     font-size: 14px;
-    margin-bottom: 32px;
+    line-height: 1.5;
   }
-  .pattern-content .subsection {
-    margin-bottom: 48px;
-  }
-  .pattern-content .subsection-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 16px;
-    color: rgba(255,255,255,0.9);
-  }
-
-  /* Weight badges */
-  .pattern-content .weight-badge {
-    display: inline-block;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-weight: 600;
-    margin-left: 8px;
-    vertical-align: middle;
-  }
-  .pattern-content .weight-critical { background: rgba(255,59,48,0.2); color: #ff3b30; }
-  .pattern-content .weight-strong { background: rgba(255,139,88,0.2); color: #FF8B58; }
-  .pattern-content .weight-flexible { background: rgba(66,177,255,0.2); color: #42b1ff; }
-  .pattern-content .weight-optional { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); }
-
-  /* Code blocks */
-  .pattern-content .code-block {
-    background: #111;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 6px;
-    padding: 20px;
-    margin: 16px 0;
-    overflow-x: auto;
-    position: relative;
-  }
-  .pattern-content .code-block pre {
-    margin: 0;
-    font-family: 'Space Mono', 'SF Mono', 'Menlo', monospace;
-    font-size: 12px;
-    line-height: 1.6;
-    color: rgba(255,255,255,0.75);
-    white-space: pre;
-  }
-  .pattern-content .code-block .code-label {
-    position: absolute;
-    top: 8px;
-    right: 12px;
-    font-size: 10px;
-    color: rgba(255,255,255,0.25);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  /* Color swatches */
-  .pattern-content .swatch-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .pattern-content .swatch {
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.06);
-  }
-  .pattern-content .swatch-color {
-    height: 80px;
-  }
-  .pattern-content .swatch-info {
-    padding: 12px;
-    background: #111;
-  }
-  .pattern-content .swatch-hex {
-    font-family: monospace;
-    font-size: 13px;
-    color: #fff;
-  }
-  .pattern-content .swatch-label {
-    font-size: 11px;
-    color: rgba(255,255,255,0.45);
-    margin-top: 4px;
-  }
-
-  /* Typography samples */
-  .pattern-content .type-sample {
-    margin-bottom: 24px;
-    padding: 24px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px;
-  }
-  .pattern-content .type-sample-meta {
-    font-size: 11px;
-    color: rgba(255,255,255,0.35);
-    margin-top: 8px;
-    font-family: monospace;
-  }
-
-  /* Asset previews */
-  .pattern-content .asset-preview {
-    background: #111;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 16px;
-    position: relative;
-    overflow: hidden;
-  }
-  .pattern-content .asset-preview img {
+  .code-preview-sandbox img {
     max-width: 100%;
     height: auto;
-    /* Override inline opacity/blend for preview visibility — textures are white on dark */
-    opacity: 1 !important;
-    mix-blend-mode: normal !important;
   }
-  .pattern-content .asset-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 24px;
-  }
-
-  /* Opacity demo */
-  .pattern-content .opacity-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
-  .pattern-content .opacity-sample {
-    width: 60px;
-    height: 40px;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 4px;
-  }
-
-  /* Table */
-  .pattern-content .info-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 13px;
-  }
-  .pattern-content .info-table th,
-  .pattern-content .info-table td {
-    padding: 10px 16px;
-    text-align: left;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .pattern-content .info-table th {
-    color: rgba(255,255,255,0.45);
-    font-weight: 500;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .pattern-content .info-table td { color: rgba(255,255,255,0.75); }
-  .pattern-content .info-table code {
-    font-family: monospace;
-    font-size: 12px;
-    background: rgba(255,255,255,0.06);
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-
-  /* Wireframe boxes */
-  .pattern-content .wireframe {
-    background: #111;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    padding: 24px;
-    min-height: 200px;
+  .code-preview-sandbox .footer {
     position: relative;
-  }
-  .pattern-content .wireframe-element {
-    background: rgba(255,255,255,0.06);
-    border: 1px dashed rgba(255,255,255,0.15);
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 11px;
-    color: rgba(255,255,255,0.4);
-    text-align: center;
-    margin-bottom: 8px;
-  }
-  .pattern-content .wireframe-label {
-    font-size: 10px;
-    color: rgba(255,255,255,0.25);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 12px;
-  }
-
-  /* Footer demo */
-  .pattern-content .footer-demo {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 22px 68px;
-    background: #000;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px;
   }
-  .pattern-content .footer-left {
+  .code-preview-sandbox .footer-left {
     display: flex;
     align-items: center;
     gap: 12px;
   }
-  .pattern-content .footer-left img { height: 20px; }
-  .pattern-content .footer-separator {
+  .code-preview-sandbox .footer-left img { height: 18px; opacity: 0.8; }
+  .code-preview-sandbox .footer-separator {
     width: 1px;
-    height: 16px;
+    height: 14px;
     background: rgba(255,255,255,0.15);
   }
-  .pattern-content .footer-right img { height: 24px; }
-
-  /* Layout grid */
-  .pattern-content .layout-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 24px;
-  }
-  .pattern-content .layout-card {
-    background: #0a0a0a;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  .pattern-content .layout-card-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .pattern-content .layout-card-header h4 {
-    font-size: 14px;
-    font-weight: 700;
-  }
-  .pattern-content .layout-card-body {
-    padding: 20px;
-  }
-
-  /* Details / collapsible */
-  .pattern-content details {
-    margin: 12px 0;
-  }
-  .pattern-content details summary {
-    cursor: pointer;
-    font-size: 13px;
-    color: #42b1ff;
-    padding: 8px 0;
-  }
-  .pattern-content details summary:hover { text-decoration: underline; }
-
-  /* Generic code/inline elements */
-  .pattern-content code {
-    font-family: monospace;
-    font-size: 12px;
-    background: rgba(255,255,255,0.06);
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-
-  /* Fix data-mask elements — apply mask-image from data attribute via JS */
+  .code-preview-sandbox .footer-right img { height: 22px; opacity: 0.8; }
 
   /* Spinner animation */
   @keyframes patterns-spin { to { transform: rotate(360deg); } }
 `;
+
+// ─── CodePreview: tabbed rendered / code view for fenced code blocks ──────────
+
+function CodePreview({ code, language }: { code: string; language: string }) {
+  // Default to preview for HTML or mixed blocks; code for pure CSS
+  const hasHtml = language === 'html' || (language !== 'css' && code.includes('<'));
+  const [tab, setTab] = useState<'preview' | 'code'>(hasHtml ? 'preview' : 'preview');
+
+  // Build preview HTML: inject CSS as <style>, render HTML in a sandboxed container
+  const previewHtml = (() => {
+    if (language === 'css') {
+      // For CSS blocks, apply the styles and show sample elements
+      return `<style>${code}</style>
+        <div style="padding: 16px; font-family: 'Inter', sans-serif; color: rgba(255,255,255,0.75); font-size: 13px;">
+          <div class="headline" style="font-size: 28px; font-weight: 900; margin-bottom: 8px;">Headline Sample</div>
+          <div class="body-copy" style="margin-bottom: 8px;">Body copy sample text for visual reference.</div>
+          <div class="tagline" style="margin-bottom: 8px;">Tagline sample</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <span class="pill" style="padding: 4px 10px; border-radius: 4px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);">pill</span>
+            <span class="context-label">context label</span>
+          </div>
+        </div>`;
+    }
+    // HTML or mixed: render as-is
+    return code;
+  })();
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: '5px 14px',
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: '0.03em',
+    border: 'none',
+    borderBottom: active ? '2px solid #42b1ff' : '2px solid transparent',
+    background: 'none',
+    color: active ? '#42b1ff' : 'rgba(255,255,255,0.35)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  });
+
+  return (
+    <div style={{
+      margin: '16px 0',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 8,
+      overflow: 'hidden',
+      background: '#111',
+    }}>
+      {/* Tab bar */}
+      <div style={{
+        display: 'flex',
+        gap: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: '#0a0a0a',
+        padding: '0 8px',
+      }}>
+        <button style={tabStyle(tab === 'preview')} onClick={() => setTab('preview')}>
+          Preview
+        </button>
+        <button style={tabStyle(tab === 'code')} onClick={() => setTab('code')}>
+          Code
+        </button>
+        {language && (
+          <span style={{
+            marginLeft: 'auto',
+            alignSelf: 'center',
+            fontSize: 10,
+            color: 'rgba(255,255,255,0.2)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            paddingRight: 8,
+          }}>
+            {language}
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      {tab === 'preview' ? (
+        <div
+          className="code-preview-sandbox"
+          style={{
+            padding: 0,
+            background: '#000',
+            minHeight: 40,
+            overflow: 'hidden',
+          }}
+          dangerouslySetInnerHTML={{ __html: previewHtml }}
+        />
+      ) : (
+        <pre style={{
+          margin: 0,
+          padding: 20,
+          overflow: 'auto',
+          background: '#111',
+        }}>
+          <code style={{
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
+            fontSize: 12,
+            lineHeight: 1.6,
+            color: 'rgba(255,255,255,0.75)',
+            background: 'none',
+            padding: 0,
+          }}>
+            {code}
+          </code>
+        </pre>
+      )}
+    </div>
+  );
+}
+
+// ─── Custom ReactMarkdown components ──────────────────────────────────────────
+
+const markdownComponents: Record<string, React.ComponentType<Record<string, unknown>>> = {
+  // Override fenced code blocks with CodePreview
+  code({ className, children }: { className?: string; children?: React.ReactNode }) {
+    const match = /language-(\w+)/.exec(className || '');
+    if (match) {
+      const code = String(children).replace(/\n$/, '');
+      return <CodePreview code={code} language={match[1]} />;
+    }
+    // Inline code — pass through
+    return <code className={className}>{children}</code>;
+  },
+  // Unwrap <pre> so CodePreview isn't nested inside it
+  pre({ children }: { children?: React.ReactNode }) {
+    return <>{children}</>;
+  },
+};
 
 // ─── PatternSection Component ─────────────────────────────────────────────────
 
@@ -391,21 +339,6 @@ function PatternSection({ pattern, onSave, savedSlug, failedSlug }: PatternSecti
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
-
-  // After render, apply data-mask attributes as actual mask-image styles (safety net)
-  useEffect(() => {
-    if (!contentRef.current || editing) return;
-    const masked = contentRef.current.querySelectorAll('[data-mask]');
-    masked.forEach((el) => {
-      const maskPath = el.getAttribute('data-mask');
-      if (!maskPath) return;
-      // DB content already uses /api/brand-assets/serve/ URLs; keep as-is if absolute
-      const url = maskPath.startsWith('/') ? maskPath : `/api/brand-assets/serve/${maskPath.replace(/^(?:\.\.\/)*assets\//, '').replace(/\.[^.]+$/, '').split('/').pop()}`;
-      const s = (el as HTMLElement).style;
-      s.webkitMaskImage = `url('${url}')`;
-      s.maskImage = `url('${url}')`;
-    });
-  }, [pattern.content, editing]);
 
   const handleStartEdit = () => {
     setEditContent(pattern.content);
@@ -431,7 +364,6 @@ function PatternSection({ pattern, onSave, savedSlug, failedSlug }: PatternSecti
     }
   };
 
-  const rewrittenContent = rewriteAndInjectMasks(pattern.content);
   const isSaved = savedSlug === pattern.slug;
   const isFailed = failedSlug === pattern.slug;
 
@@ -522,11 +454,11 @@ function PatternSection({ pattern, onSave, savedSlug, failedSlug }: PatternSecti
           </div>
         </div>
       ) : (
-        <div
-          ref={contentRef}
-          className="pattern-content"
-          dangerouslySetInnerHTML={{ __html: rewrittenContent }}
-        />
+        <div ref={contentRef} className="pattern-content">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {pattern.content}
+          </ReactMarkdown>
+        </div>
       )}
     </div>
   );
