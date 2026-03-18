@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-03-17T22:46:23.024Z"
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-03-18T16:35:10.593Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 20
-  completed_phases: 16
-  total_plans: 58
-  completed_plans: 59
+  completed_phases: 17
+  total_plans: 61
+  completed_plans: 61
   percent: 100
 ---
 
@@ -100,6 +100,7 @@ Progress: [████████████████████] 100% (1
 | Phase 15-brand-data-architecture P01 | 3min | 2 tasks | 5 files |
 | Phase 15-brand-data-architecture P03 | 3 | 1 tasks | 2 files |
 | Phase 15-brand-data-architecture P02 | 5min | 2 tasks | 6 files |
+| Phase 16-smart-context-pipeline P01 | 4min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -262,6 +263,8 @@ Recent decisions affecting current work:
 - [Phase 15-03]: TemplatesTab type and activeTab state removed entirely — unified scrollable page with collapsible sections
 - [Phase 15-03]: Archetype rules shown per-template card filtered by archetypeSlug rather than grouped in a single section
 - [Phase 15-02]: CATEGORY_MAP in asset-scanner.ts (not brand-seeder.ts) maps filesystem dirs to semantic categories; DB migration recategorizes existing rows idempotently
+- [Phase 16-01]: context_map UNIQUE(creation_type, stage) constraint — upsert dispatches on id presence for clear update semantics
+- [Phase 16-01]: seedContextMapIfEmpty is synchronous (no file I/O) — sections stored as JSON string array supporting glob patterns like voice-guide:*
 
 ### Parallel Development Note
 
@@ -295,6 +298,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-17T22:46:23.021Z
-Stopped at: Completed 15-02-PLAN.md
+Last session: 2026-03-18T16:35:10.590Z
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None

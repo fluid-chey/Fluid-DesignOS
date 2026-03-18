@@ -1014,6 +1014,28 @@ export function insertContextLog(input: {
   return rowToContextLogEntry(row);
 }
 
+/**
+ * Load the full context map from DB, keyed by "creationType:stage".
+ * Called once at pipeline start, cached for entire run.
+ */
+export function loadContextMap(): Map<string, { sections: string[]; priority: number; maxTokens: number | null }> {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT creation_type, stage, sections, priority, max_tokens FROM context_map ORDER BY priority DESC'
+  ).all() as Array<{ creation_type: string; stage: string; sections: string; priority: number; max_tokens: number | null }>;
+
+  const map = new Map<string, { sections: string[]; priority: number; maxTokens: number | null }>();
+  for (const row of rows) {
+    const key = `${row.creation_type}:${row.stage}`;
+    map.set(key, {
+      sections: JSON.parse(row.sections),
+      priority: row.priority,
+      maxTokens: row.max_tokens,
+    });
+  }
+  return map;
+}
+
 export function getContextLogs(filters?: {
   creationType?: string;
   stage?: string;
