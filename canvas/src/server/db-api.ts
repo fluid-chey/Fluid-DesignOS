@@ -876,3 +876,169 @@ export function getDesignDnaForPipeline(
 
   return { globalStyle, socialGeneral, platformRules: platformText, archetypeNotes };
 }
+
+// ─── Context Map ──────────────────────────────────────────────────────────────
+
+export interface ContextMapEntry {
+  id: string;
+  creationType: string;
+  stage: string;
+  sections: string[];
+  priority: number;
+  maxTokens: number | null;
+  sortOrder: number;
+  updatedAt: number;
+}
+
+function rowToContextMapEntry(row: Record<string, unknown>): ContextMapEntry {
+  return {
+    id: row.id as string,
+    creationType: row.creation_type as string,
+    stage: row.stage as string,
+    sections: JSON.parse(row.sections as string) as string[],
+    priority: row.priority as number,
+    maxTokens: (row.max_tokens as number | null) ?? null,
+    sortOrder: row.sort_order as number,
+    updatedAt: row.updated_at as number,
+  };
+}
+
+export function getContextMap(): ContextMapEntry[] {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT * FROM context_map ORDER BY sort_order, creation_type, stage'
+  ).all() as Record<string, unknown>[];
+  return rows.map(rowToContextMapEntry);
+}
+
+export function upsertContextMapEntry(input: {
+  id?: string;
+  creationType: string;
+  stage: string;
+  sections: string[];
+  priority?: number;
+  maxTokens?: number | null;
+}): ContextMapEntry {
+  const db = getDb();
+  const now = Date.now();
+
+  if (input.id) {
+    // UPDATE existing row
+    db.prepare(
+      'UPDATE context_map SET sections = ?, priority = ?, max_tokens = ?, updated_at = ? WHERE id = ?'
+    ).run(
+      JSON.stringify(input.sections),
+      input.priority ?? 50,
+      input.maxTokens ?? null,
+      now,
+      input.id
+    );
+    const row = db.prepare('SELECT * FROM context_map WHERE id = ?').get(input.id) as Record<string, unknown>;
+    return rowToContextMapEntry(row);
+  } else {
+    // INSERT new row
+    const id = nanoid();
+    db.prepare(
+      'INSERT INTO context_map (id, creation_type, stage, sections, priority, max_tokens, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      id,
+      input.creationType,
+      input.stage,
+      JSON.stringify(input.sections),
+      input.priority ?? 50,
+      input.maxTokens ?? null,
+      0,
+      now
+    );
+    const row = db.prepare('SELECT * FROM context_map WHERE id = ?').get(id) as Record<string, unknown>;
+    return rowToContextMapEntry(row);
+  }
+}
+
+export function deleteContextMapEntry(id: string): boolean {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM context_map WHERE id = ?').run(id);
+  return (result.changes ?? 0) > 0;
+}
+
+// ─── Context Log ──────────────────────────────────────────────────────────────
+
+export interface ContextLogEntry {
+  id: string;
+  generationId: string;
+  creationType: string;
+  stage: string;
+  injectedSections: string[];
+  tokenEstimate: number;
+  gapToolCalls: Array<{ tool: string; input: Record<string, unknown>; timestamp: number }>;
+  createdAt: number;
+}
+
+function rowToContextLogEntry(row: Record<string, unknown>): ContextLogEntry {
+  return {
+    id: row.id as string,
+    generationId: row.generation_id as string,
+    creationType: row.creation_type as string,
+    stage: row.stage as string,
+    injectedSections: JSON.parse(row.injected_sections as string) as string[],
+    tokenEstimate: row.token_estimate as number,
+    gapToolCalls: JSON.parse(row.gap_tool_calls as string),
+    createdAt: row.created_at as number,
+  };
+}
+
+export function insertContextLog(input: {
+  generationId: string;
+  creationType: string;
+  stage: string;
+  injectedSections: string[];
+  tokenEstimate: number;
+  gapToolCalls?: Array<{ tool: string; input: Record<string, unknown>; timestamp: number }>;
+}): ContextLogEntry {
+  const db = getDb();
+  const id = nanoid();
+  const now = Date.now();
+  db.prepare(
+    'INSERT INTO context_log (id, generation_id, creation_type, stage, injected_sections, token_estimate, gap_tool_calls, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(
+    id,
+    input.generationId,
+    input.creationType,
+    input.stage,
+    JSON.stringify(input.injectedSections),
+    input.tokenEstimate,
+    JSON.stringify(input.gapToolCalls ?? []),
+    now
+  );
+  const row = db.prepare('SELECT * FROM context_log WHERE id = ?').get(id) as Record<string, unknown>;
+  return rowToContextLogEntry(row);
+}
+
+export function getContextLogs(filters?: {
+  creationType?: string;
+  stage?: string;
+  limit?: number;
+}): ContextLogEntry[] {
+  const db = getDb();
+  const limit = filters?.limit ?? 50;
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters?.creationType) {
+    conditions.push('creation_type = ?');
+    params.push(filters.creationType);
+  }
+  if (filters?.stage) {
+    conditions.push('stage = ?');
+    params.push(filters.stage);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit);
+
+  const rows = db.prepare(
+    `SELECT * FROM context_log ${where} ORDER BY created_at DESC LIMIT ?`
+  ).all(...params) as Record<string, unknown>[];
+
+  return rows.map(rowToContextLogEntry);
+}

@@ -21,6 +21,7 @@ export default defineConfig({
       ['src/__tests__/brand-context.test.ts', 'node'],
       ['src/__tests__/brand-seeder.test.ts', 'node'],
       ['src/__tests__/dam-sync.test.ts', 'node'],
+      ['src/__tests__/context-map.test.ts', 'node'],
     ],
   },
 });

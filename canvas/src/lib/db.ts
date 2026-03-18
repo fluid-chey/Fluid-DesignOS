@@ -175,6 +175,29 @@ function initSchema(db: Database.Database): void {
       sort_order INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS context_map (
+      id          TEXT PRIMARY KEY,
+      creation_type TEXT NOT NULL,
+      stage       TEXT NOT NULL,
+      sections    TEXT NOT NULL,
+      priority    INTEGER NOT NULL DEFAULT 50,
+      max_tokens  INTEGER,
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      updated_at  INTEGER NOT NULL,
+      UNIQUE(creation_type, stage)
+    );
+
+    CREATE TABLE IF NOT EXISTS context_log (
+      id              TEXT PRIMARY KEY,
+      generation_id   TEXT NOT NULL,
+      creation_type   TEXT NOT NULL,
+      stage           TEXT NOT NULL,
+      injected_sections TEXT NOT NULL,
+      token_estimate  INTEGER NOT NULL,
+      gap_tool_calls  TEXT NOT NULL DEFAULT '[]',
+      created_at      INTEGER NOT NULL
+    );
   `);
 
   // Migration: add generation_status to existing databases that predate this column.
