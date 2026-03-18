@@ -28,6 +28,10 @@ interface PromptInputProps {
   onVideoDimensionChange: (id: string) => void;
   selectedDamAssets: SelectedDamAsset[];
   onDamAssetsChange: (assets: SelectedDamAsset[]) => void;
+  /** Called when user clicks Build — parent handles generation */
+  onBuild?: () => void;
+  /** Whether generation is currently in progress */
+  isGenerating?: boolean;
 }
 
 export function PromptInput({
@@ -45,6 +49,8 @@ export function PromptInput({
   onVideoDimensionChange,
   selectedDamAssets,
   onDamAssetsChange,
+  onBuild,
+  isGenerating = false,
 }: PromptInputProps) {
   const [damModalOpen, setDamModalOpen] = useState(false);
 
@@ -236,7 +242,8 @@ export function PromptInput({
             />
             <button
               type="button"
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isGenerating}
+              onClick={onBuild}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -246,26 +253,26 @@ export function PromptInput({
                 fontSize: '0.875rem',
                 fontWeight: 600,
                 fontFamily: 'inherit',
-                cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
+                cursor: inputValue.trim() && !isGenerating ? 'pointer' : 'not-allowed',
                 transition: 'background-color 0.15s, border-color 0.15s',
-                ...(inputValue.trim()
+                ...(inputValue.trim() && !isGenerating
                   ? { background: ACCENT, color: '#000', border: `1px solid ${ACCENT}` }
                   : { background: BG_SECONDARY, color: TEXT_MUTED, border: `1px solid ${BORDER}` }),
               }}
               onMouseEnter={(e) => {
-                if (inputValue.trim()) {
+                if (inputValue.trim() && !isGenerating) {
                   e.currentTarget.style.backgroundColor = '#5cc0ff';
                   e.currentTarget.style.borderColor = '#5cc0ff';
                 }
               }}
               onMouseLeave={(e) => {
-                if (inputValue.trim()) {
+                if (inputValue.trim() && !isGenerating) {
                   e.currentTarget.style.backgroundColor = ACCENT;
                   e.currentTarget.style.borderColor = ACCENT;
                 }
               }}
             >
-              Build <ArrowRightIcon />
+              {isGenerating ? 'Building...' : 'Build'} {!isGenerating && <ArrowRightIcon />}
             </button>
           </div>
         </div>

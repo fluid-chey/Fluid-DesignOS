@@ -1,11 +1,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import { IdeasGetStarted, type IdeaAction } from '../IdeasGetStarted';
+import { GenerationStreamView } from '../GenerationStreamView';
 import { BG_PRIMARY, TEXT_PRIMARY } from '../tokens';
 import { useAssets } from '../../hooks/useAssets';
+import { useGenerationStream } from '../../hooks/useGenerationStream';
+import { useGenerationStore } from '../../store/generation';
 import { SparklesIcon } from './Icons';
 import { PromptInput } from './PromptInput';
 import { SuggestionPills } from './SuggestionPills';
-import { SOCIAL_POST_FORMATS, SOCIAL_POST_DIMENSIONS, VIDEO_FORMATS, VIDEO_DIMENSIONS } from './constants';
+import { CREATION_TYPES, SOCIAL_POST_FORMATS, SOCIAL_POST_DIMENSIONS, VIDEO_FORMATS, VIDEO_DIMENSIONS } from './constants';
 import type { SelectedDamAsset } from './SelectedAssetsList';
 
 export function BuildHero() {
@@ -17,6 +20,11 @@ export function BuildHero() {
   const [videoDimensionId, setVideoDimensionId] = useState<string>(VIDEO_DIMENSIONS[0].id);
   const [selectedDamAssets, setSelectedDamAssets] = useState<SelectedDamAsset[]>([]);
   const [_selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [submittedPrompt, setSubmittedPrompt] = useState('');
+
+  const { generate, status: genStatus } = useGenerationStream();
+  const isGenerating = genStatus === 'generating';
+  const generationStatus = useGenerationStore((s) => s.status);
 
   const { assets: savedAssetsRaw } = useAssets();
 
@@ -30,6 +38,17 @@ export function BuildHero() {
     [selectedDamAssets, savedAssets],
   );
 
+  const handleBuild = useCallback(() => {
+    const text = inputValue.trim();
+    if (!text || isGenerating) return;
+    const creationType = CREATION_TYPES.find((t) => t.id === creationTypeId);
+    const prefix = creationType ? `[${creationType.label}] ` : '';
+    const fullPrompt = `${prefix}${text}`;
+    setSubmittedPrompt(fullPrompt);
+    generate(fullPrompt, { skillType: 'social' });
+    setInputValue('');
+  }, [inputValue, isGenerating, creationTypeId, generate]);
+
   const handleApplyIdea = useCallback((idea: IdeaAction) => {
     if (idea.creationType) setCreationTypeId(idea.creationType);
     if (idea.promptSuggestion) setInputValue(idea.promptSuggestion);
@@ -39,6 +58,13 @@ export function BuildHero() {
     if (idea.videoDimensionId) setVideoDimensionId(idea.videoDimensionId);
     if (idea.templateId != null) setSelectedTemplateId(idea.templateId);
   }, []);
+
+  // Show full-viewport stream view while generating or after completion
+  const showStreamView = submittedPrompt && (generationStatus === 'generating' || generationStatus === 'complete' || generationStatus === 'error');
+
+  if (showStreamView) {
+    return <GenerationStreamView prompt={submittedPrompt} onReset={() => setSubmittedPrompt('')} />;
+  }
 
   return (
     <div
@@ -104,6 +130,8 @@ export function BuildHero() {
           onVideoDimensionChange={setVideoDimensionId}
           selectedDamAssets={selectedDamAssets}
           onDamAssetsChange={setSelectedDamAssets}
+          onBuild={handleBuild}
+          isGenerating={isGenerating}
         />
 
         {/* Suggestion pills */}
