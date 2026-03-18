@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { nanoid } from 'nanoid';
 import { FluidDAMModal } from './DAMPicker';
 import { IdeasGetStarted, type IdeaAction } from './IdeasGetStarted';
+import { useGenerationStream } from '../hooks/useGenerationStream';
 import { useGenerationStore } from '../store/generation';
+import { useCampaignStore } from '../store/campaign';
 
 /** Saved asset from /api/assets (same shape as IdeasGetStarted.SelectedAsset). */
 interface SavedAssetForIdeas {
@@ -233,6 +235,41 @@ export function BuildHero() {
   const videoFormatDropdownRef = useRef<HTMLDivElement>(null);
   const videoDimensionDropdownRef = useRef<HTMLDivElement>(null);
   const { scrollRef, showLeft, showRight, scrollLeft, scrollRight } = usePillsOverflow();
+
+  // Generation pipeline — same hook as PromptSidebar
+  const { generate, status: genStatus } = useGenerationStream();
+  const isGenerating = genStatus === 'generating';
+  const generationStatus = useGenerationStore((s) => s.status);
+  const activeCampaignId = useGenerationStore((s) => s.activeCampaignId);
+  const isSingleCreation = useGenerationStore((s) => s.isSingleCreation);
+  const creationIds = useGenerationStore((s) => s.creationIds);
+  const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
+  const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
+
+  // Navigate to result when generation completes (mirrors PromptSidebar behavior)
+  const prevGenStatusRef = useRef(generationStatus);
+  useEffect(() => {
+    if (prevGenStatusRef.current === 'generating' && generationStatus === 'complete' && activeCampaignId) {
+      if (isSingleCreation && creationIds.length === 1) {
+        navigateToCreation(creationIds[0]);
+      } else {
+        navigateToCampaign(activeCampaignId);
+      }
+    }
+    prevGenStatusRef.current = generationStatus;
+  }, [generationStatus, activeCampaignId, isSingleCreation, creationIds, navigateToCampaign, navigateToCreation]);
+
+  const handleBuild = () => {
+    const text = inputValue.trim();
+    if (!text || isGenerating) return;
+
+    // Build a prefix from the selected creation type so the pipeline knows what to generate
+    const creationType = CREATION_TYPES.find((t) => t.id === creationTypeId);
+    const prefix = creationType ? `[${creationType.label}] ` : '';
+
+    generate(`${prefix}${text}`, { skillType: 'social' });
+    setInputValue('');
+  };
 
   useEffect(() => {
     if (!creationDropdownOpen) return;
@@ -1044,7 +1081,8 @@ export function BuildHero() {
               />
               <button
                 type="button"
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isGenerating}
+                onClick={handleBuild}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1054,26 +1092,26 @@ export function BuildHero() {
                   fontSize: '0.875rem',
                   fontWeight: 600,
                   fontFamily: 'inherit',
-                  cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
+                  cursor: inputValue.trim() && !isGenerating ? 'pointer' : 'not-allowed',
                   transition: 'background-color 0.15s, border-color 0.15s',
-                  ...(inputValue.trim()
+                  ...(inputValue.trim() && !isGenerating
                     ? { background: ACCENT, color: '#000', border: `1px solid ${ACCENT}` }
                     : { background: BG_SECONDARY, color: TEXT_MUTED, border: `1px solid ${BORDER}` }),
                 }}
                 onMouseEnter={(e) => {
-                  if (inputValue.trim()) {
+                  if (inputValue.trim() && !isGenerating) {
                     e.currentTarget.style.backgroundColor = '#5cc0ff';
                     e.currentTarget.style.borderColor = '#5cc0ff';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (inputValue.trim()) {
+                  if (inputValue.trim() && !isGenerating) {
                     e.currentTarget.style.backgroundColor = ACCENT;
                     e.currentTarget.style.borderColor = ACCENT;
                   }
                 }}
               >
-                Build <ArrowRightIcon />
+                {isGenerating ? 'Building...' : 'Build'} {!isGenerating && <ArrowRightIcon />}
               </button>
             </div>
           </div>

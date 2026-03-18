@@ -7,10 +7,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import type { ServerResponse } from 'node:http';
-import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets } from './db-api';
+import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype } from './db-api';
 
 // Load .env file — try multiple paths since __dirname is unreliable in Vite middleware
 const envPaths = [
@@ -52,6 +51,7 @@ export interface PipelineContext {
   htmlOutputPath: string; // absolute path where final HTML goes
   creationId: string;
   campaignId: string;
+  brandName?: string;  // Loaded from DB at pipeline entry; prompts use "the brand" if absent
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,10 @@ const listBrandAssetsTool: Anthropic.Tool = {
   name: 'list_brand_assets',
   description:
     'List available brand assets (fonts, brushstrokes, textures, logos, etc.) from the asset library. ' +
-    'Returns name, category, and filename for each asset. Use filenames to construct /fluid-assets/ URLs in HTML.',
+    'Returns name, category, url, and ready-to-use CSS values for each asset. ' +
+    'Fonts include a `fontSrc` field — use it directly in @font-face src. ' +
+    'Images include `cssUrl` for background-image and `imgSrc` for img tags. ' +
+    'ALWAYS use these values verbatim. NEVER embed base64.',
   input_schema: {
     type: 'object' as const,
     properties: {
@@ -194,6 +197,102 @@ const listBrandAssetsTool: Anthropic.Tool = {
   },
 };
 
+const listBrandPatternsTool: Anthropic.Tool = {
+  name: 'list_brand_patterns',
+  description:
+    'List available brand patterns (design tokens, brushstrokes, circles, textures, etc.) from the DB. ' +
+    'Returns slug, label, category, and a short description for each pattern. ' +
+    'Use read_brand_pattern to load full content by slug.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      category: {
+        type: 'string',
+        description: 'Optional filter: "design-tokens", "brushstrokes", "circles", "textures", etc.',
+      },
+    },
+    required: [],
+  },
+};
+
+const readBrandPatternTool: Anthropic.Tool = {
+  name: 'read_brand_pattern',
+  description:
+    'Read full content of a brand pattern by slug. Returns label, category, and complete HTML/content. ' +
+    'Use list_brand_patterns first to discover available slugs.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      slug: {
+        type: 'string',
+        description: 'The slug of the brand pattern to read.',
+      },
+    },
+    required: ['slug'],
+  },
+};
+
+const listVoiceGuideTool: Anthropic.Tool = {
+  name: 'list_voice_guide',
+  description:
+    'List available voice guide documents from the DB. Returns slug, title, and a short description for each doc. ' +
+    'Use read_voice_guide to load full content by slug.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {},
+    required: [],
+  },
+};
+
+const readVoiceGuideTool: Anthropic.Tool = {
+  name: 'read_voice_guide',
+  description:
+    'Read full content of a voice guide document by slug. Returns title and complete content. ' +
+    'Use list_voice_guide first to discover available slugs.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      slug: {
+        type: 'string',
+        description: 'The slug of the voice guide doc to read.',
+      },
+    },
+    required: ['slug'],
+  },
+};
+
+const listTemplatesTool: Anthropic.Tool = {
+  name: 'list_templates',
+  description:
+    'List available design templates. Returns id, type (social/one-pager), name, layout, and a short description for each. Use read_template for full specs and design rules.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      type: {
+        type: 'string',
+        description: 'Filter by type: "social" or "one-pager". Omit for all.',
+      },
+    },
+    required: [],
+  },
+};
+
+const readTemplateTool: Anthropic.Tool = {
+  name: 'read_template',
+  description:
+    'Read full details of a template by ID. Returns name, description, content slots with specs, creation steps, and associated design rules. Use list_templates first to discover available template IDs.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      id: {
+        type: 'string',
+        description: 'Template ID from list_templates',
+      },
+    },
+    required: ['id'],
+  },
+};
+
 /** All pipeline tools */
 export const PIPELINE_TOOLS: Anthropic.Tool[] = [
   readFileTool,
@@ -203,21 +302,41 @@ export const PIPELINE_TOOLS: Anthropic.Tool[] = [
   listBrandSectionsTool,
   readBrandSectionTool,
   listBrandAssetsTool,
+  listBrandPatternsTool,
+  readBrandPatternTool,
+  listVoiceGuideTool,
+  readVoiceGuideTool,
+  listTemplatesTool,
+  readTemplateTool,
 ];
 
 /** Tools available per stage */
 export const STAGE_TOOLS: Record<PipelineStage, Anthropic.Tool[]> = {
-  copy: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool],
-  layout: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool],
-  styling: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool, listBrandAssetsTool],
+  copy: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool, listVoiceGuideTool, readVoiceGuideTool, listTemplatesTool, readTemplateTool],
+  layout: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool, listBrandPatternsTool, readBrandPatternTool],
+  styling: [readFileTool, writeFileTool, listFilesTool, listBrandSectionsTool, readBrandSectionTool, listBrandAssetsTool, listBrandPatternsTool, readBrandPatternTool, listVoiceGuideTool, readVoiceGuideTool, listTemplatesTool, readTemplateTool],
   'spec-check': [readFileTool, writeFileTool, runBrandCheckTool],
 };
 
 // ---------------------------------------------------------------------------
 // Project root (three levels up from canvas/src/server/ = Fluid-DesignOS root)
-// brand/, tools/, patterns/ all live at this level
+// tools/, patterns/ all live at this level
 // ---------------------------------------------------------------------------
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+
+/** Maps archetype slug to template HTML file for exemplar injection */
+const ARCHETYPE_TEMPLATE_FILES: Record<string, string> = {
+  'problem-first': path.join(PROJECT_ROOT, 'templates/social/problem-first.html'),
+  'quote': path.join(PROJECT_ROOT, 'templates/social/quote.html'),
+  'stat-proof': path.join(PROJECT_ROOT, 'templates/social/stat-proof.html'),
+  'app-highlight': path.join(PROJECT_ROOT, 'templates/social/app-highlight.html'),
+  'manifesto': path.join(PROJECT_ROOT, 'templates/social/manifesto.html'),
+  'partner-alert': path.join(PROJECT_ROOT, 'templates/social/partner-alert.html'),
+  'feature-spotlight': path.join(PROJECT_ROOT, 'templates/social/feature-spotlight.html'),
+};
+
+/** Default archetype when copy stage doesn't specify one */
+const DEFAULT_ARCHETYPE = 'problem-first';
 
 // ---------------------------------------------------------------------------
 // Tool executor
@@ -349,15 +468,126 @@ export async function executeTool(
       return `No brand section found with slug: ${slug}`;
     }
 
+    case 'list_brand_patterns': {
+      const category = input.category as string | undefined;
+      const patterns = getBrandPatterns(category);
+      return JSON.stringify(patterns.map(p => ({
+        slug: p.slug,
+        label: p.label,
+        category: p.category,
+        description: p.content.length > 80 ? p.content.slice(0, 80) + '...' : p.content,
+      })), null, 2);
+    }
+
+    case 'read_brand_pattern': {
+      const slug = input.slug as string;
+      const pattern = getBrandPatternBySlug(slug);
+      if (!pattern) return `No brand pattern found with slug: ${slug}`;
+      return `# ${pattern.label} [${pattern.category}]\n\n${pattern.content}`;
+    }
+
+    case 'list_voice_guide': {
+      const docs = getVoiceGuideDocs();
+      return JSON.stringify(docs.map(d => ({
+        slug: d.slug,
+        title: d.label,
+        description: d.content.length > 80 ? d.content.slice(0, 80) + '...' : d.content,
+      })), null, 2);
+    }
+
+    case 'read_voice_guide': {
+      const slug = input.slug as string;
+      const doc = getVoiceGuideDoc(slug);
+      if (!doc) return `No voice guide doc found with slug: ${slug}`;
+      return `# ${doc.label}\n\n${doc.content}`;
+    }
+
     case 'list_brand_assets': {
       const category = input.category as string | undefined;
       const assets = getBrandAssets(category);
-      return JSON.stringify(assets.map(a => ({
-        name: a.name,
-        category: a.category,
-        url: a.url,
-        mimeType: a.mimeType,
+      return JSON.stringify(assets.map(a => {
+        // Use DB-backed serving URL: /api/brand-assets/serve/{name}
+        const serveUrl = `/api/brand-assets/serve/${encodeURIComponent(a.name)}`;
+        const base: Record<string, string | null> = {
+          name: a.name,
+          category: a.category,
+          url: serveUrl,
+          mimeType: a.mimeType,
+          description: a.description,
+        };
+        // Add ready-to-use CSS values so agents use them verbatim
+        if (a.mimeType.startsWith('font/') || a.url.endsWith('.ttf') || a.url.endsWith('.woff2') || a.url.endsWith('.woff') || a.url.endsWith('.otf')) {
+          const format = a.url.endsWith('.ttf') ? 'truetype'
+            : a.url.endsWith('.woff2') ? 'woff2'
+            : a.url.endsWith('.woff') ? 'woff'
+            : a.url.endsWith('.otf') ? 'opentype'
+            : 'truetype';
+          base.fontSrc = `url('${serveUrl}') format('${format}')`;
+        }
+        if (a.mimeType.startsWith('image/')) {
+          base.cssUrl = `url('${serveUrl}')`;
+          base.imgSrc = serveUrl;
+        }
+        return base;
+      }), null, 2);
+    }
+
+    case 'list_templates': {
+      const type = input.type as string | undefined;
+      const templates = getTemplates(type);
+      return JSON.stringify(templates.map(t => ({
+        id: t.id,
+        type: t.type,
+        name: t.name,
+        layout: t.layout,
+        description: t.description.length > 100 ? t.description.slice(0, 100) + '...' : t.description,
       })), null, 2);
+    }
+
+    case 'read_template': {
+      const id = input.id as string;
+      const template = getTemplate(id);
+      if (!template) return `No template found with id: ${id}`;
+
+      const designRules = getDesignRulesByArchetype(template.file);
+      const dims = template.dims || (template.layout === 'square' ? '1080x1080' : template.layout === 'landscape' ? '1340x630' : '816x1056');
+
+      const parts: string[] = [
+        `# Template: ${template.name}`,
+        `Type: ${template.type} | Layout: ${template.layout} (${dims}) | File: ${template.file}`,
+        '',
+        '## Description',
+        template.description,
+      ];
+
+      if (template.contentSlots.length > 0) {
+        parts.push('', '## Content Slots', '| Slot | Spec | Color |', '|------|------|-------|');
+        for (const s of template.contentSlots) {
+          parts.push(`| ${s.slot} | ${s.spec} | ${s.color || '\u2014'} |`);
+        }
+      }
+
+      if (template.extraTables) {
+        for (const et of template.extraTables) {
+          parts.push('', `## ${et.label}`);
+          if (et.headers) {
+            parts.push('| ' + et.headers.join(' | ') + ' |');
+            parts.push('|' + et.headers.map(() => '------').join('|') + '|');
+          }
+          for (const row of et.rows) {
+            parts.push('| ' + row.join(' | ') + ' |');
+          }
+        }
+      }
+
+      if (designRules.length > 0) {
+        parts.push('', '## Design Rules');
+        for (const rule of designRules) {
+          parts.push(`### ${rule.label}`, rule.content, '');
+        }
+      }
+
+      return parts.join('\n');
     }
 
     default:
@@ -375,156 +605,91 @@ function matchSimpleGlob(filename: string, pattern: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Stage prompt loader
+// Design DNA loader — assembles DB-backed visual intelligence for prompt injection
 // ---------------------------------------------------------------------------
 
-/** Mapping from creationType to skill file path */
-const SKILL_FILES: Record<string, string> = {
-  instagram: path.join(os.homedir(), '.agents/skills/fluid-social/SKILL.md'),
-  linkedin: path.join(os.homedir(), '.agents/skills/fluid-social/SKILL.md'),
-  'one-pager': path.join(os.homedir(), '.agents/skills/fluid-one-pager/SKILL.md'),
-  'theme-section': path.join(os.homedir(), '.agents/skills/fluid-theme-section/SKILL.md'),
-};
-
-/** Fallback prompts when skill file cannot be loaded */
-function getFallbackPrompt(stage: PipelineStage, ctx: PipelineContext): string {
-  switch (stage) {
-    case 'copy':
-      return [
-        `You are a Fluid brand copywriter. Generate marketing copy for a ${ctx.creationType} post.`,
-        ``,
-        `Use list_brand_sections(category="voice-guide") to discover available voice guide docs.`,
-        `Then read_brand_section the most relevant ones (e.g. "voice-and-style", plus the product-specific doc if applicable).`,
-        ``,
-        `Write copy to ${ctx.workingDir}/copy.md.`,
-      ].join('\n');
-    case 'layout':
-      return [
-        `You are a Fluid layout agent. Create HTML layout for a ${ctx.creationType} post.`,
-        `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
-        ``,
-        `Use list_brand_sections(category="layout-archetype") to discover layout types.`,
-        `Then read_brand_section to load the archetype details.`,
-        ``,
-        `Write layout to ${ctx.workingDir}/layout.html.`,
-      ].join('\n');
-    case 'styling':
-      return [
-        `You are a Fluid styling agent. Apply brand styling.`,
-        `Read ${ctx.workingDir}/copy.md and ${ctx.workingDir}/layout.html using the read_file tool.`,
-        ``,
-        `Use list_brand_sections to discover available brand specs. Load relevant sections:`,
-        `- "design-tokens" category for colors, typography, opacity`,
-        `- "pattern" category for brushstrokes, circles, textures, footer structure`,
-        `Read only the sections you actually need for this creation.`,
-        ``,
-        `Use list_brand_assets tool to discover available fonts, brushstrokes, and other assets.`,
-        `Reference all assets via the URLs returned by list_brand_assets. NEVER embed base64 data URIs. NEVER hardcode specific asset filenames.`,
-        ``,
-        `CRITICAL: Write the final HTML using write_file to EXACTLY this path: ${ctx.htmlOutputPath}`,
-        `Do NOT write to styled.html or any other filename.`,
-      ].join('\n');
-    case 'spec-check':
-      return `You are a Fluid spec-check agent. Validate ${ctx.htmlOutputPath}. Use run_brand_check tool. Write report to ${ctx.workingDir}/spec-report.json.`;
-  }
-}
-
-/** Map stage names to the section heading patterns in skill files */
-const STAGE_HEADING_PATTERNS: Record<PipelineStage, RegExp> = {
-  copy: /copy\s*agent/i,
-  layout: /layout\s*agent/i,
-  styling: /styling\s*agent/i,
-  'spec-check': /spec.?check\s*agent/i,
-};
-
 /**
- * Extract the section for a given stage from skill file content.
- * Skill files use headings like "## Step 3a: Copy Agent".
+ * Load Design DNA context for injection into agent system prompts.
+ * Assembles: global visual style + social general + platform rules + archetype notes + HTML exemplar.
+ * Returns a formatted string block ready to prepend to system prompts.
  */
-function extractStageSection(content: string, stage: PipelineStage): string | null {
-  const lines = content.split('\n');
-  const headingPattern = STAGE_HEADING_PATTERNS[stage];
-
-  let sectionStart = -1;
-  let sectionLevel = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
-
-    if (headingMatch && headingPattern.test(headingMatch[2])) {
-      sectionStart = i;
-      sectionLevel = headingMatch[1].length;
-      continue;
-    }
-
-    // If we found the section start, look for the next heading at same or higher level
-    if (sectionStart !== -1 && i > sectionStart) {
-      const nextHeading = line.match(/^(#{1,6})\s+/);
-      if (nextHeading && nextHeading[1].length <= sectionLevel) {
-        // Found end of section
-        return lines.slice(sectionStart, i).join('\n').trim();
-      }
-    }
+async function loadDesignDna(ctx: PipelineContext, archetypeSlug?: string): Promise<string> {
+  // Only inject for social media types (instagram, linkedin) — not one-pagers or theme-sections
+  if (ctx.creationType !== 'instagram' && ctx.creationType !== 'linkedin') {
+    return '';
   }
 
-  if (sectionStart !== -1) {
-    // Section goes to end of file
-    return lines.slice(sectionStart).join('\n').trim();
-  }
+  const slug = archetypeSlug || DEFAULT_ARCHETYPE;
+  const dna = getDesignDnaForPipeline(ctx.creationType, slug);
 
-  return null;
-}
-
-/**
- * Load the system prompt for a pipeline stage.
- * Primary: reads skill .md file from disk and extracts stage-specific section.
- * Fallback: hardcoded minimal prompt if file read or parse fails.
- */
-export async function loadStagePrompt(stage: PipelineStage, ctx: PipelineContext): Promise<string> {
-  const skillPath = SKILL_FILES[ctx.creationType];
-
-  if (!skillPath) {
-    console.warn(`[api-pipeline] No skill file mapping for creationType "${ctx.creationType}", using fallback`);
-    return getFallbackPrompt(stage, ctx);
-  }
-
-  let skillContent: string;
-  try {
-    skillContent = await fs.readFile(skillPath, 'utf-8');
-  } catch (err) {
-    console.warn(`[api-pipeline] Failed to read skill file "${skillPath}": ${err}. Using fallback.`);
-    return getFallbackPrompt(stage, ctx);
-  }
-
-  const stageSection = extractStageSection(skillContent, stage);
-  if (!stageSection) {
-    console.warn(`[api-pipeline] Could not extract "${stage}" section from "${skillPath}". Using fallback.`);
-    return getFallbackPrompt(stage, ctx);
-  }
-
-  // Compose the final system prompt
-  const availableTools =
-    stage === 'spec-check'
-      ? 'read_file, write_file, run_brand_check'
-      : stage === 'styling'
-        ? 'read_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_assets'
-        : 'read_file, write_file, list_files, list_brand_sections, read_brand_section';
-
-  return [
-    `You are a Fluid ${stage} agent working on a ${ctx.creationType} creation.`,
+  const parts: string[] = [
+    '## Design DNA — Visual Style Intelligence',
     '',
-    '## Stage Instructions',
-    stageSection,
+    '### Global Visual Style Rules',
+    dna.globalStyle,
+    '',
+    '### Social Media General Rules',
+    dna.socialGeneral,
+    '',
+    '### Platform-Specific Rules',
+    dna.platformRules,
+  ];
+
+  if (dna.archetypeNotes) {
+    parts.push('', '### Archetype Design Notes', dna.archetypeNotes);
+  }
+
+  // Load HTML exemplar
+  const templatePath = ARCHETYPE_TEMPLATE_FILES[slug];
+  if (templatePath) {
+    try {
+      const html = await fs.readFile(templatePath, 'utf-8');
+      parts.push(
+        '',
+        '### Reference Exemplar',
+        `This is a hand-designed ${slug} template. Study its structure, positioning, typography scale, and layer composition. Your output should match this quality level.`,
+        '',
+        '<example>',
+        html,
+        '</example>',
+      );
+    } catch {
+      // Template file missing — skip exemplar
+    }
+  }
+
+  return parts.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Stage prompt builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the system prompt for a pipeline stage.
+ * Generic process instructions — no brand-specific content.
+ * Agents load brand context at runtime via DB tools.
+ */
+export function buildSystemPrompt(stage: PipelineStage, ctx: PipelineContext): string {
+  const brandRef = ctx.brandName ? `for ${ctx.brandName}` : 'for the brand';
+  const base = [
+    `You are a ${stage} agent working on a ${ctx.creationType} creation ${brandRef}.`,
     '',
     '## Context',
     `- Working directory: ${ctx.workingDir}`,
     `- HTML output path: ${ctx.htmlOutputPath}`,
     `- Creation type: ${ctx.creationType}`,
-    '',
-    '## Available Tools',
-    availableTools,
-  ].join('\n');
+  ];
+
+  const toolSection = stage === 'spec-check'
+    ? '## Available Tools\nread_file, write_file, run_brand_check'
+    : stage === 'styling'
+      ? '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_assets, list_brand_patterns, read_brand_pattern, list_voice_guide, read_voice_guide, list_templates, read_template'
+      : stage === 'copy'
+        ? '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section, list_voice_guide, read_voice_guide, list_templates, read_template'
+        : '## Available Tools\nread_file, write_file, list_files, list_brand_sections, read_brand_section, list_brand_patterns, read_brand_pattern';
+
+  return [...base, '', toolSection].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -598,40 +763,54 @@ export function emitStageNarrative(
 
 export function buildCopyPrompt(ctx: PipelineContext): string {
   return [
-    `Generate Fluid brand copy for a ${ctx.creationType} marketing creation.`,
+    `Generate marketing copy for a ${ctx.creationType} creation.`,
     `Topic: ${ctx.prompt}`,
     ``,
-    `Use list_brand_sections(category="voice-guide") to see available voice guide docs.`,
-    `Then read_brand_section to load the ones relevant to this topic (always include "voice-and-style", plus the product-specific doc if applicable).`,
+    `Use list_voice_guide to see available voice guide docs.`,
+    `Then read_voice_guide to load the ones relevant to this topic (always include "voice-and-style", plus the product-specific doc if applicable).`,
     ``,
     `Write structured copy (headline, subtext, accent color, archetype selection) to ${ctx.workingDir}/copy.md.`,
+    `Include an "Archetype:" line in your output specifying which visual archetype to use. Options: problem-first, quote, stat-proof, app-highlight, manifesto, partner-alert, feature-spotlight.`,
   ].join('\n');
 }
 
-export function buildLayoutPrompt(ctx: PipelineContext): string {
+export function buildLayoutPrompt(ctx: PipelineContext, designDna?: string): string {
   return [
-    `Create structural HTML layout for a Fluid ${ctx.creationType} post.`,
+    `Create structural HTML layout for a ${ctx.creationType} creation.`,
     `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
     ``,
     `Use list_brand_sections(category="layout-archetype") to discover layout types, then read_brand_section to load details.`,
+    ...(designDna ? [
+      '',
+      designDna,
+      '',
+    ] : []),
     ``,
     `Write layout HTML to ${ctx.workingDir}/layout.html.`,
   ].join('\n');
 }
 
-export function buildStylingPrompt(ctx: PipelineContext): string {
+export function buildStylingPrompt(ctx: PipelineContext, designDna?: string): string {
   return [
-    `Apply Fluid brand styling to create a complete HTML output.`,
+    `Apply brand styling to create a complete HTML output.`,
     `Read copy from ${ctx.workingDir}/copy.md and layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
     ``,
-    `Use list_brand_sections to discover available brand specs, then read_brand_section to load what you need:`,
-    `- From "design-tokens" category: color palette, typography, opacity patterns`,
-    `- From "pattern" category: brushstrokes, circles, textures, footer structure — load only the ones relevant to this creation`,
+    `Use list_brand_patterns to discover available visual patterns, then read_brand_pattern to load what you need:`,
+    `- Design tokens: color palette, typography, opacity patterns`,
+    `- Visual patterns: brushstrokes, circles, textures, footer structure — load only the ones relevant to this creation`,
     ``,
-    `Use the list_brand_assets tool to discover available fonts, brushstrokes, and other assets.`,
-    `Reference all assets via the URLs returned by list_brand_assets (they start with /fluid-assets/).`,
-    `Use @font-face with the font URLs from list_brand_assets(category="fonts").`,
+    `Use list_voice_guide / read_voice_guide if you need brand voice context for copy refinement.`,
+    ``,
+    `Use list_brand_assets to discover available fonts, brushstrokes, and other assets (includes descriptions).`,
+    `Reference all assets via the URLs returned by list_brand_assets (they start with /api/brand-assets/serve/).`,
+    `Use @font-face with the fontSrc field from list_brand_assets(category="fonts") — it is already formatted as url('...') format('...'), use it verbatim.`,
+    `For images, use cssUrl for background-image and imgSrc for img src attributes — both returned by list_brand_assets.`,
     `NEVER embed base64 data URIs. NEVER hardcode specific asset filenames — always discover them via the tool.`,
+    ...(designDna ? [
+      '',
+      designDna,
+      '',
+    ] : []),
     ``,
     `CRITICAL: Write the final complete self-contained HTML (all CSS inline) using write_file to EXACTLY this path:`,
     `${ctx.htmlOutputPath}`,
@@ -641,7 +820,7 @@ export function buildStylingPrompt(ctx: PipelineContext): string {
 
 function buildSpecCheckPrompt(ctx: PipelineContext): string {
   return [
-    `Validate the HTML at ${ctx.htmlOutputPath} against Fluid brand specs.`,
+    `Validate the HTML at ${ctx.htmlOutputPath} against the brand's design specs.`,
     `Use run_brand_check tool on that file.`,
     `Write a JSON report to ${ctx.workingDir}/spec-report.json with format:`,
     `{ "overall": "pass" | "fail", "blocking_issues": [{ "description": "...", "severity": "...", "fix_target": "copy" | "layout" | "styling" }] }`,
@@ -651,7 +830,7 @@ function buildSpecCheckPrompt(ctx: PipelineContext): string {
 
 function buildFixPrompt(target: FixTarget, issues: Array<{ description: string; severity: string; fix_target: string }>, ctx: PipelineContext): string {
   return [
-    `FIX: You are the Fluid ${target} agent. Re-read and fix the following issues in your domain.`,
+    `FIX: You are the ${target} agent. Re-read and fix the following issues in your domain.`,
     `Issues: ${JSON.stringify(issues, null, 2)}`,
     ``,
     `Read the relevant files in ${ctx.workingDir}/ and fix only the issues listed above.`,
@@ -707,7 +886,7 @@ export async function runStageWithTools(
   ctx: PipelineContext,
   res: ServerResponse,
 ): Promise<StageResult> {
-  const systemPrompt = await loadStagePrompt(stage, ctx);
+  const systemPrompt = buildSystemPrompt(stage, ctx);
   const model = STAGE_MODELS[stage];
   const tools = STAGE_TOOLS[stage];
 
@@ -783,7 +962,7 @@ export async function runStageWithTools(
 // ---------------------------------------------------------------------------
 
 /**
- * Run the full 4-stage Fluid generation pipeline for one creation.
+ * Run the full 4-stage generation pipeline for one creation.
  * Stages: copy -> layout -> styling -> spec-check -> (fix loop up to 3x)
  */
 export async function runApiPipeline(
@@ -797,12 +976,27 @@ export async function runApiPipeline(
   const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx), ctx, res);
   await generateStageNarrative('copy', copyResult.output, ctx, res);
 
+  // ── Detect archetype from copy output and load Design DNA ──────────────────
+  let detectedArchetype: string | undefined;
+  try {
+    const copyMd = await fs.readFile(path.join(ctx.workingDir, 'copy.md'), 'utf-8');
+    const archetypeMatch = copyMd.match(/archetype[:\s]+(\S+)/i);
+    if (archetypeMatch) {
+      const slug = archetypeMatch[1].toLowerCase().replace(/[^a-z-]/g, '');
+      if (ARCHETYPE_TEMPLATE_FILES[slug]) {
+        detectedArchetype = slug;
+      }
+    }
+  } catch { /* copy.md not found — use default */ }
+
+  const designDna = await loadDesignDna(ctx, detectedArchetype);
+
   // ── Stage 2: Layout ────────────────────────────────────────────────────────
-  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res);
+  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx, designDna), ctx, res);
   await generateStageNarrative('layout', layoutResult.output, ctx, res);
 
   // ── Stage 3: Styling ───────────────────────────────────────────────────────
-  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res);
+  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx, designDna), ctx, res);
   await generateStageNarrative('styling', stylingResult.output, ctx, res);
 
   // Fallback: if agent wrote to styled.html in workingDir instead of htmlOutputPath, copy it
@@ -878,10 +1072,10 @@ export async function runApiPipeline(
       // Cascade rule: if copy was fixed, re-run layout and styling too
       if (hasCopyFix) {
         if (!issuesByTarget.has('layout')) {
-          await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res);
+          await runStageWithTools('layout', buildLayoutPrompt(ctx, designDna), ctx, res);
         }
         if (!issuesByTarget.has('styling')) {
-          await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res);
+          await runStageWithTools('styling', buildStylingPrompt(ctx, designDna), ctx, res);
         }
       }
 

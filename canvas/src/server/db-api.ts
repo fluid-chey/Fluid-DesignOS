@@ -131,7 +131,7 @@ export function createCreation(input: {
 export function getCreations(campaignId: string): Creation[] {
   const db = getDb();
   const rows = db.prepare(
-    'SELECT * FROM creations WHERE campaign_id = ? ORDER BY created_at ASC'
+    'SELECT * FROM creations WHERE campaign_id = ? ORDER BY created_at DESC'
   ).all(campaignId) as Record<string, unknown>[];
   return rows.map(rowToCreation);
 }
@@ -409,12 +409,13 @@ export interface BrandAsset {
   id: string;
   name: string;
   category: string;
-  url: string;       // /fluid-assets/{file_path}
+  url: string;       // /api/brand-assets/serve/{name} (DB-backed serving)
   mimeType: string;
   sizeBytes: number;
   tags: string[];
   source: string;        // 'local' | 'dam'
   damDeleted: boolean;   // true if soft-deleted from DAM
+  description: string | null;
 }
 
 function rowToBrandAsset(row: Record<string, unknown>): BrandAsset {
@@ -422,12 +423,13 @@ function rowToBrandAsset(row: Record<string, unknown>): BrandAsset {
     id: row.id as string,
     name: row.name as string,
     category: row.category as string,
-    url: `/fluid-assets/${row.file_path as string}`,
+    url: `/api/brand-assets/serve/${encodeURIComponent(row.name as string)}`,
     mimeType: row.mime_type as string,
     sizeBytes: row.size_bytes as number,
     tags: JSON.parse(row.tags as string),
     source: (row.source as string) ?? 'local',
     damDeleted: (row.dam_deleted as number) === 1,
+    description: (row.description as string | null) ?? null,
   };
 }
 
@@ -439,6 +441,22 @@ export function getBrandAssets(category?: string): BrandAsset[] {
   return (db.prepare('SELECT * FROM brand_assets WHERE (dam_deleted = 0 OR dam_deleted IS NULL) ORDER BY category ASC, name ASC').all() as Record<string, unknown>[]).map(rowToBrandAsset);
 }
 
+/** Look up a single brand asset by name (first match). Returns raw row with file_path and mime_type. */
+export function getBrandAssetByName(name: string): { file_path: string; mime_type: string } | undefined {
+  const db = getDb();
+  return db.prepare(
+    'SELECT file_path, mime_type FROM brand_assets WHERE name = ? AND (dam_deleted = 0 OR dam_deleted IS NULL) LIMIT 1'
+  ).get(name) as { file_path: string; mime_type: string } | undefined;
+}
+
+/** Look up a single brand asset by file_path. Returns raw row with file_path and mime_type. */
+export function getBrandAssetByFilePath(filePath: string): { file_path: string; mime_type: string; name: string } | undefined {
+  const db = getDb();
+  return db.prepare(
+    'SELECT file_path, mime_type, name FROM brand_assets WHERE file_path = ? AND (dam_deleted = 0 OR dam_deleted IS NULL) LIMIT 1'
+  ).get(filePath) as { file_path: string; mime_type: string; name: string } | undefined;
+}
+
 /** Returns ALL brand assets including soft-deleted DAM assets. Used by the UI to show "Removed from DAM" state. */
 export function getAllBrandAssets(category?: string): BrandAsset[] {
   const db = getDb();
@@ -446,6 +464,18 @@ export function getAllBrandAssets(category?: string): BrandAsset[] {
     return (db.prepare('SELECT * FROM brand_assets WHERE category = ? ORDER BY name ASC').all(category) as Record<string, unknown>[]).map(rowToBrandAsset);
   }
   return (db.prepare('SELECT * FROM brand_assets ORDER BY category ASC, name ASC').all() as Record<string, unknown>[]).map(rowToBrandAsset);
+}
+
+/** Update mutable metadata fields (category, description) on a brand asset. */
+export function updateBrandAsset(id: string, updates: { category?: string; description?: string }): void {
+  const db = getDb();
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  if (updates.category !== undefined) { sets.push('category = ?'); vals.push(updates.category); }
+  if (updates.description !== undefined) { sets.push('description = ?'); vals.push(updates.description); }
+  if (sets.length === 0) return;
+  vals.push(id);
+  db.prepare(`UPDATE brand_assets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
 }
 
 // ─── DAM asset sync ──────────────────────────────────────────────────────────
@@ -662,4 +692,187 @@ export function getBrandPatternBySlug(slug: string): BrandPattern | undefined {
   const db = getDb();
   const row = db.prepare('SELECT * FROM brand_patterns WHERE slug = ?').get(slug) as Record<string, unknown> | undefined;
   return row ? rowToBrandPattern(row) : undefined;
+}
+
+export function updateBrandPattern(slug: string, content: string): void {
+  const db = getDb();
+  db.prepare(
+    'UPDATE brand_patterns SET content = ?, updated_at = ? WHERE slug = ?'
+  ).run(content, Date.now(), slug);
+}
+
+// ─── Design Rules (template_design_rules) ────────────────────────────────────
+
+export interface DesignRule {
+  id: string;
+  scope: string;
+  platform: string | null;
+  archetypeSlug: string | null;
+  label: string;
+  content: string;
+  sortOrder: number;
+  updatedAt: number;
+}
+
+function rowToDesignRule(row: Record<string, unknown>): DesignRule {
+  return {
+    id: row.id as string,
+    scope: row.scope as string,
+    platform: (row.platform as string | null) ?? null,
+    archetypeSlug: (row.archetype_slug as string | null) ?? null,
+    label: row.label as string,
+    content: row.content as string,
+    sortOrder: row.sort_order as number,
+    updatedAt: row.updated_at as number,
+  };
+}
+
+export function getDesignRules(scope?: string, platform?: string): DesignRule[] {
+  const db = getDb();
+  if (scope && platform) {
+    return (db.prepare(
+      'SELECT * FROM template_design_rules WHERE scope = ? AND platform = ? ORDER BY sort_order'
+    ).all(scope, platform) as Record<string, unknown>[]).map(rowToDesignRule);
+  }
+  if (scope) {
+    return (db.prepare(
+      'SELECT * FROM template_design_rules WHERE scope = ? ORDER BY sort_order'
+    ).all(scope) as Record<string, unknown>[]).map(rowToDesignRule);
+  }
+  if (platform) {
+    return (db.prepare(
+      'SELECT * FROM template_design_rules WHERE platform = ? ORDER BY sort_order'
+    ).all(platform) as Record<string, unknown>[]).map(rowToDesignRule);
+  }
+  return (db.prepare(
+    'SELECT * FROM template_design_rules ORDER BY sort_order'
+  ).all() as Record<string, unknown>[]).map(rowToDesignRule);
+}
+
+export function getDesignRule(id: string): DesignRule | undefined {
+  const db = getDb();
+  const row = db.prepare(
+    'SELECT * FROM template_design_rules WHERE id = ?'
+  ).get(id) as Record<string, unknown> | undefined;
+  return row ? rowToDesignRule(row) : undefined;
+}
+
+export function getDesignRulesByArchetype(archetypeSlug: string, platform?: string): DesignRule[] {
+  const db = getDb();
+  if (platform) {
+    return (db.prepare(
+      'SELECT * FROM template_design_rules WHERE archetype_slug = ? AND platform = ? ORDER BY sort_order'
+    ).all(archetypeSlug, platform) as Record<string, unknown>[]).map(rowToDesignRule);
+  }
+  return (db.prepare(
+    'SELECT * FROM template_design_rules WHERE archetype_slug = ? ORDER BY sort_order'
+  ).all(archetypeSlug) as Record<string, unknown>[]).map(rowToDesignRule);
+}
+
+export function updateDesignRule(id: string, content: string): void {
+  const db = getDb();
+  db.prepare(
+    'UPDATE template_design_rules SET content = ?, updated_at = ? WHERE id = ?'
+  ).run(content, Date.now(), id);
+}
+
+// ─── Templates ────────────────────────────────────────────────────────────────
+
+export interface Template {
+  id: string;
+  type: string;
+  num: string;
+  name: string;
+  file: string;
+  layout: string;
+  dims: string | null;
+  description: string;
+  contentSlots: Array<{ slot: string; spec: string; color: string | null }>;
+  extraTables: Array<{ label: string; headers: string[] | null; rows: string[][] }> | null;
+  previewPath: string;
+  sortOrder: number;
+  updatedAt: number;
+}
+
+function rowToTemplate(row: Record<string, unknown>): Template {
+  return {
+    id: row.id as string,
+    type: row.type as string,
+    num: row.num as string,
+    name: row.name as string,
+    file: row.file as string,
+    layout: row.layout as string,
+    dims: (row.dims as string | null) ?? null,
+    description: row.description as string,
+    contentSlots: JSON.parse(row.content_slots as string),
+    extraTables: row.extra_tables ? JSON.parse(row.extra_tables as string) : null,
+    previewPath: row.preview_path as string,
+    sortOrder: row.sort_order as number,
+    updatedAt: row.updated_at as number,
+  };
+}
+
+export function getTemplates(type?: string): Template[] {
+  const db = getDb();
+  if (type) {
+    return (db.prepare('SELECT * FROM templates WHERE type = ? ORDER BY sort_order').all(type) as Record<string, unknown>[]).map(rowToTemplate);
+  }
+  return (db.prepare('SELECT * FROM templates ORDER BY sort_order').all() as Record<string, unknown>[]).map(rowToTemplate);
+}
+
+export function getTemplate(id: string): Template | undefined {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM templates WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  return row ? rowToTemplate(row) : undefined;
+}
+
+export function updateTemplate(
+  id: string,
+  fields: Partial<Pick<Template, 'description' | 'contentSlots' | 'extraTables'>>
+): void {
+  const db = getDb();
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  if (fields.description !== undefined) { sets.push('description = ?'); vals.push(fields.description); }
+  if (fields.contentSlots !== undefined) { sets.push('content_slots = ?'); vals.push(JSON.stringify(fields.contentSlots)); }
+  if (fields.extraTables !== undefined) { sets.push('extra_tables = ?'); vals.push(fields.extraTables ? JSON.stringify(fields.extraTables) : null); }
+  if (sets.length === 0) return;
+  sets.push('updated_at = ?');
+  vals.push(Date.now());
+  vals.push(id);
+  db.prepare(`UPDATE templates SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+}
+
+/**
+ * Load all Design DNA relevant to a pipeline generation context.
+ * Returns: global visual style, social general rules, platform-specific rules,
+ * and matched archetype rules — ready to inject into agent system prompts.
+ */
+export function getDesignDnaForPipeline(
+  creationType: string,
+  archetypeSlug?: string
+): { globalStyle: string; socialGeneral: string; platformRules: string; archetypeNotes: string } {
+  // Map creationType to platform
+  const platform = creationType === 'linkedin' ? 'linkedin' : 'instagram';
+
+  // Global visual style from brand_patterns
+  const visualStyle = getBrandPatternBySlug('visual-compositor-contract');
+  const globalStyle = visualStyle ? visualStyle.content : '';
+
+  // Social general rules
+  const generalRules = getDesignRules('global-social');
+  const socialGeneral = generalRules.map(r => r.content).join('\n\n');
+
+  // Platform-specific rules
+  const platformRules = getDesignRules('platform', platform);
+  const platformText = platformRules.map(r => `## ${r.label}\n${r.content}`).join('\n\n');
+
+  // Archetype-specific notes
+  let archetypeNotes = '';
+  if (archetypeSlug) {
+    const archetypeRules = getDesignRulesByArchetype(archetypeSlug);
+    archetypeNotes = archetypeRules.map(r => `## ${r.label}\n${r.content}`).join('\n\n');
+  }
+
+  return { globalStyle, socialGeneral, platformRules: platformText, archetypeNotes };
 }
