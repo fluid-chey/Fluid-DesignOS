@@ -237,9 +237,7 @@ export function BuildHero() {
   const { scrollRef, showLeft, showRight, scrollLeft, scrollRight } = usePillsOverflow();
 
   // Generation pipeline — same hook as PromptSidebar
-  const { generate, status: genStatus } = useGenerationStream();
-  const isGenerating = genStatus === 'generating';
-  const generationStatus = useGenerationStore((s) => s.status);
+  const { generate } = useGenerationStream();
   const activeCampaignId = useGenerationStore((s) => s.activeCampaignId);
   const isSingleCreation = useGenerationStore((s) => s.isSingleCreation);
   const creationIds = useGenerationStore((s) => s.creationIds);

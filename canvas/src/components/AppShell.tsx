@@ -400,7 +400,7 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }:
         );
 
       case 'templates':
-        return <TemplatesScreen />;
+        return <TemplatesScreen onCreateNew={() => setShowCreateNewModal(true)} />;
 
       case 'patterns':
         return <PatternsScreen />;
@@ -510,8 +510,8 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }:
         </aside>
       )}
 
-      {/* Create New choice modal — New Asset | New Campaign */}
-      {activeNavTab === 'my-creations' && showCreateNewModal && (
+      {/* Create New choice modal — New Asset | New Campaign (also from Templates tab) */}
+      {(activeNavTab === 'my-creations' || activeNavTab === 'templates') && showCreateNewModal && (
         <CreateNewChoiceModal
           onClose={() => setShowCreateNewModal(false)}
           onOpenAsset={() => onNewCreation?.()}
@@ -519,8 +519,8 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }:
         />
       )}
 
-      {/* New Campaign modal — opened from choice modal */}
-      {activeNavTab === 'my-creations' && showNewCampaignModal && (
+      {/* New Campaign modal — opened from choice modal (my-creations or templates) */}
+      {(activeNavTab === 'my-creations' || activeNavTab === 'templates') && showNewCampaignModal && (
         <NewCampaignModal
           onClose={() => setShowNewCampaignModal(false)}
           onCreated={handleNewCampaignCreated}
