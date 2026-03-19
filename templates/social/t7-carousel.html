@@ -367,9 +367,11 @@ we use...</p>
   window.CAROUSEL_CURRENT = 1;
 
   function go(n) {
-    slides[current].classList.remove('active');
-    current = ((n % total) + total) % total;
-    slides[current].classList.add('active');
+    if (total === 0 || typeof n !== 'number' || !isFinite(n)) return;
+    var next = ((Math.floor(n) % total) + total) % total;
+    if (slides[current]) slides[current].classList.remove('active');
+    current = next;
+    if (slides[current]) slides[current].classList.add('active');
     window.CAROUSEL_CURRENT = current + 1;
     if (window.onCarouselChange) window.onCarouselChange(current + 1, total);
   }
@@ -381,7 +383,10 @@ we use...</p>
   // Listen for postMessage from editor.js slide switcher
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'setSlide') {
-      go(e.data.slide - 1);
+      var idx = parseInt(e.data.slide, 10);
+      if (!isFinite(idx) || idx < 1) return;
+      idx = Math.min(idx, total);
+      go(idx - 1);
     }
   });
 })();

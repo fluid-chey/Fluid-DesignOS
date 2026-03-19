@@ -46,21 +46,32 @@ function rowToSlide(row: Record<string, unknown>): Slide {
   };
 }
 
-/** Deserialize an Iteration row from SQLite (JSON fields parsed). */
+/** Safe JSON parse for optional DB columns (handles invalid or legacy data). */
+function safeJsonParse(value: unknown): object | null {
+  if (value == null || value === '') return null;
+  try {
+    const parsed = JSON.parse(value as string);
+    return typeof parsed === 'object' && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Deserialize an Iteration row from SQLite (JSON fields parsed). Tolerates missing generation_status (legacy DB). */
 function rowToIteration(row: Record<string, unknown>): Iteration {
   return {
     id: row.id as string,
     slideId: row.slide_id as string,
-    iterationIndex: row.iteration_index as number,
+    iterationIndex: Number(row.iteration_index) ?? 0,
     htmlPath: row.html_path as string,
-    slotSchema: row.slot_schema ? JSON.parse(row.slot_schema as string) : null,
-    aiBaseline: row.ai_baseline ? JSON.parse(row.ai_baseline as string) : null,
-    userState: row.user_state ? JSON.parse(row.user_state as string) : null,
-    status: row.status as Iteration['status'],
-    source: row.source as Iteration['source'],
+    slotSchema: safeJsonParse(row.slot_schema),
+    aiBaseline: safeJsonParse(row.ai_baseline),
+    userState: safeJsonParse(row.user_state),
+    status: (row.status as Iteration['status']) ?? 'unmarked',
+    source: (row.source as Iteration['source']) ?? 'ai',
     templateId: (row.template_id as string | null) ?? null,
     generationStatus: (row.generation_status as Iteration['generationStatus']) ?? 'complete',
-    createdAt: row.created_at as number,
+    createdAt: Number(row.created_at) ?? 0,
   };
 }
 
@@ -154,6 +165,12 @@ export function getSlides(creationId: string): Slide[] {
     'SELECT * FROM slides WHERE creation_id = ? ORDER BY slide_index ASC'
   ).all(creationId) as Record<string, unknown>[];
   return rows.map(rowToSlide);
+}
+
+export function getSlideById(slideId: string): Slide | undefined {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM slides WHERE id = ?').get(slideId) as Record<string, unknown> | undefined;
+  return row ? rowToSlide(row) : undefined;
 }
 
 // ─── Iteration ────────────────────────────────────────────────────────────────
