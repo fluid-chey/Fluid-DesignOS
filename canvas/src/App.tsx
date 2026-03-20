@@ -246,18 +246,47 @@ export function App() {
     if (!activeIterationId) setEditIframeEl(null);
   }, [activeIterationId]);
 
+  /**
+   * UnifiedCreationView uses campaign `activeSlideId`, while ContentEditor / BrushTransform
+   * use editor `activeCarouselSlide`. Without this, every `selectIteration` used to leave the
+   * carousel at 1 while the user picked slide 02+ — the iframe stayed on `.slide.active` 1,
+   * slide-2 brush nodes were `display:none`, and the bounding box never appeared.
+   */
+  useEffect(() => {
+    if (currentView !== 'creation' || !activeSlideId || slides.length === 0) return;
+    const idx = slides.findIndex((s) => s.id === activeSlideId);
+    if (idx < 0) return;
+    const slideNum = idx + 1;
+    useEditorStore.getState().setActiveCarouselSlide(slideNum);
+    const iframe = editIframeEl ?? useEditorStore.getState().iframeRef;
+    iframe?.contentWindow?.postMessage({ type: 'setSlide', slide: slideNum }, '*');
+  }, [currentView, activeSlideId, slides, editIframeEl]);
+
+  // ── Edit-template error (user-visible when handler fails silently) ─────
+  const [editTemplateError, setEditTemplateError] = useState<string | null>(null);
+
   // ── Listen for "editTemplate" postMessage from templates iframe ────────
   useEffect(() => {
     const handler = async (e: MessageEvent) => {
       if (!e.data || e.data.type !== 'editTemplate' || !e.data.templateId) return;
-      const templateId: string = e.data.templateId;
+      setEditTemplateError(null);
+      // Normalize: DB may send "social/t1-quote" or "t1-quote.html" → "t1-quote"
+      const raw: string = e.data.templateId;
+      const templateId = raw.replace(/\.html$/i, '').split('/').pop() ?? raw;
       const meta = TEMPLATE_METADATA.find((t) => t.templateId === templateId);
-      if (!meta) return;
+      if (!meta) {
+        console.warn('[App] editTemplate: unknown templateId', raw, '→ normalized', templateId);
+        setEditTemplateError(`Template "${templateId}" isn't available for editing here. Try a social template (e.g. Quote, Carousel).`);
+        return;
+      }
 
       try {
         // Find or create the __standalone__ campaign
         const campRes = await fetch('/api/campaigns');
-        if (!campRes.ok) return;
+        if (!campRes.ok) {
+          setEditTemplateError('Could not load campaigns. Try again.');
+          return;
+        }
         const campaigns = await campRes.json();
         let standalone = campaigns.find((c: { title: string }) => c.title === '__standalone__');
         if (!standalone) {
@@ -266,49 +295,75 @@ export function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: '__standalone__' }),
           });
-          if (!newRes.ok) return;
+          if (!newRes.ok) {
+            setEditTemplateError('Could not create standalone campaign. Try again.');
+            return;
+          }
           standalone = await newRes.json();
         }
 
-        // Create Creation → Slide → Iteration (same as TemplateCustomizer)
+        const slotSchema = getTemplateSchema(templateId);
+        const slideCount =
+          slotSchema && 'carouselCount' in slotSchema && typeof (slotSchema as { carouselCount?: number }).carouselCount === 'number' && (slotSchema as { carouselCount: number }).carouselCount > 0
+            ? (slotSchema as { carouselCount: number }).carouselCount
+            : 1;
+
+        // Create Creation → Slide(s) → Iteration(s) (same as TemplateCustomizer; carousel = multiple slides)
         const creationRes = await fetch(`/api/campaigns/${standalone.id}/creations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: meta.name,
             creationType: meta.platform,
-            slideCount: 1,
+            slideCount,
           }),
         });
-        if (!creationRes.ok) return;
+        if (!creationRes.ok) {
+          setEditTemplateError('Could not create creation. Try again.');
+          return;
+        }
         const creation = await creationRes.json();
 
-        const slideRes = await fetch(`/api/creations/${creation.id}/slides`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slideIndex: 0 }),
-        });
-        if (!slideRes.ok) return;
-        const slide = await slideRes.json();
+        const htmlPath = `templates/${templateId}.html`;
+        for (let i = 0; i < slideCount; i++) {
+          const slideRes = await fetch(`/api/creations/${creation.id}/slides`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slideIndex: i }),
+          });
+          if (!slideRes.ok) {
+            setEditTemplateError('Could not create slide. Try again.');
+            return;
+          }
+          const slide = await slideRes.json();
+          if (!slide?.id) {
+            setEditTemplateError('Invalid slide response. Try again.');
+            return;
+          }
 
-        const slotSchema = getTemplateSchema(templateId);
-        await fetch(`/api/slides/${slide.id}/iterations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            iterationIndex: 0,
-            htmlPath: `templates/${templateId}.html`,
-            source: 'template',
-            templateId,
-            slotSchema: slotSchema ?? null,
-            aiBaseline: null,
-          }),
-        });
+          const iterRes = await fetch(`/api/slides/${slide.id}/iterations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              iterationIndex: 0,
+              htmlPath,
+              source: 'template',
+              templateId,
+              slotSchema: slotSchema ?? null,
+              aiBaseline: null,
+            }),
+          });
+          if (!iterRes.ok) {
+            const msg = await iterRes.text();
+            console.error('[App] editTemplate: iteration POST failed', iterRes.status, msg);
+            setEditTemplateError('Could not create template iteration. Check the console or restart the app (DB may need a migration).');
+            return;
+          }
+        }
 
         // Navigate to the creation editor under Creations tab with right sidebar open
         setActiveNavTab('my-creations');
         setCreateViewportTab('creations');
-        // Ensure campaigns list includes __standalone__ so breadcrumb can detect it
         await fetchCampaigns();
         useCampaignStore.setState({
           activeCampaignId: standalone.id,
@@ -318,6 +373,7 @@ export function App() {
         setRightSidebarOpen(true);
       } catch (err) {
         console.error('[App] editTemplate handler failed:', err);
+        setEditTemplateError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       }
     };
 
@@ -342,6 +398,41 @@ export function App() {
   );
 
   // ── Template creation flow ───────────────────────────────────────────────
+  // When Create New modal opens without a campaign selected (e.g. from Templates tab), resolve __standalone__ so user can create.
+  useEffect(() => {
+    if (creationFlow === null) {
+      setStandaloneCampaignId(null);
+      return;
+    }
+    if (activeCampaignId) {
+      setStandaloneCampaignId(activeCampaignId);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/campaigns');
+        if (!res.ok || cancelled) return;
+        const campaigns: Array<{ id: string; title: string }> = await res.json();
+        if (cancelled) return;
+        let standalone = campaigns.find((c) => c.title === '__standalone__');
+        if (!standalone) {
+          const newRes = await fetch('/api/campaigns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: '__standalone__' }),
+          });
+          if (!newRes.ok || cancelled) return;
+          standalone = await newRes.json();
+        }
+        if (!cancelled && standalone) setStandaloneCampaignId(standalone.id);
+      } catch {
+        if (!cancelled) setStandaloneCampaignId(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [creationFlow, activeCampaignId]);
+
   const handleNewCreation = useCallback(() => {
     setCreationFlow('gallery');
     setSelectedTemplate(null);
@@ -539,6 +630,44 @@ export function App() {
 
   return (
     <ErrorBoundary>
+      {editTemplateError && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10000,
+            background: '#1a0a0a',
+            color: '#f88',
+            padding: '10px 16px',
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            borderBottom: '1px solid #4a2020',
+          }}
+        >
+          <span>{editTemplateError}</span>
+          <button
+            type="button"
+            onClick={() => setEditTemplateError(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#f88',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <AppShell
         leftSidebar={<PromptSidebar />}
         rightSidebar={
@@ -548,6 +677,7 @@ export function App() {
           />
         }
         onNewCreation={handleNewCreation}
+        hideMyCreationsHeader={currentView === 'creation' || creationFlow !== null}
       >
         {renderMainContent()}
       </AppShell>
@@ -1196,7 +1326,7 @@ function IterationEditFrame({
           height={height}
           style={{ border: 'none', display: 'block' }}
           title="Edit preview"
-          sandbox="allow-same-origin"
+          sandbox="allow-same-origin allow-scripts"
         />
       </div>
     </div>
@@ -1677,9 +1807,9 @@ function TemplateCreationModal({
                   />
                 </div>
               )}
-              {flow === 'customizer' && !activeCampaignId && (
+              {flow === 'customizer' && selectedTemplate && !activeCampaignId && (
                 <div style={{ padding: '2rem', color: '#555', textAlign: 'center', flex: 1 }}>
-                  No campaign selected. Please navigate to a campaign first.
+                  Loading…
                 </div>
               )}
             </>

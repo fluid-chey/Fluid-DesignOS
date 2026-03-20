@@ -9,6 +9,9 @@ import { create } from 'zustand';
 import type { SlotSchema } from '../lib/slot-schema';
 import type { Iteration } from '../lib/campaign-types';
 
+/** JSON map of brush selector → CSS transform string; persisted in userState */
+export const BRUSH_TRANSFORM_STATE_KEY = '__brushTransform__';
+
 interface EditorStore {
   /** Currently selected iteration ID (null = nothing selected) */
   selectedIterationId: string | null;
@@ -20,15 +23,21 @@ interface EditorStore {
   isDirty: boolean;
   /** Reference to the active iframe for postMessage communication */
   iframeRef: HTMLIFrameElement | null;
+  /** 1-based slide index for carousels (properties panel + iframe sync) */
+  activeCarouselSlide: number;
 
   /** Load an iteration from the API, parse its slot schema and current values */
   selectIteration: (id: string) => Promise<void>;
   /** Update a single slot value locally and send postMessage to iframe */
   updateSlotValue: (sel: string, value: string, mode?: string) => void;
+  /** Persist brush CSS transform for selector; updates iframe and userState blob */
+  patchBrushTransform: (sel: string, transform: string) => void;
   /** PATCH /api/iterations/:id/user-state with current slotValues, resets isDirty */
   saveUserState: () => Promise<void>;
   /** Set the iframe reference for postMessage targeting */
   setIframeRef: (ref: HTMLIFrameElement | null) => void;
+  /** Carousel slide tabs — updates state and should pair with postMessage setSlide */
+  setActiveCarouselSlide: (slide: number) => void;
   /** Reset all editor state */
   clearSelection: () => void;
 }
@@ -67,6 +76,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   slotValues: {},
   isDirty: false,
   iframeRef: null,
+  activeCarouselSlide: 1,
 
   selectIteration: async (id: string) => {
     try {
@@ -78,6 +88,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const iteration: Iteration = await res.json();
       const schema = iteration.slotSchema as SlotSchema | null;
       const values = extractSlotValues(iteration);
+      // Do not reset activeCarouselSlide — keep it aligned with the creation’s active slide
+      // (App sync). Resetting to 1 left the iframe on slide 1 while editing slide 2+.
       set({
         selectedIterationId: id,
         slotSchema: schema,
@@ -103,6 +115,29 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         '*'
       );
     }
+  },
+
+  patchBrushTransform: (sel: string, transform: string) => {
+    const { iframeRef } = get();
+    if (iframeRef?.contentWindow) {
+      iframeRef.contentWindow.postMessage(
+        { type: 'tmpl', sel, action: 'transform', transform },
+        '*'
+      );
+    }
+    set((state) => {
+      let map: Record<string, string> = {};
+      try {
+        map = JSON.parse(state.slotValues[BRUSH_TRANSFORM_STATE_KEY] || '{}') as Record<string, string>;
+      } catch {
+        map = {};
+      }
+      map[sel] = transform;
+      return {
+        slotValues: { ...state.slotValues, [BRUSH_TRANSFORM_STATE_KEY]: JSON.stringify(map) },
+        isDirty: true,
+      };
+    });
   },
 
   saveUserState: async () => {
@@ -131,6 +166,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set({ iframeRef: ref });
   },
 
+  setActiveCarouselSlide: (slide: number) => {
+    set({ activeCarouselSlide: Math.max(1, slide) });
+  },
+
   clearSelection: () => {
     set({
       selectedIterationId: null,
@@ -138,6 +177,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       slotValues: {},
       isDirty: false,
       iframeRef: null,
+      activeCarouselSlide: 1,
     });
   },
 }));

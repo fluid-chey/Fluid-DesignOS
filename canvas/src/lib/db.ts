@@ -7,6 +7,7 @@
  */
 
 import Database from 'better-sqlite3';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +23,13 @@ export function getDb(): Database.Database {
     // Read FLUID_DB_PATH lazily so tests can set it before calling getDb()
     // after a closeDb() reset.
     const dbPath = process.env.FLUID_DB_PATH || DEFAULT_DB_PATH;
+    // Ensure parent directory exists so better-sqlite3 can create the file
+    const dir = path.dirname(dbPath);
+    try {
+      fsSync.mkdirSync(dir, { recursive: true });
+    } catch {
+      // Ignore if dir already exists or mkdir fails (e.g. read-only)
+    }
     _db = new Database(dbPath);
     _db.pragma('journal_mode = WAL');      // concurrent reads from MCP + Vite simultaneously
     _db.pragma('foreign_keys = ON');       // enforce referential integrity
@@ -207,6 +215,46 @@ function initSchema(db: Database.Database): void {
     db.exec(`ALTER TABLE iterations ADD COLUMN generation_status TEXT NOT NULL DEFAULT 'complete'`);
   } catch {
     // Column already exists — ignore
+  }
+
+  // Migration: rename iterations columns from camelCase to snake_case (legacy DBs).
+  // Also migrate frame_id → slide_id (older schema used "frame" for the parent of an iteration).
+  // SQLite 3.25+ supports RENAME COLUMN.
+  try {
+    const info = db.prepare('PRAGMA table_info(iterations)').all() as Array<{ name: string }>;
+    const names = info.map((r) => r.name);
+    if (names.includes('frame_id') && !names.includes('slide_id')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN frame_id TO slide_id');
+    }
+    if (names.includes('slideId') && !names.includes('slide_id')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN slideId TO slide_id');
+    }
+    if (names.includes('iterationIndex') && !names.includes('iteration_index')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN iterationIndex TO iteration_index');
+    }
+    if (names.includes('htmlPath') && !names.includes('html_path')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN htmlPath TO html_path');
+    }
+    if (names.includes('slotSchema') && !names.includes('slot_schema')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN slotSchema TO slot_schema');
+    }
+    if (names.includes('aiBaseline') && !names.includes('ai_baseline')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN aiBaseline TO ai_baseline');
+    }
+    if (names.includes('userState') && !names.includes('user_state')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN userState TO user_state');
+    }
+    if (names.includes('templateId') && !names.includes('template_id')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN templateId TO template_id');
+    }
+    if (names.includes('generationStatus') && !names.includes('generation_status')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN generationStatus TO generation_status');
+    }
+    if (names.includes('createdAt') && !names.includes('created_at')) {
+      db.exec('ALTER TABLE iterations RENAME COLUMN createdAt TO created_at');
+    }
+  } catch {
+    // RENAME COLUMN not supported (old SQLite) or table missing — ignore
   }
 
   // Migration: add DAM sync columns to brand_assets

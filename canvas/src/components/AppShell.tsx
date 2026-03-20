@@ -36,6 +36,12 @@ interface AppShellProps {
    */
   onNewCreation?: () => void;
 
+  /**
+   * When true, hides the My Creations chrome (title, Campaigns/Creations tabs, Create New)
+   * so the editor or template-creation flow can use the full viewport height.
+   */
+  hideMyCreationsHeader?: boolean;
+
 }
 
 const RIGHT_SIDEBAR_WIDTH = 320;
@@ -235,7 +241,7 @@ function CreateNewChoiceModal({
   );
 }
 
-export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }: AppShellProps) {
+export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation, hideMyCreationsHeader }: AppShellProps) {
   const [showCreateNewModal, setShowCreateNewModal] = useState(false);
   const activeNavTab = useCampaignStore((s) => s.activeNavTab);
   const createViewportTab = useCampaignStore((s) => s.createViewportTab);
@@ -290,110 +296,112 @@ export function AppShell({ leftSidebar, rightSidebar, children, onNewCreation }:
       case 'my-creations':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-            <div style={{
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              borderBottom: '1px solid #1e1e1e',
-              backgroundColor: '#0d0d0d',
-            }}>
-              {/* Row 1: Title + Campaigns/Creations tabs (left) + Create New button (right) */}
+            {!hideMyCreationsHeader && (
               <div style={{
-                height: '100%',
+                flexShrink: 0,
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '24px 1.5rem',
-                gap: '0.75rem',
+                flexDirection: 'column',
+                borderBottom: '1px solid #1e1e1e',
+                backgroundColor: '#0d0d0d',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0, minWidth: 0 }}>
-                  <h1 style={{
-                    margin: 0,
-                    fontSize: '26px',
-                    fontWeight: 700,
-                    color: '#e0e0e0',
-                    letterSpacing: '-0.02em',
-                    flexShrink: 0,
-                  }}>
-                    My Creations
-                  </h1>
-                  <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                  {(['campaigns', 'creations'] as CreateViewportTab[]).map((tab) => {
-                    const isActive = createViewportTab === tab;
-                    return (
-                      <button
-                        key={tab}
-                        onClick={() => handleSetCreateViewportTab(tab)}
-                        style={{
-                          padding: '8px 14px',
-                          minHeight: 36,
-                          boxSizing: 'border-box',
-                          fontSize: '0.75rem',
-                          fontWeight: isActive ? 600 : 400,
-                          letterSpacing: '0.04em',
-                          textTransform: 'uppercase',
-                          color: isActive ? '#e0e0e0' : '#666',
-                          backgroundColor: isActive ? '#1a1a1e' : 'transparent',
-                          border: 'none',
-                          borderRadius: 0,
-                          borderBottom: isActive ? '2px solid #44B2FF' : '2px solid transparent',
-                          cursor: 'pointer',
-                          transition: 'color 0.15s, background-color 0.15s',
-                          fontFamily: 'inherit',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isActive) e.currentTarget.style.color = '#aaa';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isActive) e.currentTarget.style.color = '#666';
-                        }}
-                      >
-                        {tab === 'campaigns' ? 'Campaigns' : 'Creations'}
-                      </button>
-                    );
-                  })}
+                {/* Row 1: Title + Campaigns/Creations tabs (left) + Create New button (right) */}
+                <div style={{
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '24px 1.5rem',
+                  gap: '0.75rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0, minWidth: 0 }}>
+                    <h1 style={{
+                      margin: 0,
+                      fontSize: '26px',
+                      fontWeight: 700,
+                      color: '#e0e0e0',
+                      letterSpacing: '-0.02em',
+                      flexShrink: 0,
+                    }}>
+                      My Creations
+                    </h1>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                    {(['campaigns', 'creations'] as CreateViewportTab[]).map((tab) => {
+                      const isActive = createViewportTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          onClick={() => handleSetCreateViewportTab(tab)}
+                          style={{
+                            padding: '8px 14px',
+                            minHeight: 36,
+                            boxSizing: 'border-box',
+                            fontSize: '0.75rem',
+                            fontWeight: isActive ? 600 : 400,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                            color: isActive ? '#e0e0e0' : '#666',
+                            backgroundColor: isActive ? '#1a1a1e' : 'transparent',
+                            border: 'none',
+                            borderRadius: 0,
+                            borderBottom: isActive ? '2px solid #44B2FF' : '2px solid transparent',
+                            cursor: 'pointer',
+                            transition: 'color 0.15s, background-color 0.15s',
+                            fontFamily: 'inherit',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) e.currentTarget.style.color = '#aaa';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) e.currentTarget.style.color = '#666';
+                          }}
+                        >
+                          {tab === 'campaigns' ? 'Campaigns' : 'Creations'}
+                        </button>
+                      );
+                    })}
+                    </div>
                   </div>
+                  <button
+                    onClick={() => setShowCreateNewModal(true)}
+                    title="Create new campaign or asset"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.375rem',
+                      padding: '8px 14px',
+                      minHeight: 36,
+                      boxSizing: 'border-box',
+                      backgroundColor: '#44B2FF',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 5,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'background-color 0.15s',
+                      fontFamily: 'inherit',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3a9fe0')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#44B2FF')}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Create New
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowCreateNewModal(true)}
-                  title="Create new campaign or asset"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.375rem',
-                    padding: '8px 14px',
-                    minHeight: 36,
-                    boxSizing: 'border-box',
-                    backgroundColor: '#44B2FF',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 5,
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    transition: 'background-color 0.15s',
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3a9fe0')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#44B2FF')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  Create New
-                </button>
+                {/* Row 2: Breadcrumb below tabs (hidden) */}
+                <div style={{ display: 'none', padding: '0 1.5rem 0.5rem', overflow: 'hidden', minHeight: 0 }}>
+                  <Breadcrumb />
+                </div>
               </div>
-              {/* Row 2: Breadcrumb below tabs (hidden) */}
-              <div style={{ display: 'none', padding: '0 1.5rem 0.5rem', overflow: 'hidden', minHeight: 0 }}>
-                <Breadcrumb />
-              </div>
-            </div>
+            )}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {children}
             </div>
