@@ -677,6 +677,7 @@ export function App() {
           />
         }
         onNewCreation={handleNewCreation}
+        hideMyCreationsHeader={currentView === 'creation' || creationFlow !== null}
       >
         {renderMainContent()}
       </AppShell>
