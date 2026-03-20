@@ -54,6 +54,7 @@ import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, migratePatternsToMarkd
 import { runDamSync } from './dam-sync';
 import { collectTransformTargets, type TransformTarget } from '../lib/slot-schema';
 import { resolveSlotSchemaForIteration } from '../lib/template-configs';
+import { injectArtboardMarginGuide, PREVIEW_CHROME_PADDING_PX } from '../lib/preview-utils';
 
 // ─── Creation dimensions by type ────────────────────────────────────────────
 const CREATION_DIMENSIONS: Record<string, { width: number; height: number }> = {
@@ -569,7 +570,7 @@ export function fluidWatcherPlugin(): Plugin {
       position: fixed; inset: 52px 0 56px 0; z-index: 10;
       height: calc(100vh - 108px);
       display: flex; align-items: center; justify-content: center;
-      padding: 24px;
+      padding: ${PREVIEW_CHROME_PADDING_PX}px;
       overflow: hidden;
     }
     .preview-stage {
@@ -1427,6 +1428,7 @@ export function fluidWatcherPlugin(): Plugin {
                 return;
               }
 
+              html = injectArtboardMarginGuide(html);
               const initialValuesJson = JSON.stringify(userState).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
               let pickTargets: TransformTarget[] = [];
               try {

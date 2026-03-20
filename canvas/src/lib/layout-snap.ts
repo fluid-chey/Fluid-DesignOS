@@ -4,11 +4,18 @@
  * Snaps only:
  * - Edge ↔ edge (incl. artboard left/right or top/bottom)
  * - Mid ↔ mid (element center ↔ element center, or element center ↔ artboard center)
+ * - Safe margin lines inset {@link ARTBOARD_SAFE_MARGIN_PX} from artboard edges (layout space)
  */
 
 export const DEFAULT_SNAP_THRESHOLD_PX = 8;
 
 import { elementLayoutRectInIframe } from './iframe-overlay-geometry';
+import { ARTBOARD_SAFE_MARGIN_PX } from './preview-utils';
+
+function safeMarginInset(dim: number): number {
+  const m = ARTBOARD_SAFE_MARGIN_PX;
+  return dim > 2 * m ? m : 0;
+}
 
 export interface LRect {
   l: number;
@@ -36,6 +43,11 @@ export function collectSnapEdgeLinesX(
   const xs = new Set<number>();
   xs.add(0);
   xs.add(artboardW);
+  const mx = safeMarginInset(artboardW);
+  if (mx > 0) {
+    xs.add(mx);
+    xs.add(artboardW - mx);
+  }
   for (const s of targetSels) {
     if (!s || s === excludeSel) continue;
     const el = doc.querySelector(s);
@@ -78,6 +90,11 @@ export function collectSnapEdgeLinesY(
   const ys = new Set<number>();
   ys.add(0);
   ys.add(artboardH);
+  const my = safeMarginInset(artboardH);
+  if (my > 0) {
+    ys.add(my);
+    ys.add(artboardH - my);
+  }
   for (const s of targetSels) {
     if (!s || s === excludeSel) continue;
     const el = doc.querySelector(s);
@@ -180,6 +197,8 @@ export function collectSnapWidths(
 ): number[] {
   const ws = new Set<number>();
   ws.add(Math.round(artboardW));
+  const mx = safeMarginInset(artboardW);
+  if (mx > 0) ws.add(Math.round(artboardW - 2 * mx));
   for (const s of targetSels) {
     if (!s || s === excludeSel) continue;
     const el = doc.querySelector(s);
@@ -200,6 +219,8 @@ export function collectSnapHeights(
 ): number[] {
   const hs = new Set<number>();
   hs.add(Math.round(artboardH));
+  const my = safeMarginInset(artboardH);
+  if (my > 0) hs.add(Math.round(artboardH - 2 * my));
   for (const s of targetSels) {
     if (!s || s === excludeSel) continue;
     const el = doc.querySelector(s);

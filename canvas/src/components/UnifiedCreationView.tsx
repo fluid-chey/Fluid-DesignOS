@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useCampaignStore } from '../store/campaign';
 import { useEditorStore } from '../store/editor';
-import { getCreationDimensions } from '../lib/preview-utils';
+import { PREVIEW_CHROME_PADDING_PX, getCreationDimensions } from '../lib/preview-utils';
 import { clearIframeClientRectModeCache } from '../lib/iframe-overlay-geometry';
 import { slotMapsEqual } from '../lib/editor-history';
 import { Breadcrumb } from './Breadcrumb';
@@ -47,8 +47,9 @@ export function UnifiedCreationView({ onIframeRef }: UnifiedCreationViewProps) {
   useEffect(() => {
     const update = () => {
       if (!containerRef.current) return;
-      const cw = containerRef.current.clientWidth;
-      const ch = containerRef.current.clientHeight;
+      const m = PREVIEW_CHROME_PADDING_PX;
+      const cw = containerRef.current.clientWidth - 2 * m;
+      const ch = containerRef.current.clientHeight - 2 * m;
       // Reserve space for slide tabs if multi-slide
       const availW = isMultiSlide ? cw - 60 : cw;
       const scaleX = availW / dims.width;
@@ -228,7 +229,7 @@ export function UnifiedCreationView({ onIframeRef }: UnifiedCreationViewProps) {
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
-            padding: 24,
+            padding: PREVIEW_CHROME_PADDING_PX,
             minWidth: 0,
           }}
         >
