@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useEditorStore, SLOT_TRANSFORM_PREFIX } from '../store/editor';
-import { buildTransformString, parseTransform } from '../lib/transform-format';
+import { buildTransformString, parseTransform, parseTransformComputed } from '../lib/transform-format';
 
 interface BrushTransformProps {
   /** CSS selector for the movable element (e.g. '.circle-brush') */
@@ -52,7 +52,10 @@ export function BrushTransform({
   useEffect(() => {
     if (!iframeEl) return;
 
-    const applyParsed = (parsed: ReturnType<typeof parseTransform>, cs: CSSStyleDeclaration | null) => {
+    const applyParsed = (
+      parsed: ReturnType<typeof parseTransform>,
+      cs: CSSStyleDeclaration | null
+    ) => {
       const left = cs ? parseFloat(cs.left) : NaN;
       const top = cs ? parseFloat(cs.top) : NaN;
       const lx = Number.isFinite(left) ? left : 0;
@@ -93,7 +96,7 @@ export function BrushTransform({
         if (saved) {
           applyParsed(parseTransform(saved), cs);
         } else {
-          applyParsed(parseTransform(cs.transform), cs);
+          applyParsed(parseTransformComputed(cs.transform, iDoc.defaultView ?? undefined), cs);
         }
         return true;
       } catch {

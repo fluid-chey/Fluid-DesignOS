@@ -28,6 +28,45 @@ export function parseTransform(transform: string): ParsedTransform {
   return result;
 }
 
+function getDOMMatrixReadOnlyCtor(win?: Window | null): typeof DOMMatrixReadOnly | null {
+  const g = win ?? (typeof globalThis !== 'undefined' ? globalThis : null);
+  if (!g) return null;
+  const Ctor = (g as unknown as { DOMMatrixReadOnly?: typeof DOMMatrixReadOnly }).DOMMatrixReadOnly;
+  return typeof Ctor === 'function' ? Ctor : null;
+}
+
+/**
+ * Parse a **computed** `transform` from the browser (often `matrix(...)` / `matrix3d(...)`).
+ * Regex-only {@link parseTransform} misses rotation/scale for those, which caused the editor to
+ * apply `rotate(0deg)` on first move and wipe template CSS like `rotate(90deg)` on side labels.
+ */
+export function parseTransformComputed(transform: string, win?: Window | null): ParsedTransform {
+  const identity: ParsedTransform = { translateX: 0, translateY: 0, rotateDeg: 0, scaleX: 1, scaleY: 1 };
+  const t = transform?.trim() || '';
+  if (!t || t === 'none') return identity;
+
+  const MatrixRO = getDOMMatrixReadOnlyCtor(win);
+  if (MatrixRO) {
+    try {
+      const m = new MatrixRO(t);
+      const scaleX = Math.hypot(m.a, m.b) || 1;
+      const scaleY = Math.hypot(m.c, m.d) || 1;
+      const rotateDeg = (Math.atan2(m.b, m.a) * 180) / Math.PI;
+      return {
+        translateX: m.e,
+        translateY: m.f,
+        rotateDeg,
+        scaleX,
+        scaleY,
+      };
+    } catch {
+      /* fall through */
+    }
+  }
+
+  return parseTransform(t);
+}
+
 export function buildTransformString(tx: number, ty: number, rot: number, sx: number, sy: number): string {
   return `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${sx}, ${sy})`;
 }

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useEditorStore, SLOT_TRANSFORM_PREFIX } from '../store/editor';
-import { buildTransformString, parseTransform } from '../lib/transform-format';
+import { buildTransformString, parseTransform, parseTransformComputed } from '../lib/transform-format';
 
 const HANDLE = 9;
 const ROT_STEM = 28;
@@ -71,7 +71,9 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
     const win = iframeEl!.contentWindow!;
     const cs = win.getComputedStyle(el);
     const saved = savedTransformForSel;
-    const parsed = parseTransform(saved || cs.transform);
+    const parsed = saved
+      ? parseTransform(saved)
+      : parseTransformComputed(cs.transform, win);
     const left = parseFloat(cs.left);
     const top = parseFloat(cs.top);
     const lx = Number.isFinite(left) ? left : 0;

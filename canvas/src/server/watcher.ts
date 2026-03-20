@@ -52,11 +52,8 @@ import { getDb } from '../lib/db';
 import { scanAndSeedBrandAssets } from './asset-scanner';
 import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, migratePatternsToMarkdown, seedGlobalVisualStyleIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
 import { runDamSync } from './dam-sync';
-import {
-  collectTransformTargets,
-  type SlotSchema,
-  type TransformTarget,
-} from '../lib/slot-schema';
+import { collectTransformTargets, type TransformTarget } from '../lib/slot-schema';
+import { resolveSlotSchemaForIteration } from '../lib/template-configs';
 
 // ─── Creation dimensions by type ────────────────────────────────────────────
 const CREATION_DIMENSIONS: Record<string, { width: number; height: number }> = {
@@ -1258,18 +1255,21 @@ export function fluidWatcherPlugin(): Plugin {
               res.end(JSON.stringify({ error: 'Iteration not found' }));
               return;
             }
+            const storedSlotSchema = row.slot_schema ? JSON.parse(row.slot_schema as string) : null;
+            const tmplId = (row.template_id as string | null) ?? null;
+            const htmlPath = row.html_path as string;
             const iteration = {
               id: row.id as string,
               slideId: row.slide_id as string,
               iterationIndex: row.iteration_index as number,
-              htmlPath: row.html_path as string,
-              slotSchema: row.slot_schema ? JSON.parse(row.slot_schema as string) : null,
+              htmlPath,
+              slotSchema: resolveSlotSchemaForIteration(storedSlotSchema, tmplId, htmlPath),
               aiBaseline: row.ai_baseline ? JSON.parse(row.ai_baseline as string) : null,
               userState: row.user_state ? JSON.parse(row.user_state as string) : null,
               status: row.status as string,
               source: row.source as string,
               generationStatus: (row.generation_status as string) ?? 'complete',
-              templateId: (row.template_id as string | null) ?? null,
+              templateId: tmplId,
               createdAt: row.created_at as number,
             };
             // Load HTML content from disk
@@ -1293,10 +1293,13 @@ export function fluidWatcherPlugin(): Plugin {
             const iterationId = iterHtmlMatch[1];
             const { getDb } = await import('../lib/db.js');
             const db = getDb();
-            const row = db.prepare('SELECT html_path, user_state, slot_schema FROM iterations WHERE id = ?').get(iterationId) as {
+            const row = db.prepare(
+              'SELECT html_path, user_state, slot_schema, template_id FROM iterations WHERE id = ?'
+            ).get(iterationId) as {
               html_path: string;
               user_state: string | null;
               slot_schema: string | null;
+              template_id: string | null;
             } | undefined;
             if (!row?.html_path) {
               res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -1427,10 +1430,13 @@ export function fluidWatcherPlugin(): Plugin {
               const initialValuesJson = JSON.stringify(userState).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
               let pickTargets: TransformTarget[] = [];
               try {
-                if (row.slot_schema) {
-                  const schema = JSON.parse(row.slot_schema) as SlotSchema;
-                  pickTargets = collectTransformTargets(schema);
-                }
+                const storedSchema = row.slot_schema ? JSON.parse(row.slot_schema) : null;
+                const schema = resolveSlotSchemaForIteration(
+                  storedSchema,
+                  row.template_id,
+                  row.html_path
+                );
+                if (schema) pickTargets = collectTransformTargets(schema);
               } catch {
                 pickTargets = [];
               }

@@ -33,11 +33,12 @@ const t1Quote: SlotSchema = {
   width: 1080,
   height: 1080,
   fields: [
-    { type: 'text', sel: '.name',      label: 'Name',           mode: 'pre',  rows: 2 },
-    { type: 'text', sel: '.title',     label: 'Title',          mode: 'pre',  rows: 2 },
-    { type: 'text', sel: '.handle',    label: 'Handle',         mode: 'text', rows: 1 },
-    { type: 'text', sel: '.quote',     label: 'Quote',          mode: 'pre',  rows: 5 },
-    { type: 'image', sel: '.photo img', label: 'Portrait Photo', dims: '353 × 439px' },
+    { type: 'text', sel: '.name',           label: 'Name',           mode: 'pre',  rows: 2 },
+    { type: 'text', sel: '.title',          label: 'Title',          mode: 'pre',  rows: 2 },
+    { type: 'text', sel: '.handle',         label: 'Handle',         mode: 'text', rows: 1 },
+    { type: 'text', sel: '.category span',  label: 'Side label',     mode: 'text', rows: 1 },
+    { type: 'text', sel: '.quote',          label: 'Quote',          mode: 'pre',  rows: 5 },
+    { type: 'image', sel: '.photo img',      label: 'Portrait Photo', dims: '353 × 439px' },
   ],
   brush: null,
 };
@@ -114,6 +115,7 @@ const t6EmployeeSpotlight: SlotSchema = {
   height: 1080,
   fields: [
     { type: 'text',  sel: '.headline',           label: 'Headline',         mode: 'br',   rows: 3 },
+    { type: 'text',  sel: '.category span',      label: 'Side label',       mode: 'text', rows: 1 },
     { type: 'text',  sel: '.employee-name',       label: 'Employee Name',    mode: 'text', rows: 1 },
     { type: 'text',  sel: '.employee-title',      label: 'Employee Title',   mode: 'text', rows: 1 },
     { type: 'image', sel: '.employee-photo img',  label: 'Employee Portrait', dims: '263 × 327px' },
@@ -289,6 +291,45 @@ export const TEMPLATE_METADATA: TemplateMetadata[] = [
  */
 export function getTemplateSchema(templateId: string): SlotSchema | undefined {
   return TEMPLATE_SCHEMAS[templateId];
+}
+
+/**
+ * Guess template id from stored html_path (e.g. `social/t1-quote.html` → `t1-quote`).
+ */
+export function inferTemplateIdFromHtmlPath(htmlPath: string | null | undefined): string | undefined {
+  if (!htmlPath || typeof htmlPath !== 'string') return undefined;
+  const base = htmlPath.split(/[/\\]/).pop()?.replace(/\.html$/i, '') ?? '';
+  if (base && TEMPLATE_SCHEMAS[base]) return base;
+  return undefined;
+}
+
+function isUsableStoredSlotSchema(s: unknown): s is SlotSchema {
+  if (!s || typeof s !== 'object') return false;
+  const o = s as SlotSchema;
+  return (
+    typeof o.width === 'number' &&
+    typeof o.height === 'number' &&
+    Array.isArray(o.fields) &&
+    o.fields.length > 0
+  );
+}
+
+/**
+ * Use DB slot_schema when it has fields; otherwise fall back to the canonical schema for
+ * `template_id` or inferred id from `html_path` (fixes empty pick targets + missing sidebar fields).
+ */
+export function resolveSlotSchemaForIteration(
+  stored: unknown,
+  templateId: string | null | undefined,
+  htmlPath: string | null | undefined
+): SlotSchema | null {
+  if (isUsableStoredSlotSchema(stored)) return stored;
+  const tid = (templateId && String(templateId).trim()) || inferTemplateIdFromHtmlPath(htmlPath ?? undefined);
+  if (tid) {
+    const canonical = getTemplateSchema(tid);
+    if (canonical) return canonical;
+  }
+  return null;
 }
 
 /**
