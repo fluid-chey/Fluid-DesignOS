@@ -30,6 +30,7 @@ describe('initial state', () => {
     expect(state.isDirty).toBe(false);
     expect(state.iframeRef).toBeNull();
     expect(state.pickedTransform).toBeNull();
+    expect(state.activeCarouselSlide).toBe(1);
   });
 });
 
@@ -70,6 +71,7 @@ describe('selectIteration', () => {
     expect(state.baselineSlotValues).toEqual({ '.headline': 'Hello World' });
     expect(state.undoStack).toEqual([]);
     expect(state.isDirty).toBe(false);
+    expect(state.activeCarouselSlide).toBe(1);
   });
 
   it('extracts slot values from aiBaseline when userState is null', async () => {
@@ -339,6 +341,7 @@ describe('clearSelection', () => {
     expect(state.isDirty).toBe(false);
     expect(state.iframeRef).toBeNull();
     expect(state.pickedTransform).toBeNull();
+    expect(state.activeCarouselSlide).toBe(1);
   });
 });
 

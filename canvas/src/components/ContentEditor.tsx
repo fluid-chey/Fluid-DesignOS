@@ -17,6 +17,7 @@ import {
   type TransformTargetKind,
 } from '../lib/slot-schema';
 import { useEditorStore } from '../store/editor';
+import { filterFieldsForSlide, brushVisibleForSlide } from '../lib/slot-schema-filter';
 import { SlotField } from './SlotField';
 import { BrushTransform } from './BrushTransform';
 import { TextBoxControls } from './TextBoxControls';
@@ -29,6 +30,18 @@ function parsePickKind(v: unknown): TransformTargetKind {
   return typeof v === 'string' && (PICK_KINDS as string[]).includes(v)
     ? (v as TransformTargetKind)
     : 'image';
+}
+
+function statusColor(status: string): string {
+  switch (status) {
+    case 'winner':
+    case 'final':
+      return '#1f4d2e';
+    case 'rejected':
+      return '#4d1f1f';
+    default:
+      return '#2a2a2e';
+  }
 }
 
 interface ContentEditorProps {
@@ -44,6 +57,7 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
     slotValues,
     isDirty,
     pickedTransform,
+    activeCarouselSlide,
     selectIteration,
     setIframeRef,
     updateSlotValue,
@@ -51,6 +65,25 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
     saveUserState,
     clearSelection,
   } = useEditorStore();
+
+  const carouselMode =
+    slotSchema != null &&
+    slotSchema.carouselCount != null &&
+    slotSchema.carouselCount > 1;
+
+  const visibleFields = useMemo(
+    () =>
+      slotSchema
+        ? filterFieldsForSlide(slotSchema.fields, activeCarouselSlide, carouselMode)
+        : [],
+    [slotSchema, activeCarouselSlide, carouselMode]
+  );
+
+  const showBrush = useMemo(
+    () =>
+      brushVisibleForSlide(slotSchema?.brush, activeCarouselSlide, carouselMode),
+    [slotSchema?.brush, activeCarouselSlide, carouselMode]
+  );
 
   const hasInitialized = useRef(false);
   /** Bumps on each preview pick so the same text field can refocus on repeat clicks. */
@@ -178,6 +211,21 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
     }
   }, [slotSchema, selectedIterationId, iframeEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // After iframe load/reload, HTML resets to slide 1; re-apply the sidebar's active slide.
+  // Without this, tab "02" can be selected while the preview still shows frame 1 (or blank if go(NaN) ran).
+  useEffect(() => {
+    if (!iframeEl || !carouselMode || !selectedIterationId) return;
+    const syncCarouselSlide = () => {
+      const slide = useEditorStore.getState().activeCarouselSlide;
+      iframeEl.contentWindow?.postMessage({ type: 'setSlide', slide }, '*');
+    };
+    iframeEl.addEventListener('load', syncCarouselSlide);
+    if (iframeEl.contentDocument?.readyState === 'complete') {
+      syncCarouselSlide();
+    }
+    return () => iframeEl.removeEventListener('load', syncCarouselSlide);
+  }, [iframeEl, carouselMode, selectedIterationId]);
+
   // Empty state — nothing selected
   if (!iteration) {
     return (
@@ -195,10 +243,12 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
       <div style={artboardSelectionActive ? { ...styles.header, ...styles.headerCompact } : styles.header}>
         <div style={styles.headerInfo}>
           <span style={styles.iterationLabel}>
-            {iteration.source === 'template' ? 'Template' : 'AI Generated'}
-            {artboardSelectionActive && iteration.templateId
-              ? ` · ${iteration.templateId}`
-              : null}
+            {carouselMode && !artboardSelectionActive
+              ? `Slide ${String(activeCarouselSlide).padStart(2, '0')}`
+              : iteration.source === 'template'
+                ? 'Template'
+                : 'AI Generated'}
+            {artboardSelectionActive && iteration.templateId ? ` · ${iteration.templateId}` : null}
           </span>
           {!artboardSelectionActive && iteration.templateId && (
             <span style={styles.templateId}>{iteration.templateId}</span>
@@ -282,7 +332,6 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
                         assetWidth={slotSchema.width}
                         assetHeight={slotSchema.height}
                         iframeEl={iframeEl}
-                        layoutOnly
                       />
                     </div>
                   </div>
@@ -304,23 +353,27 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
         </div>
       )}
 
-      {/* Full slot list — hidden while a layer is selected so the sidebar is only that object’s inspector. */}
+      {/* Slot fields for active slide — hidden while a layer is picked */}
       {!artboardSelectionActive && (
         <div style={styles.fieldsContainer}>
           {slotSchema == null ? (
             <div style={styles.noSchema}>
               No editable slots available for this asset.
             </div>
-          ) : slotSchema.fields.length === 0 ? (
+          ) : visibleFields.length === 0 ? (
             <div style={styles.noSchema}>
-              No editable fields defined in the slot schema.
+              No fields for this slide.
             </div>
           ) : (
             <>
               <div style={styles.sectionLabel}>Content</div>
-              {slotSchema.fields.map((field, index) => (
+              {visibleFields.map((field, index) => (
                 <SlotField
-                  key={field.type === 'divider' ? `divider-${index}` : field.sel}
+                  key={
+                    field.type === 'divider'
+                      ? `divider-${activeCarouselSlide}-${index}`
+                      : `${field.sel}-${index}`
+                  }
                   field={field}
                   contentTargetSel={contentTargetSel}
                   contentPickEpoch={contentPickEpoch}
@@ -328,6 +381,24 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
               ))}
             </>
           )}
+        </div>
+      )}
+
+      {/* Schema brush / transform — when not in artboard pick mode */}
+      {slotSchema?.brush && showBrush && !artboardSelectionActive && (
+        <div style={styles.section}>
+          <div style={styles.sectionLabel}>
+            {slotSchema.brushLabel
+              ? slotSchema.brushLabel.charAt(0).toUpperCase() + slotSchema.brushLabel.slice(1)
+              : 'Transform'}
+          </div>
+          <BrushTransform
+            brushSel={slotSchema.brush}
+            brushLabel={slotSchema.brushLabel}
+            assetWidth={slotSchema.width}
+            assetHeight={slotSchema.height}
+            iframeEl={iframeEl}
+          />
         </div>
       )}
 
@@ -353,15 +424,6 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
       )}
     </div>
   );
-}
-
-function statusColor(status: Iteration['status']): string {
-  switch (status) {
-    case 'winner': return 'rgba(34, 197, 94, 0.2)';
-    case 'rejected': return 'rgba(239, 68, 68, 0.2)';
-    case 'final': return 'rgba(68, 178, 255, 0.2)';
-    default: return 'rgba(100, 100, 120, 0.2)';
-  }
 }
 
 /* ── Styles ─────────────────────────────────────────────────────────────── */
@@ -402,17 +464,19 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '0.1em',
   },
   templateId: {
-    fontSize: '0.65rem',
-    color: '#555',
+    fontSize: '0.72rem',
+    color: '#aaa',
+    fontFamily: 'ui-monospace, monospace',
   },
   statusBadge: {
-    fontSize: '0.65rem',
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 10,
+    fontSize: '0.62rem',
+    fontWeight: 700,
     textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    color: '#ccc',
+    letterSpacing: '0.06em',
+    padding: '4px 8px',
+    borderRadius: 4,
+    color: '#e8e8e8',
+    flexShrink: 0,
   },
   section: {
     marginBottom: '1rem',

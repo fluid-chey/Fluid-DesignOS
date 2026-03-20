@@ -13,6 +13,7 @@ import {
   getCreations,
   createSlide,
   getSlides,
+  getSlideById,
   createIteration,
   getIterations,
   updateIterationStatus,
@@ -1203,15 +1204,27 @@ export function fluidWatcherPlugin(): Plugin {
           // GET /api/slides/:id/iterations
           const slideIterationsMatch = url.match(/^\/api\/slides\/([^/]+)\/iterations$/);
           if (slideIterationsMatch && method === 'GET') {
-            const iterations = getIterations(slideIterationsMatch[1]);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(iterations));
+            try {
+              const iterations = getIterations(slideIterationsMatch[1]);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(iterations));
+            } catch (err) {
+              console.error('[watcher] GET /api/slides/:id/iterations failed:', err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Failed to load iterations', detail: err instanceof Error ? err.message : String(err) }));
+            }
             return;
           }
 
           // POST /api/slides/:id/iterations
           if (slideIterationsMatch && method === 'POST') {
             try {
+              const targetSlideId = slideIterationsMatch[1];
+              if (!getSlideById(targetSlideId)) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Slide not found', slideId: targetSlideId }));
+                return;
+              }
               const rawBody = await readBody(req);
               const body = JSON.parse(rawBody);
               if (body.iterationIndex == null || !body.htmlPath || !body.source) {
@@ -1219,7 +1232,6 @@ export function fluidWatcherPlugin(): Plugin {
                 res.end(JSON.stringify({ error: 'iterationIndex, htmlPath, and source are required' }));
                 return;
               }
-              const targetSlideId = slideIterationsMatch[1];
               console.log(`[api] Creating iteration for slide ${targetSlideId}`);
               const iteration = createIteration({
                 slideId: targetSlideId,
@@ -1539,6 +1551,15 @@ export function fluidWatcherPlugin(): Plugin {
                 'var TX_PREFIX="__transform__:";var TB_PREFIX="__textbox__:";' +
                 'for(var sel in initial){' +
                 'var v=initial[sel];' +
+                'if(sel==="__brushTransform__"){' +
+                'try{' +
+                'var tmap=typeof v==="string"?JSON.parse(v):v;' +
+                'for(var bsel in tmap){' +
+                'var bel=document.querySelector(bsel);' +
+                'if(bel&&bel.style){bel.style.transformOrigin="50% 50%";bel.style.transform=tmap[bsel]||"";}' +
+                '}' +
+                '}catch(_){}' +
+                'continue;}' +
                 'if(sel.indexOf(TX_PREFIX)===0){' +
                 'var tsel=sel.substring(TX_PREFIX.length);' +
                 'var tel=document.querySelector(tsel);' +
@@ -1709,8 +1730,7 @@ export function fluidWatcherPlugin(): Plugin {
                 '}' +
                 'el.style.transform=d.transform||"";el.style.transformOrigin="50% 50%";' +
                 '}' +
-                '}' +
-                'else if(d.mode==="br"){' +
+                '}else if(d.mode==="br"){' +
                 'var x=document.createElement("div");x.textContent=d.value;' +
                 'el.innerHTML=x.innerHTML.replace(/\\n/g,"<br>");' +
                 '}else{el.textContent=d.value;}' +

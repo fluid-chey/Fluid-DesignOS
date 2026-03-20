@@ -6,7 +6,6 @@
  * the iframe to navigate to that frame.
  */
 
-import { useState } from 'react';
 import { useEditorStore } from '../store/editor';
 
 interface CarouselSelectorProps {
@@ -16,14 +15,14 @@ interface CarouselSelectorProps {
 }
 
 export function CarouselSelector({ carouselCount, iframeEl }: CarouselSelectorProps) {
-  const { iframeRef } = useEditorStore();
-  const [activeSlide, setActiveSlide] = useState(1);
+  const { iframeRef, activeCarouselSlide, setActiveCarouselSlide } = useEditorStore();
 
   const navigateToSlide = (slideIndex: number) => {
-    setActiveSlide(slideIndex);
+    const n = Math.max(1, Math.floor(Number(slideIndex)) || 1);
+    setActiveCarouselSlide(n);
     const targetWindow = (iframeRef ?? iframeEl)?.contentWindow;
     if (targetWindow) {
-      targetWindow.postMessage({ type: 'setSlide', slide: slideIndex }, '*');
+      targetWindow.postMessage({ type: 'setSlide', slide: n }, '*');
     }
   };
 
@@ -35,7 +34,7 @@ export function CarouselSelector({ carouselCount, iframeEl }: CarouselSelectorPr
       <div style={styles.tabs}>
         {Array.from({ length: carouselCount }, (_, i) => {
           const slideNum = i + 1;
-          const isActive = activeSlide === slideNum;
+          const isActive = activeCarouselSlide === slideNum;
           return (
             <button
               key={slideNum}

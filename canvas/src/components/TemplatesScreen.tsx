@@ -82,16 +82,25 @@ function Chip({ label, variant }: { label: string; variant: string }) {
 // Download ZIP helper
 // ─────────────────────────────────────────────────────────────────────────────
 
+const JSZIP_CDN = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+
+async function loadJSZip(): Promise<void> {
+  if ((window as any).JSZip) return;
+  return new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = JSZIP_CDN;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load JSZip'));
+    document.head.appendChild(script);
+  });
+}
+
 async function downloadTemplateZip(templatePath: string, templateName: string) {
-  // Dynamically load JSZip from the templates directory
-  if (!(window as any).JSZip) {
-    await new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = '/templates/jszip.min.js';
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load JSZip'));
-      document.head.appendChild(script);
-    });
+  try {
+    await loadJSZip();
+  } catch (e) {
+    console.error('Download ZIP: could not load JSZip', e);
+    throw new Error('Could not load ZIP library. Check your connection and try again.');
   }
   const JSZip = (window as any).JSZip;
   const zip = new JSZip();
@@ -225,7 +234,8 @@ function TemplatePreview({
   const previewScale = Math.min(innerW / layoutDims.iw, innerH / layoutDims.ih);
 
   const handleEditTemplate = () => {
-    window.parent.postMessage({ type: 'editTemplate', templateId }, '*');
+    // Post to same window so App's message listener receives it (TemplatesScreen is in main viewport, not an iframe)
+    window.postMessage({ type: 'editTemplate', templateId }, '*');
     setDropdownOpen(false);
   };
 

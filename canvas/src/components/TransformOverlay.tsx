@@ -415,8 +415,8 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
         const edgeY = collectSnapEdgeLinesY(doc, iframeEl, snapTargetSels, sel, artboardH);
         const widthTargets = collectSnapWidths(doc, iframeEl, snapTargetSels, sel, artboardW);
         const heightTargets = collectSnapHeights(doc, iframeEl, snapTargetSels, sel, artboardH);
-        const cxL = d.scaleLayoutCX;
-        const cyL = d.scaleLayoutCY;
+        const cxL = d.scaleLayoutCX!;
+        const cyL = d.scaleLayoutCY!;
 
         if (mode === 'se') {
           nSx = snapScaleSx(d.nW, nSx, cxL, 'east', widthTargets, edgeX, th, MIN_SCL);

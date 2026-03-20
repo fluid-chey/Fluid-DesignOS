@@ -9,6 +9,7 @@ import { textBoxFontPostMessage } from './textbox-typography';
 /** Keep in sync with store/editor.ts — duplicated here to avoid circular imports */
 const TX_PREFIX = '__transform__:';
 const TB_PREFIX = '__textbox__:';
+const BRUSH_BLOB_KEY = '__brushTransform__';
 
 export const MAX_UNDO = 50;
 export const HISTORY_DEBOUNCE_MS = 350;
@@ -106,17 +107,20 @@ function collectAllKeys(
  */
 function sortKeysForIframeApply(keys: readonly string[]): string[] {
   const plain: string[] = [];
+  const brushBlob: string[] = [];
   const tx: string[] = [];
   const tb: string[] = [];
   for (const k of keys) {
-    if (k.startsWith(TX_PREFIX)) tx.push(k);
+    if (k === BRUSH_BLOB_KEY) brushBlob.push(k);
+    else if (k.startsWith(TX_PREFIX)) tx.push(k);
     else if (k.startsWith(TB_PREFIX)) tb.push(k);
     else plain.push(k);
   }
   plain.sort((a, b) => a.localeCompare(b));
   tx.sort((a, b) => a.localeCompare(b));
   tb.sort((a, b) => a.localeCompare(b));
-  return [...plain, ...tx, ...tb];
+  // Content → brush blob → per-element transforms → text boxes
+  return [...plain, ...brushBlob, ...tx, ...tb];
 }
 
 function textBoxJsonHasActiveFont(raw: string | undefined): boolean {
@@ -150,6 +154,24 @@ export function applySlotValuesToIframe(
   const keys = sortKeysForIframeApply(collectAllKeys(target, previous, schema));
 
   for (const key of keys) {
+    if (key === BRUSH_BLOB_KEY) {
+      const raw = target[key];
+      try {
+        const map =
+          typeof raw === 'string' ? (JSON.parse(raw) as Record<string, string>) : (raw as Record<string, string>);
+        if (map && typeof map === 'object') {
+          for (const [sel, transform] of Object.entries(map)) {
+            if (typeof transform === 'string') {
+              win.postMessage({ type: 'tmpl', sel, action: 'transform', transform }, '*');
+            }
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
     if (key.startsWith(TX_PREFIX)) {
       const sel = key.slice(TX_PREFIX.length);
       const transform = target[key] ?? '';

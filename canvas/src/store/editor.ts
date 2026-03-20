@@ -58,6 +58,9 @@ export interface PickedLayoutTarget {
   kind: TransformTargetKind;
 }
 
+/** JSON map of brush selector → CSS transform string; persisted in userState */
+export const BRUSH_TRANSFORM_STATE_KEY = '__brushTransform__';
+
 interface EditorStore {
   /** Currently selected iteration ID (null = nothing selected) */
   selectedIterationId: string | null;
@@ -74,6 +77,8 @@ interface EditorStore {
   isDirty: boolean;
   /** Reference to the active iframe for postMessage communication */
   iframeRef: HTMLIFrameElement | null;
+  /** 1-based slide index for carousels (properties panel + iframe sync) */
+  activeCarouselSlide: number;
 
   /**
    * Element selected in the preview (click-to-pick).
@@ -101,6 +106,10 @@ interface EditorStore {
    */
   updateElementTransform: (sel: string, transform: string) => void;
   /**
+   * Brush / overlay transforms persisted in `__brushTransform__` JSON map (selector → CSS string).
+   */
+  patchBrushTransform: (sel: string, transform: string) => void;
+  /**
    * Text fields: width/height and optional left/top in layout px, optional text align.
    * w: null = hug content (Figma-style “Hug”); number = fixed width. Clears saved transform for this sel.
    * Partial updates merge with existing `__textbox__` JSON (e.g. overlay resize keeps align).
@@ -125,6 +134,8 @@ interface EditorStore {
   redo: () => void;
   /** Restore slot values to last load / last save snapshot */
   resetToBaseline: () => void;
+  /** Carousel slide tabs — updates state and should pair with postMessage setSlide */
+  setActiveCarouselSlide: (slide: number) => void;
   /** Reset all editor state */
   clearSelection: () => void;
 }
@@ -166,6 +177,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   redoStack: [],
   isDirty: false,
   iframeRef: null,
+  activeCarouselSlide: 1,
   pickedTransform: null,
 
   setPickedTransform: (target) => {
@@ -184,6 +196,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const schema = iteration.slotSchema as SlotSchema | null;
       const values = extractSlotValues(iteration);
       const baseline = structuredClone(values);
+      // Do not reset activeCarouselSlide — keep it aligned with the creation’s active slide
+      // (App sync). Resetting to 1 left the iframe on slide 1 while editing slide 2+.
       set({
         selectedIterationId: id,
         slotSchema: schema,
@@ -483,6 +497,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     const s2 = get();
     if (s2.undoStack.length === 0) return;
+    const win = s2.iframeRef?.contentWindow;
+    if (!win) return;
     clearHistoryDebounceSchedule();
     const prev = s2.undoStack[s2.undoStack.length - 1]!;
     const newPast = s2.undoStack.slice(0, -1);
@@ -495,8 +511,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       isDirty: !slotMapsEqual(next, s2.baselineSlotValues),
       pickedTransform: null,
     });
-    applySlotValuesToIframe(next, current, s2.slotSchema, s2.iframeRef.contentWindow);
-    s2.iframeRef.contentWindow.postMessage({ type: 'fluidClearPick' }, '*');
+    applySlotValuesToIframe(next, current, s2.slotSchema, win);
+    win.postMessage({ type: 'fluidClearPick' }, '*');
   },
 
   redo: () => {
@@ -518,6 +534,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     const s2 = get();
     if (s2.redoStack.length === 0) return;
+    const win = s2.iframeRef?.contentWindow;
+    if (!win) return;
     clearHistoryDebounceSchedule();
     const forward = s2.redoStack[s2.redoStack.length - 1]!;
     const newFut = s2.redoStack.slice(0, -1);
@@ -530,8 +548,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       isDirty: !slotMapsEqual(next, s2.baselineSlotValues),
       pickedTransform: null,
     });
-    applySlotValuesToIframe(next, current, s2.slotSchema, s2.iframeRef.contentWindow);
-    s2.iframeRef.contentWindow.postMessage({ type: 'fluidClearPick' }, '*');
+    applySlotValuesToIframe(next, current, s2.slotSchema, win);
+    win.postMessage({ type: 'fluidClearPick' }, '*');
   },
 
   resetToBaseline: () => {
@@ -550,6 +568,39 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     });
     applySlotValuesToIframe(baseline, current, s.slotSchema, s.iframeRef.contentWindow);
     s.iframeRef.contentWindow.postMessage({ type: 'fluidClearPick' }, '*');
+  },
+
+  patchBrushTransform: (sel: string, transform: string) => {
+    const before = structuredClone(get().slotValues);
+    set((state) => {
+      let map: Record<string, string> = {};
+      try {
+        map = JSON.parse(state.slotValues[BRUSH_TRANSFORM_STATE_KEY] || '{}') as Record<string, string>;
+      } catch {
+        map = {};
+      }
+      map[sel] = transform;
+      return {
+        slotValues: { ...state.slotValues, [BRUSH_TRANSFORM_STATE_KEY]: JSON.stringify(map) },
+        isDirty: true,
+      };
+    });
+    scheduleUndoSnapshot(before, (snapshot) => {
+      const after = get().slotValues;
+      if (!slotMapsEqual(snapshot, after)) {
+        set((st) => ({
+          undoStack: [...st.undoStack, snapshot].slice(-MAX_UNDO),
+          redoStack: [],
+        }));
+      }
+    });
+    const { iframeRef } = get();
+    if (iframeRef?.contentWindow) {
+      iframeRef.contentWindow.postMessage(
+        { type: 'tmpl', sel, action: 'transform', transform },
+        '*'
+      );
+    }
   },
 
   saveUserState: async () => {
@@ -584,6 +635,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set({ iframeRef: ref });
   },
 
+  setActiveCarouselSlide: (slide: number) => {
+    set({ activeCarouselSlide: Math.max(1, slide) });
+  },
+
   clearSelection: () => {
     clearHistoryDebounceSchedule();
     set({
@@ -596,6 +651,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       isDirty: false,
       iframeRef: null,
       pickedTransform: null,
+      activeCarouselSlide: 1,
     });
   },
 }));

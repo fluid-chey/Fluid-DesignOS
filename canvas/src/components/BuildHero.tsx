@@ -50,10 +50,11 @@ const VIDEO_FORMATS = [
   { id: 'video', label: 'Video' },
 ] as const;
 
+type VideoFormatTag = 'story' | 'video';
 const VIDEO_DIMENSIONS = [
-  { id: '1080-1920', dimensions: '1080×1920', sublabel: 'Story / Reel / TikTok', formats: ['story', 'video'] as const },
-  { id: '1920-1080', dimensions: '1920×1080', sublabel: 'Landscape', formats: ['video'] as const },
-  { id: '1080-1080', dimensions: '1080×1080', sublabel: 'Square', formats: ['video'] as const },
+  { id: '1080-1920', dimensions: '1080×1920', sublabel: 'Story / Reel / TikTok', formats: ['story', 'video'] as VideoFormatTag[] },
+  { id: '1920-1080', dimensions: '1920×1080', sublabel: 'Landscape', formats: ['video'] as VideoFormatTag[] },
+  { id: '1080-1080', dimensions: '1080×1080', sublabel: 'Square', formats: ['video'] as VideoFormatTag[] },
 ] as const;
 
 const SUGGESTIONS = [
@@ -341,7 +342,7 @@ export function BuildHero() {
   }, []);
 
   const videoDimensionsForFormat = VIDEO_DIMENSIONS.filter((d) =>
-    d.formats.includes(videoFormatId as 'story' | 'video')
+    (d.formats as readonly VideoFormatTag[]).includes(videoFormatId as VideoFormatTag)
   );
   useEffect(() => {
     if (videoFormatId === 'story' && videoDimensionId !== '1080-1920') {
@@ -359,7 +360,11 @@ export function BuildHero() {
   const isVideo = creationTypeId === 'instagram-story';
 
   const ideasAssets = useMemo(
-    () => [...selectedDamAssets, ...savedAssets],
+    () =>
+      [...selectedDamAssets, ...savedAssets].map((a) => ({
+        ...a,
+        name: a.name ?? undefined,
+      })),
     [selectedDamAssets, savedAssets]
   );
 
@@ -617,11 +622,6 @@ export function BuildHero() {
                         }}
                       >
                         <span style={{ display: 'block' }}>{opt.label}</span>
-                        {opt.sublabel && (
-                          <span style={{ display: 'block', fontSize: '0.75rem', color: TEXT_SECONDARY, marginTop: 2 }}>
-                            {opt.sublabel}
-                          </span>
-                        )}
                       </button>
                     );
                   })}

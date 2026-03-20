@@ -7,7 +7,7 @@ interface TemplateCustomizerProps {
   template: TemplateMetadata;
   campaignId: string;
   onBack: () => void;
-  /** Called with campaignId, creationId, and iterationId after the creation+slide+iteration are created (so app can open edit mode). */
+  /** Called with campaignId, creationId, and iterationId after the creation+slide(s)+iteration(s) are created (so app can open edit mode). */
   onCreated: (campaignId: string, creationId: string, iterationId: string) => void;
 }
 
@@ -43,49 +43,57 @@ export function TemplateCustomizer({ template, campaignId, onBack, onCreated }: 
     setError(null);
 
     try {
-      // 1. Create the creation
+      const slotSchema = getTemplateSchema(template.templateId);
+      const htmlPath = `templates/${template.templateId}.html`;
+      const slideCount = (slotSchema && 'carouselCount' in slotSchema && typeof (slotSchema as { carouselCount?: number }).carouselCount === 'number' && (slotSchema as { carouselCount: number }).carouselCount > 0)
+        ? (slotSchema as { carouselCount: number }).carouselCount
+        : 1;
+
+      let firstIterationId: string | null = null;
+
+      // 1. Create the creation (with correct slide count for carousels)
       const creationRes = await fetch(`/api/campaigns/${campaignId}/creations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
           creationType: template.platform,
-          slideCount: 1,
+          slideCount,
         }),
       });
       if (!creationRes.ok) throw new Error(`Failed to create creation: ${creationRes.status}`);
       const creation = await creationRes.json();
 
-      // 2. Create slide 0
-      const slideRes = await fetch(`/api/creations/${creation.id}/slides`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slideIndex: 0 }),
-      });
-      if (!slideRes.ok) throw new Error(`Failed to create slide: ${slideRes.status}`);
-      const slide = await slideRes.json();
+      // 2. Create slide(s) and one iteration per slide
+      for (let i = 0; i < slideCount; i++) {
+        const slideRes = await fetch(`/api/creations/${creation.id}/slides`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slideIndex: i }),
+        });
+        if (!slideRes.ok) throw new Error(`Failed to create slide: ${slideRes.status}`);
+        const slide = await slideRes.json();
+        if (!slide?.id) throw new Error('Invalid slide response from server');
 
-      // 3. Create the iteration with slotSchema from template config
-      const slotSchema = getTemplateSchema(template.templateId);
-      const htmlPath = `templates/${template.templateId}.html`;
+        const iterRes = await fetch(`/api/slides/${slide.id}/iterations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            iterationIndex: 0,
+            htmlPath,
+            source: 'template',
+            templateId: template.templateId,
+            slotSchema: slotSchema ?? null,
+            aiBaseline: null,
+          }),
+        });
+        if (!iterRes.ok) throw new Error(`Failed to create iteration: ${iterRes.status}`);
+        const iterData = await iterRes.json();
+        if (firstIterationId === null && iterData?.id) firstIterationId = iterData.id;
+      }
 
-      const iterRes = await fetch(`/api/slides/${slide.id}/iterations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          iterationIndex: 0,
-          htmlPath,
-          source: 'template',
-          templateId: template.templateId,
-          slotSchema: slotSchema ?? null,
-          aiBaseline: null,
-        }),
-      });
-      if (!iterRes.ok) throw new Error(`Failed to create iteration: ${iterRes.status}`);
-      const iteration = await iterRes.json();
-
-      // 4. Notify app so it can navigate to campaign, creation, and open this iteration in edit mode
-      onCreated(campaignId, creation.id, iteration.id);
+      // 3. Notify app so it can navigate to campaign, creation, and open the first iteration in edit mode
+      onCreated(campaignId, creation.id, firstIterationId!);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create creation');
       setCreating(false);
