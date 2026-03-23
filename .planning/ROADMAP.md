@@ -385,7 +385,7 @@ Plans:
 **Goal:** Collaborative research phase. User curates high-performing real social posts as references; we deconstruct them into structural patterns and design a brandless archetype system. Deliverables: (1) Define the archetype format spec — HTML with CSS-class-based slots + schema.json (SlotSchema format matching canvas/src/lib/slot-schema.ts) + README documentation. CRITICAL: must check Jonathan's latest merged element-repositioning changes to ensure schema parity with current template system. (2) Define the design component library — brandless reusable primitives (stat-card, image-block, quote-block, chart-bar, metric-row, CTA-pill, event-details, avatar-attribution, etc.), each with HTML structure + partial schema. (3) Document each component and archetype with usage guidance (what it's for, what content fits, when to use it). (4) Research-based: archetypes derived from real high-performing posts, not invented. User drives curation, agent deconstructs structure.
 **Requirements**: TBD
 **Depends on:** Phase 17
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 18-01-PLAN.md — Directory scaffolding, archetype format spec (SPEC.md), research framework setup

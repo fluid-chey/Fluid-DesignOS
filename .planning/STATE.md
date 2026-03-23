@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 18-02-PLAN.md
-last_updated: "2026-03-23T22:28:09.189Z"
+stopped_at: Completed 18-03-PLAN.md
+last_updated: "2026-03-23T22:49:56.437Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 25
-  completed_phases: 18
+  completed_phases: 19
   total_plans: 67
-  completed_plans: 66
+  completed_plans: 67
   percent: 100
 ---
 
@@ -105,6 +105,7 @@ Progress: [████████████████████] 100% (1
 | Phase 17-pipeline-quick-fixes P01 | 3min | 2 tasks | 3 files |
 | Phase 18-archetype-system-research-and-component-design P01 | 4min | 2 tasks | 4 files |
 | Phase 18-archetype-system-research-and-component-design P02 | 3min | 2 tasks | 16 files |
+| Phase 18-archetype-system-research-and-component-design P03 | 25min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -280,6 +281,9 @@ Recent decisions affecting current work:
 - [Phase 18-01]: Components are patterns not runtime includes — Phase 19 archetypes define full schemas independently; components/README.md is documentation only, no composable schema system
 - [Phase 18-archetype-system-research-and-component-design]: Component pattern.html files use body-level flexbox (not position:absolute) since they are isolated previews, not archetype skeletons — archetypes use absolute positioning per SPEC.md
 - [Phase 18-02]: body-text uses mode:pre in SlotSchema so agents can write line-breaking copy without relying solely on browser word wrap
+- [Phase 18-03]: Category/side-label slot omitted from archetype — vertical side label is a Fluid brand convention applied by brand layer at generation time, not a structural layout element
+- [Phase 18-03]: No text-transform: uppercase in archetype CSS — casing is a brand decision applied at generation time, not baked into structural skeleton
+- [Phase 18-03]: editor.html committed as permanent archetype artifact — interactive drag-and-drop positioning tool ships alongside index.html for future position tuning
 
 ### Parallel Development Note
 
@@ -319,6 +323,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-23T22:28:09.186Z
-Stopped at: Completed 18-02-PLAN.md
+Last session: 2026-03-23T22:49:51.315Z
+Stopped at: Completed 18-03-PLAN.md
 Resume file: None
