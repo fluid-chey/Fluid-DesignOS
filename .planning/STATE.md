@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 18 context gathered
-last_updated: "2026-03-23T21:24:10.184Z"
-last_activity: 2026-03-23 -- Phase 17 complete (pipeline quick fixes — prompt rules, compliance validators, watcher path resolution)
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-03-23T22:21:50.205Z"
+last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
-  total_phases: 26
-  completed_phases: 20
+  total_phases: 25
+  completed_phases: 18
   total_plans: 67
-  completed_plans: 64
+  completed_plans: 65
   percent: 100
 ---
 
@@ -103,6 +103,7 @@ Progress: [████████████████████] 100% (1
 | Phase 16-smart-context-pipeline P01 | 4min | 2 tasks | 6 files |
 | Phase 16-smart-context-pipeline P02 | 4min | 2 tasks | 5 files |
 | Phase 17-pipeline-quick-fixes P01 | 3min | 2 tasks | 3 files |
+| Phase 18-archetype-system-research-and-component-design P01 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -273,6 +274,9 @@ Recent decisions affecting current work:
 - [Phase 17-pipeline-quick-fixes]: System-invariant rules (word limits, inline styles ban, decorative elements, circle emphasis, font fallbacks) live in prompt builders in code, not DB — avoids extractHardRules cache invalidation issues
 - [Phase 17-pipeline-quick-fixes]: font-non-brand-family removed from MICRO_FIXABLE_RULES — font violations escalate to full fix loop (styling agent), not regex replacement
 - [Phase 17-pipeline-quick-fixes]: Font enforcement seeded as brand pattern (weight: 90, slug: font-enforcement) so extractHardRules picks it up at runtime
+- [Phase 18-01]: archetypeId (not templateId) avoids incorrect resolution in resolveSlotSchemaForIteration() which keys into TEMPLATE_SCHEMAS by templateId
+- [Phase 18-01]: brush: null in all archetype schemas — brand layer owns all decorative brush selectors and merges them into final iteration SlotSchema at generation time
+- [Phase 18-01]: Components are patterns not runtime includes — Phase 19 archetypes define full schemas independently; components/README.md is documentation only, no composable schema system
 
 ### Parallel Development Note
 
@@ -312,6 +316,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-23T21:24:10.184Z
-Stopped at: Phase 18 context gathered
-Resume file: .planning/phases/18-archetype-system-research-and-component-design/18-CONTEXT.md
+Last session: 2026-03-23T22:21:50.202Z
+Stopped at: Completed 18-01-PLAN.md
+Resume file: None
