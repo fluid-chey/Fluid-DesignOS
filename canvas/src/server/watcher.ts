@@ -360,6 +360,7 @@ export function fluidWatcherPlugin(): Plugin {
           });
           res.end(data);
         } catch {
+          console.error(`[watcher] Brand asset file not found: ${fullPath} (DB file_path: ${asset.file_path})`);
           res.writeHead(404, { 'Content-Type': 'text/plain' });
           res.end('Asset file not found on disk');
         }
@@ -1376,7 +1377,28 @@ export function fluidWatcherPlugin(): Plugin {
               try { await fs.access(fallbackPath); templatePath = fallbackPath; found = true; } catch { /* noop */ }
             }
 
+            // Strategy 5: strip leading .fluid/ prefix and resolve from fluidDir
+            if (!found && row.html_path.startsWith('.fluid/')) {
+              const strippedPath = row.html_path.replace(/^\.fluid\//, '');
+              const stripped = path.resolve(fluidDir, strippedPath);
+              try { await fs.access(stripped); templatePath = stripped; found = true; } catch { /* noop */ }
+            }
+
+            // Strategy 6: strip leading .fluid/ and resolve from projectRoot/.fluid/
+            if (!found && row.html_path.startsWith('.fluid/')) {
+              const fromRoot = path.resolve(projectRoot, row.html_path);
+              try { await fs.access(fromRoot); templatePath = fromRoot; found = true; } catch { /* noop */ }
+            }
+
             if (!found) {
+              const tried = [
+                `stored: ${path.resolve(projectRoot, row.html_path)}`,
+                `fluid: ${path.resolve(fluidDir, row.html_path)}`,
+                `canonical: .fluid/campaigns/.../${iterationId}.html`,
+                `template: ${path.join(socialTemplatesDir, path.basename(row.html_path))}`,
+                ...(row.html_path.startsWith('.fluid/') ? [`stripped: ${path.resolve(fluidDir, row.html_path.replace(/^\.fluid\//, ''))}`] : []),
+              ];
+              console.error(`[watcher] Iteration ${iterationId} html_path="${row.html_path}" — tried ${tried.length} strategies, none found:\n  ${tried.join('\n  ')}`);
               res.writeHead(404, { 'Content-Type': 'text/plain' });
               res.end(`HTML file not found on disk (tried: stored="${row.html_path}", canonical=.fluid/campaigns/.../${iterationId}.html)`);
               return;
@@ -1748,7 +1770,8 @@ export function fluidWatcherPlugin(): Plugin {
               html = html.replace('</body>', listenerScript + '</body>');
               res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
               res.end(html);
-            } catch {
+            } catch (err) {
+              console.error(`[watcher] fs.readFile failed for iteration ${iterationId} at ${templatePath}:`, err);
               res.writeHead(404, { 'Content-Type': 'text/plain' });
               res.end('HTML file not found on disk');
             }
