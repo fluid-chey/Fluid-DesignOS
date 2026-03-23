@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-23T22:21:50.205Z"
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-03-23T22:28:09.189Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 25
   completed_phases: 18
   total_plans: 67
-  completed_plans: 65
+  completed_plans: 66
   percent: 100
 ---
 
@@ -104,6 +104,7 @@ Progress: [████████████████████] 100% (1
 | Phase 16-smart-context-pipeline P02 | 4min | 2 tasks | 5 files |
 | Phase 17-pipeline-quick-fixes P01 | 3min | 2 tasks | 3 files |
 | Phase 18-archetype-system-research-and-component-design P01 | 4min | 2 tasks | 4 files |
+| Phase 18-archetype-system-research-and-component-design P02 | 3min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -277,6 +278,8 @@ Recent decisions affecting current work:
 - [Phase 18-01]: archetypeId (not templateId) avoids incorrect resolution in resolveSlotSchemaForIteration() which keys into TEMPLATE_SCHEMAS by templateId
 - [Phase 18-01]: brush: null in all archetype schemas — brand layer owns all decorative brush selectors and merges them into final iteration SlotSchema at generation time
 - [Phase 18-01]: Components are patterns not runtime includes — Phase 19 archetypes define full schemas independently; components/README.md is documentation only, no composable schema system
+- [Phase 18-archetype-system-research-and-component-design]: Component pattern.html files use body-level flexbox (not position:absolute) since they are isolated previews, not archetype skeletons — archetypes use absolute positioning per SPEC.md
+- [Phase 18-02]: body-text uses mode:pre in SlotSchema so agents can write line-breaking copy without relying solely on browser word wrap
 
 ### Parallel Development Note
 
@@ -316,6 +319,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-23T22:21:50.202Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-03-23T22:28:09.186Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
