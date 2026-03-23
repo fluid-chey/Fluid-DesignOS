@@ -34,7 +34,7 @@ const BASE_RULES = {
     ],
   },
   fonts: {
-    social_families: ['NeueHaasDisplay', 'NeueHaas', 'FLFont', 'flfontbold', 'Inter'],
+    social_families: ['NeueHaasDisplay', 'NeueHaas', 'FLFont', 'flfontbold'],
     website_families: ['Syne', 'DM Sans', 'Space Mono', 'Inter', 'NeueHaasDisplay', 'NeueHaas', 'FLFont', 'flfontbold'],
     allowed_families: ['NeueHaasDisplay', 'NeueHaas', 'FLFont', 'flfontbold', 'Inter', 'Syne', 'DM Sans', 'Space Mono'],
   },
@@ -43,6 +43,7 @@ const BASE_RULES = {
 
 function loadRulesFromDb() {
   let extraHex = new Set();
+  let dbFontNames = [];
 
   try {
     const Database = require('better-sqlite3');
@@ -58,6 +59,14 @@ function loadRulesFromDb() {
       const matches = p.html_snippet.match(/#[0-9A-Fa-f]{6}\b/g);
       if (matches) matches.forEach(m => extraHex.add(m.toUpperCase()));
     }
+
+    // Load font names from brand_assets to build dynamic allowlist
+    try {
+      const fontAssets = db.prepare(
+        "SELECT name FROM brand_assets WHERE category = 'fonts' AND (dam_deleted = 0 OR dam_deleted IS NULL)"
+      ).all();
+      dbFontNames = fontAssets.map(a => a.name);
+    } catch { /* fallback to hardcoded list */ }
 
     db.close();
   } catch (err) {
@@ -88,9 +97,9 @@ function loadRulesFromDb() {
       allowed_rgba_patterns: BASE_RULES.colors.allowed_rgba_patterns,
     },
     fonts: {
-      allowed_families: BASE_RULES.fonts.allowed_families,
-      social_families: BASE_RULES.fonts.social_families,
-      website_families: BASE_RULES.fonts.website_families,
+      allowed_families: dbFontNames.length > 0 ? dbFontNames : BASE_RULES.fonts.allowed_families,
+      social_families: dbFontNames.length > 0 ? dbFontNames : BASE_RULES.fonts.social_families,
+      website_families: dbFontNames.length > 0 ? [...dbFontNames, 'Syne', 'DM Sans', 'Space Mono'] : BASE_RULES.fonts.website_families,
     },
     thresholds: BASE_RULES.thresholds,
   };
