@@ -62,7 +62,15 @@ export interface PipelineContext {
   htmlOutputPath: string; // absolute path where final HTML goes
   creationId: string;
   campaignId: string;
+  iterationId: string; // DB iteration ID — needed for SlotSchema attachment
   brandName?: string;  // Loaded from DB at pipeline entry; prompts use "the brand" if absent
+}
+
+export interface ArchetypeMeta {
+  slug: string;
+  description: string;   // first non-heading, non-metadata paragraph line from README.md
+  htmlPath: string;      // absolute path to archetypes/{slug}/index.html
+  schemaPath: string;    // absolute path to archetypes/{slug}/schema.json
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +357,98 @@ const ARCHETYPE_TEMPLATE_FILES: Record<string, string> = {
 
 /** Default archetype when copy stage doesn't specify one */
 const DEFAULT_ARCHETYPE = 'problem-first';
+
+// ---------------------------------------------------------------------------
+// Archetype filesystem directory
+// ---------------------------------------------------------------------------
+const ARCHETYPES_DIR = path.join(PROJECT_ROOT, 'archetypes');
+
+// ---------------------------------------------------------------------------
+// Archetype scanning + slug resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan the archetypes/ directory and return a Map of slug -> ArchetypeMeta.
+ * Skips "components", dot-prefixed directories, and directories missing index.html or schema.json.
+ * Returns empty Map when archetypes/ directory does not exist.
+ */
+export async function scanArchetypes(): Promise<Map<string, ArchetypeMeta>> {
+  const map = new Map<string, ArchetypeMeta>();
+  let dirents;
+  try {
+    dirents = await fs.readdir(ARCHETYPES_DIR, { withFileTypes: true });
+  } catch {
+    return map;
+  }
+  const entries = dirents
+    .filter(d => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'components')
+    .map(d => d.name);
+
+  for (const slug of entries) {
+    const htmlPath = path.join(ARCHETYPES_DIR, slug, 'index.html');
+    const schemaPath = path.join(ARCHETYPES_DIR, slug, 'schema.json');
+    const readmePath = path.join(ARCHETYPES_DIR, slug, 'README.md');
+    try {
+      await fs.access(htmlPath);
+      await fs.access(schemaPath);
+      const readmeContent = await fs.readFile(readmePath, 'utf-8').catch(() => '');
+      const description = readmeContent
+        .split('\n')
+        .find(l => l.trim() && !l.startsWith('#') && !l.startsWith('**'))
+        ?.trim() ?? slug;
+      map.set(slug, { slug, description, htmlPath, schemaPath });
+    } catch {
+      // Skip incomplete archetypes
+    }
+  }
+  return map;
+}
+
+/**
+ * Levenshtein edit distance between two strings.
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Resolve a raw archetype slug against the available archetypes map.
+ * - Exact match: returns { slug, matched: true }
+ * - Fuzzy match (edit distance ≤ 2): returns { slug: bestMatch, matched: false }
+ * - No match: returns { slug: alphabetical first, matched: false }
+ */
+export function resolveArchetypeSlug(
+  raw: string,
+  available: Map<string, ArchetypeMeta>
+): { slug: string; matched: boolean } {
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  if (available.has(normalized)) return { slug: normalized, matched: true };
+
+  let best = { slug: '', dist: Infinity };
+  for (const slug of available.keys()) {
+    const dist = levenshtein(normalized, slug);
+    if (dist < best.dist) best = { slug, dist };
+  }
+  if (best.dist <= 2 && best.slug) {
+    console.warn(`[api-pipeline] Fuzzy matched archetype "${raw}" -> "${best.slug}"`);
+    return { slug: best.slug, matched: false };
+  }
+
+  const fallback = [...available.keys()].sort()[0] ?? '';
+  console.warn(`[api-pipeline] Unknown archetype "${raw}", falling back to "${fallback}"`);
+  return { slug: fallback, matched: false };
+}
 
 // ---------------------------------------------------------------------------
 // Tool executor
