@@ -436,6 +436,26 @@ export function resolveArchetypeSlug(
   return { slug: fallback, matched: false };
 }
 
+/**
+ * Filter archetypes by platform using slug suffix convention.
+ * - No suffix = Instagram (1080x1080)
+ * - `-li` suffix = LinkedIn (1200x627)
+ * - `-op` suffix = One-pager (612x792)
+ */
+export function filterArchetypesByPlatform(
+  archetypes: Map<string, ArchetypeMeta>,
+  creationType: string
+): Map<string, ArchetypeMeta> {
+  return new Map(
+    [...archetypes.entries()].filter(([slug]) => {
+      if (creationType === 'linkedin') return slug.endsWith('-li');
+      if (creationType === 'one-pager') return slug.endsWith('-op');
+      // instagram (default): exclude -li and -op suffixed archetypes
+      return !slug.endsWith('-li') && !slug.endsWith('-op');
+    })
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tool executor
 // ---------------------------------------------------------------------------

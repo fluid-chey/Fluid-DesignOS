@@ -40,7 +40,19 @@ archetypes/
 
 Each archetype slug maps to a content layout pattern.
 
-## Instagram Archetypes (1080 × 1080) — Phase 19
+## Platform Conventions
+
+Archetype slug suffixes determine platform:
+
+| Suffix | Platform | Dimensions | Creation Type |
+|--------|----------|------------|---------------|
+| *(none)* | Instagram Square | 1080 × 1080 | `instagram` |
+| `-li` | LinkedIn Landscape | 1200 × 627 | `linkedin` |
+| `-op` | One-Pager (US Letter) | 612 × 792 | `one-pager` |
+
+The `filterArchetypesByPlatform()` function in `canvas/src/server/api-pipeline.ts` uses these suffixes to route the correct archetype set to each pipeline run.
+
+## Instagram Archetypes (1080 × 1080) — Phase 19 — 10 archetypes
 
 | Slug | Description |
 |------|-------------|
@@ -50,8 +62,29 @@ Each archetype slug maps to a content layout pattern.
 | `quote-testimonial` | Pull quote with portrait photo and attribution |
 | `minimal-statement` | Single bold statement with maximum whitespace |
 | `data-dashboard` | 3-stat grid with headline and footnote |
+| `hero-stat-split` | Hero stat on left, supporting text on right in a split layout |
+| `split-photo-quote` | Photo left half, large pull quote right |
+| `minimal-photo-top` | Minimal layout with photo anchored to top |
+| `stat-hero-single` | PoC archetype — 1 giant stat + headline + body copy |
 
-Also included: `stat-hero-single` (PoC archetype from Phase 18 — 1 giant stat + headline + body copy)
+## LinkedIn Archetypes (1200 × 627) — Phase 21 — 6 archetypes
+
+| Slug | Description |
+|------|-------------|
+| `hero-stat-li` | Landscape adaptation of hero-stat — large stat left, headline right |
+| `minimal-statement-li` | Landscape minimal statement with generous whitespace |
+| `quote-testimonial-li` | Landscape testimonial with portrait photo and attribution |
+| `split-photo-text-li` | 50/50 landscape split — photo left, text content right |
+| `data-dashboard-li` | Landscape 3-stat grid with headline |
+| `article-preview-li` | Article preview with headline, excerpt, and source attribution |
+
+## One-Pager Archetypes (612 × 792, US Letter) — Phase 21 — 3 archetypes
+
+| Slug | Description |
+|------|-------------|
+| `case-study-op` | Hero + 3-stat strip + 2-column challenge/solution + footer |
+| `product-feature-op` | Hero + 2x2 feature grid + footer with URL |
+| `company-overview-op` | Headline + 3-stat strip + editorial body + highlights list + footer |
 
 ## Content/Decorative Split
 
@@ -89,7 +122,8 @@ Run `node tools/validate-archetypes.cjs {slug}` to check a single archetype.
 The validator checks:
 - All required files exist (`index.html`, `schema.json`, `README.md`)
 - `schema.json` is valid JSON with `width`, `height`, `fields`
-- Dimensions are `1080 × 1080` for Instagram archetypes
+- Dimensions match platform: 1080×1080 (Instagram), 1200×627 (LinkedIn `-li`), 612×792 (One-Pager `-op`)
+- One-pager archetypes include an `@page` rule in `<style>`
 - `brush: null` and no `templateId` field
 - Every `field.sel` class name appears in `index.html` (selector parity)
 - All field types and text modes are valid
