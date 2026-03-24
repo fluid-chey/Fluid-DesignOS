@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-03-24T19:43:37.335Z"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-03-24T21:35:38.711Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 22
   completed_phases: 21
-  total_plans: 66
-  completed_plans: 66
+  total_plans: 69
+  completed_plans: 67
   percent: 94
 ---
 
@@ -112,6 +112,7 @@ Progress: [████████████████████] 94% (19
 | Phase 21 P01 | 7min | 2 tasks | 13 files |
 | Phase 21-linkedin-and-one-pager-archetypes P03 | 8min | 2 tasks | 11 files |
 | Phase 21 P02 | 5min | 2 tasks | 19 files |
+| Phase 22-image-integration-and-template-vs-archetype-routing P02 | 12min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -307,6 +308,9 @@ Recent decisions affecting current work:
 - [Phase 21-03]: filterArchetypesByPlatform() uses endsWith('-li') / endsWith('-op') slug convention — consistent with validator, zero-config for new archetypes
 - [Phase 21]: LinkedIn archetypes use vertical stat column (hero-stat-li) rather than horizontal row — 3 stats stack in right 38% of 1200px canvas
 - [Phase 21]: article-preview-li is LinkedIn-only (no Instagram equivalent) — editorial card pattern native to LinkedIn article sharing
+- [Phase 22-image-integration-and-template-vs-archetype-routing]: Chat image uploads use raw binary (application/octet-stream) with metadata in headers — simpler than multipart for frontend
+- [Phase 22-image-integration-and-template-vs-archetype-routing]: source='upload' in brand_assets keeps one-off uploads distinct from 'local' and 'dam'; uploads persist permanently in assets/uploads/
+- [Phase 22-image-integration-and-template-vs-archetype-routing]: getArchetypeImageSlotLabels reads schema.json at pipeline runtime (synchronous fsSync.readFileSync) — always reflects current archetype
 
 ### Parallel Development Note
 
@@ -346,6 +350,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-24T19:43:37.332Z
-Stopped at: Completed 21-02-PLAN.md
+Last session: 2026-03-24T21:35:38.709Z
+Stopped at: Completed 22-02-PLAN.md
 Resume file: None
