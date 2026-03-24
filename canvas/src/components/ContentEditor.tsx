@@ -35,12 +35,13 @@ function parsePickKind(v: unknown): TransformTargetKind {
 function statusColor(status: string): string {
   switch (status) {
     case 'winner':
-    case 'final':
-      return '#1f4d2e';
+      return '#44b574';
     case 'rejected':
-      return '#4d1f1f';
+      return '#e05555';
+    case 'final':
+      return '#44B2FF';
     default:
-      return '#2a2a2e';
+      return '#555';
   }
 }
 
@@ -107,7 +108,7 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
   const hasLayoutPicks =
     slotSchema != null && collectTransformTargets(slotSchema).length > 0;
 
-  /** Artboard has an active pick — sidebar shows only that layer’s controls (not the full slot list). */
+  /** Artboard has an active pick — sidebar shows only that layer's controls (not the full slot list). */
   const artboardSelectionActive = Boolean(pickedTransform && hasLayoutPicks);
 
   const propertiesRef = useRef<HTMLDivElement>(null);
@@ -353,7 +354,7 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
         </div>
       )}
 
-      {/* Slot fields for active slide — hidden while a layer is picked */}
+      {/* Content fields — hidden while a layer is picked; filtered by carousel slide when in carousel mode */}
       {!artboardSelectionActive && (
         <div style={styles.fieldsContainer}>
           {slotSchema == null ? (
@@ -362,7 +363,7 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
             </div>
           ) : visibleFields.length === 0 ? (
             <div style={styles.noSchema}>
-              No fields for this slide.
+              {carouselMode ? 'No fields for this slide.' : 'No editable fields defined in the slot schema.'}
             </div>
           ) : (
             <>

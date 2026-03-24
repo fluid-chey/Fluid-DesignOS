@@ -130,12 +130,12 @@ interface EditorStore {
   saveUserState: () => Promise<void>;
   /** Set the iframe reference for postMessage targeting */
   setIframeRef: (ref: HTMLIFrameElement | null) => void;
+  /** Carousel slide tabs — updates state and should pair with postMessage setSlide */
+  setActiveCarouselSlide: (slide: number) => void;
   undo: () => void;
   redo: () => void;
   /** Restore slot values to last load / last save snapshot */
   resetToBaseline: () => void;
-  /** Carousel slide tabs — updates state and should pair with postMessage setSlide */
-  setActiveCarouselSlide: (slide: number) => void;
   /** Reset all editor state */
   clearSelection: () => void;
 }
@@ -195,9 +195,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const iteration: Iteration = await res.json();
       const schema = iteration.slotSchema as SlotSchema | null;
       const values = extractSlotValues(iteration);
-      const baseline = structuredClone(values);
       // Do not reset activeCarouselSlide — keep it aligned with the creation’s active slide
       // (App sync). Resetting to 1 left the iframe on slide 1 while editing slide 2+.
+      const baseline = structuredClone(values);
       set({
         selectedIterationId: id,
         slotSchema: schema,
