@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- archetype: minimal-statement | target: 1080x1080 -->
+<!-- archetype: minimal-photo-top | target: 1080x1080 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -22,30 +22,49 @@
     z-index: 0;
   }
 
+  /* SLOT: .photo img */
+  .photo {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1080px;
+    height: 540px;
+    overflow: hidden;
+    z-index: 1;
+    background: #2a2a2a;
+  }
+
+  .photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   .content {
     position: absolute;
-    left: 100px;
-    right: 100px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: 80px;
+    right: 80px;
+    bottom: 0;
+    height: 540px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 28px;
     z-index: 2;
   }
 
   /* SLOT: .headline */
   .headline {
-    font-size: 128px;
+    font-size: 96px;
     font-weight: 900;
-    line-height: 0.85;
+    line-height: 0.88;
     letter-spacing: -0.03em;
     color: #ffffff;
   }
 
   /* SLOT: .subtext */
   .subtext {
-    font-size: 48px;
+    font-size: 42px;
     font-weight: 600;
     line-height: 1.2;
     color: rgba(255, 255, 255, 0.5);
@@ -54,6 +73,11 @@
 </head>
 <body>
   <div class="decorative-zone"></div>
+
+  <!-- SLOT: photo -->
+  <div class="photo">
+    <img src="" alt="Photo"/>
+  </div>
 
   <div class="content">
     <!-- SLOT: headline -->

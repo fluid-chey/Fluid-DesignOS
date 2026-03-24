@@ -4,8 +4,7 @@
   "fields": [
     { "type": "image", "sel": ".photo img", "label": "Background Photo", "dims": "1080 x 1080px" },
     { "type": "text", "sel": ".headline", "label": "Headline", "mode": "pre", "rows": 3 },
-    { "type": "text", "sel": ".subtext", "label": "Supporting Copy", "mode": "pre", "rows": 3 },
-    { "type": "text", "sel": ".category span", "label": "Side Label", "mode": "text", "rows": 1 }
+    { "type": "text", "sel": ".subtext", "label": "Supporting Copy", "mode": "pre", "rows": 3 }
   ],
   "brush": null,
   "brushAdditional": []

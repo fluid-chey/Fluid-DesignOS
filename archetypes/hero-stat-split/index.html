@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!-- archetype: hero-stat-split | target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    overflow: hidden;
+    background: #111;
+    position: relative;
+    font-family: sans-serif;
+  }
+
+  .decorative-zone {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* SLOT: .photo img */
+  .photo {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 540px;
+    height: 1080px;
+    overflow: hidden;
+    z-index: 1;
+    background: #2a2a2a;
+  }
+
+  .photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .text-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 540px;
+    height: 1080px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
+    z-index: 1;
+  }
+
+  /* SLOT: .eyebrow */
+  .eyebrow {
+    font-size: 38px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 16px;
+  }
+
+  /* SLOT: .headline */
+  .headline {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+    margin-bottom: 24px;
+  }
+
+  /* SLOT: .body-copy */
+  .body-copy {
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.45);
+    margin-bottom: 40px;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 40px;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* SLOT: .stat-1-num */
+  .stat-1-num,
+  .stat-2-num {
+    font-size: 76px;
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+  }
+
+  /* SLOT: .stat-1-label */
+  .stat-1-label,
+  .stat-2-label {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+  }
+</style>
+</head>
+<body>
+  <div class="decorative-zone"></div>
+
+  <!-- SLOT: photo -->
+  <div class="photo">
+    <img src="" alt="Photo"/>
+  </div>
+
+  <div class="text-panel">
+    <!-- SLOT: eyebrow -->
+    <p class="eyebrow">Annual report</p>
+
+    <!-- SLOT: headline -->
+    <p class="headline">The numbers behind the growth</p>
+
+    <!-- SLOT: body-copy -->
+    <p class="body-copy">Two metrics that tell the whole story.</p>
+
+    <div class="stat-row">
+      <div class="stat-item">
+        <!-- SLOT: stat-1-num -->
+        <div class="stat-1-num">94%</div>
+        <!-- SLOT: stat-1-label -->
+        <div class="stat-1-label">Approval rate</div>
+      </div>
+      <div class="stat-item">
+        <!-- SLOT: stat-2-num -->
+        <div class="stat-2-num">2.4x</div>
+        <!-- SLOT: stat-2-label -->
+        <div class="stat-2-label">Revenue growth</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

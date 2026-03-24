@@ -27,6 +27,7 @@
     position: absolute;
     inset: 0;
     z-index: 1;
+    background: #2a2a2a;
   }
 
   .photo img {
@@ -61,28 +62,13 @@
     left: 68px;
     bottom: 180px;
     width: 700px;
-    font-size: 24px;
+    font-size: 36px;
+    font-weight: 400;
     line-height: 1.4;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.45);
     z-index: 3;
   }
 
-  /* SLOT: .category span */
-  .category {
-    position: absolute;
-    right: 40px;
-    top: 40px;
-    z-index: 3;
-  }
-
-  .category span {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 14px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.4);
-  }
 </style>
 </head>
 <body>
@@ -96,12 +82,9 @@
   <div class="overlay"></div>
 
   <!-- SLOT: headline -->
-  <p class="headline">THE FUTURE OF COMMERCE IS ALREADY HERE</p>
+  <p class="headline">The future of commerce is already here</p>
 
   <!-- SLOT: subtext -->
   <p class="subtext">And it doesn't look like what you expected.</p>
-
-  <!-- SLOT: category -->
-  <div class="category"><span>INSIGHT</span></div>
 </body>
 </html>

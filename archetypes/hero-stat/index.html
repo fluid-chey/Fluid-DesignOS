@@ -22,28 +22,16 @@
     z-index: 0;
   }
 
-  /* SLOT: .stat-number */
-  .stat-number {
+  /* SLOT: .eyebrow */
+  .eyebrow {
     position: absolute;
     left: 68px;
-    top: 190px;
-    font-size: 260px;
-    font-weight: 900;
-    line-height: 0.85;
-    color: #ffffff;
-    z-index: 2;
-  }
-
-  /* SLOT: .stat-label */
-  .stat-label {
-    position: absolute;
-    left: 68px;
-    top: 480px;
-    font-size: 28px;
-    font-weight: 400;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.6);
+    top: 100px;
+    width: 944px;
+    font-size: 38px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
     z-index: 2;
   }
 
@@ -51,24 +39,63 @@
   .headline {
     position: absolute;
     left: 68px;
-    top: 560px;
-    width: 900px;
-    font-size: 82px;
-    line-height: 0.95;
-    font-weight: 700;
+    top: 160px;
+    width: 944px;
+    font-size: 120px;
+    font-weight: 900;
+    line-height: 0.88;
+    letter-spacing: -0.03em;
     color: #ffffff;
     z-index: 2;
   }
 
-  /* SLOT: .subtext */
-  .subtext {
+  .stat-row {
     position: absolute;
     left: 68px;
-    bottom: 80px;
-    width: 700px;
-    font-size: 24px;
-    line-height: 1.4;
+    right: 68px;
+    bottom: 120px;
+    display: flex;
+    gap: 60px;
+    z-index: 2;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* SLOT: .stat-1-num */
+  .stat-1-num,
+  .stat-2-num,
+  .stat-3-num {
+    font-size: 88px;
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+  }
+
+  /* SLOT: .stat-1-label */
+  .stat-1-label,
+  .stat-2-label,
+  .stat-3-label {
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
     color: rgba(255, 255, 255, 0.5);
+  }
+
+  /* SLOT: .body-copy */
+  .body-copy {
+    position: absolute;
+    left: 68px;
+    bottom: 300px;
+    width: 700px;
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.45);
     z-index: 2;
   }
 </style>
@@ -76,16 +103,34 @@
 <body>
   <div class="decorative-zone"></div>
 
-  <!-- SLOT: stat-number -->
-  <div class="stat-number">94%</div>
-
-  <!-- SLOT: stat-label -->
-  <div class="stat-label">CONVERSION RATE</div>
+  <!-- SLOT: eyebrow -->
+  <p class="eyebrow">Annual report highlights</p>
 
   <!-- SLOT: headline -->
-  <p class="headline">WHILE COMPETITORS LEAVE MONEY ON THE TABLE</p>
+  <p class="headline">The numbers speak for themselves</p>
 
-  <!-- SLOT: subtext -->
-  <p class="subtext">The brands that win aren't guessing. They're measuring what matters.</p>
+  <!-- SLOT: body-copy -->
+  <p class="body-copy">Three metrics that defined the quarter and set the trajectory for what comes next.</p>
+
+  <div class="stat-row">
+    <div class="stat-item">
+      <!-- SLOT: stat-1-num -->
+      <div class="stat-1-num">94%</div>
+      <!-- SLOT: stat-1-label -->
+      <div class="stat-1-label">Approval rate</div>
+    </div>
+    <div class="stat-item">
+      <!-- SLOT: stat-2-num -->
+      <div class="stat-2-num">2.4x</div>
+      <!-- SLOT: stat-2-label -->
+      <div class="stat-2-label">Revenue growth</div>
+    </div>
+    <div class="stat-item">
+      <!-- SLOT: stat-3-num -->
+      <div class="stat-3-num">47ms</div>
+      <!-- SLOT: stat-3-label -->
+      <div class="stat-3-label">Response time</div>
+    </div>
+  </div>
 </body>
 </html>

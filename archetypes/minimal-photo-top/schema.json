@@ -2,9 +2,9 @@
   "width": 1080,
   "height": 1080,
   "fields": [
-    { "type": "image", "sel": ".photo img", "label": "Photo", "dims": "540 x 1080px" },
+    { "type": "image", "sel": ".photo img", "label": "Photo", "dims": "1080 x 540px" },
     { "type": "text", "sel": ".headline", "label": "Headline", "mode": "pre", "rows": 3 },
-    { "type": "text", "sel": ".body-copy", "label": "Body Copy", "mode": "pre", "rows": 5 }
+    { "type": "text", "sel": ".subtext", "label": "Subheader", "mode": "pre", "rows": 2 }
   ],
   "brush": null,
   "brushAdditional": []
