@@ -330,11 +330,11 @@ Plans:
 **Goal:** Implement the design component library (13 brandless functional blocks documented as inline HTML/CSS patterns) and 6 Instagram archetypes (1080x1080). Each archetype ships with index.html (brandless wireframe), schema.json (SlotSchema for editor sidebar parity), and README.md. Validated by CLI tool (tools/validate-archetypes.cjs) and Playwright E2E tests verifying editor sidebar integration.
 **Requirements**: TBD
 **Depends on:** Phase 18
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 19-01-PLAN.md — Validator script (tools/validate-archetypes.cjs) + component library README + directory structure
-- [ ] 19-02-PLAN.md — Build all 6 Instagram archetypes (hero-stat, photo-bg-overlay, split-photo-text, quote-testimonial, minimal-statement, data-dashboard)
+- [x] 19-01-PLAN.md — Validator script (tools/validate-archetypes.cjs) + component library README + directory structure
+- [x] 19-02-PLAN.md — Build all 6 Instagram archetypes (hero-stat, photo-bg-overlay, split-photo-text, quote-testimonial, minimal-statement, data-dashboard)
 - [ ] 19-03-PLAN.md — Playwright E2E tests for editor integration + final validation checkpoint
 
 ### Phase 20: Pipeline Integration — Archetype Selection and SlotSchema Attachment

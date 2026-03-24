@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: "Completed 19-01-PLAN.md"
-last_updated: "2026-03-24T00:31:00Z"
-last_activity: "2026-03-24 -- Phase 19 plan 01 complete (archetype validator + component library README)"
+stopped_at: "Completed 19-02-PLAN.md"
+last_updated: "2026-03-24T00:36:00Z"
+last_activity: "2026-03-24 -- Phase 19 plan 02 complete (6 Instagram archetypes: hero-stat, photo-bg-overlay, split-photo-text, quote-testimonial, minimal-statement, data-dashboard)"
 progress:
   total_phases: 26
   completed_phases: 21
   total_plans: 70
-  completed_plans: 68
-  percent: 97
+  completed_plans: 69
+  percent: 99
 ---
 
 # Project State
@@ -103,6 +103,7 @@ Progress: [████████████████████] 100% (1
 | Phase 16-smart-context-pipeline P01 | 4min | 2 tasks | 6 files |
 | Phase 16-smart-context-pipeline P02 | 4min | 2 tasks | 5 files |
 | Phase 17-pipeline-quick-fixes P01 | 3min | 2 tasks | 3 files |
+| Phase 19 P02 | 3min | 2 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -276,6 +277,9 @@ Recent decisions affecting current work:
 - [19-01]: Validator exits 0 on empty archetypes/ — non-error state, not a missing-directory error
 - [19-01]: components/README.md is a single inline-pattern file (HTML/CSS copy-paste library), not a meta-doc — archetype authors copy patterns directly
 - [19-01]: archetypes/README.md updated to list all 6 Phase 19 slugs and reference validate-archetypes.cjs
+- [19-02]: split-photo-text text slots flow inside a flex container rather than absolute positioning — preserves vertical centering without fixed top values
+- [19-02]: data-dashboard uses CSS grid for the 3-stat layout rather than absolute-positioned individual stats — ensures equal column widths without manual math
+- [19-02]: divider type field in data-dashboard schema uses label "---" to match the plan spec exactly
 
 ### Parallel Development Note
 
