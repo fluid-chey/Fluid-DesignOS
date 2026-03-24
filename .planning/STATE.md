@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-03-24T21:36:33.639Z"
+stopped_at: Completed 22-03-PLAN.md
+last_updated: "2026-03-24T21:41:51.081Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 22
-  completed_phases: 21
+  completed_phases: 22
   total_plans: 69
-  completed_plans: 68
+  completed_plans: 69
   percent: 94
 ---
 
@@ -114,6 +114,7 @@ Progress: [████████████████████] 94% (19
 | Phase 21 P02 | 5min | 2 tasks | 19 files |
 | Phase 22-image-integration-and-template-vs-archetype-routing P02 | 12min | 2 tasks | 3 files |
 | Phase 22-image-integration-and-template-vs-archetype-routing P01 | 12min | 2 tasks | 4 files |
+| Phase 22-image-integration-and-template-vs-archetype-routing P03 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -315,6 +316,8 @@ Recent decisions affecting current work:
 - [Phase 22-01]: seedTemplateRoutingMetadata() called from watcher.ts startup to avoid circular imports between db.ts and db-api.ts
 - [Phase 22-01]: Copy agent prompt: prefer Archetype when uncertain — templates reserved for well-recognized repeatable formats only
 - [Phase 22-01]: buildPhotoAvailabilitySummary classifies archetypes as image-heavy or text-only by reading schema.json fields at prompt-build time
+- [Phase 22-03]: isTemplatePath + scoped variables declared at runApiPipeline level so fix loop cascade can access without re-parsing copy.md
+- [Phase 22-03]: Template HTML subdir from ctx.creationType: one-pager maps to one-pagers/, all others to social/
 
 ### Parallel Development Note
 
@@ -354,6 +357,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-24T21:36:33.637Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-03-24T21:41:51.078Z
+Stopped at: Completed 22-03-PLAN.md
 Resume file: None
