@@ -308,6 +308,10 @@ function initSchema(db: Database.Database): void {
   db.exec(`UPDATE context_map SET sections = '["colors:*","typography:*","decorations:*","images:*","logos:*"]' WHERE stage = 'styling' AND sections LIKE '%design-tokens%' AND sections LIKE '%pattern:%'`);
   db.exec(`UPDATE context_map SET sections = '["colors:*","typography:*"]' WHERE stage = 'styling' AND creation_type = 'one-pager' AND sections = '["design-tokens:*"]'`);
 
+  // Migration: add routing metadata to templates for pipeline routing
+  try { db.exec("ALTER TABLE templates ADD COLUMN content_type TEXT"); } catch {}
+  try { db.exec("ALTER TABLE templates ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'"); } catch {}
+
   // FK integrity check: clean up orphaned records that break FK chains
   const fkViolations = db.pragma('foreign_key_check') as Array<{ table: string; rowid: number; parent: string; fkid: number }>;
   if (fkViolations.length > 0) {

@@ -47,6 +47,7 @@ import {
   getTemplates,
   getTemplate,
   updateTemplate,
+  seedTemplateRoutingMetadata,
   getContextMap,
   upsertContextMapEntry,
   deleteContextMapEntry,
@@ -249,6 +250,11 @@ export function fluidWatcherPlugin(): Plugin {
       seedTemplatesIfEmpty().catch(err =>
         console.warn('[watcher] Templates seeding failed:', err)
       );
+      try {
+        seedTemplateRoutingMetadata();
+      } catch (err) {
+        console.warn('[watcher] Template routing metadata seeding failed:', err);
+      }
       try {
         seedContextMapIfEmpty();
       } catch (err) {
