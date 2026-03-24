@@ -11,7 +11,7 @@ import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
-import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog, updateIterationSlotSchema } from './db-api';
+import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog, updateIterationSlotSchema, getAgentTemplates } from './db-api';
 
 // ESM-safe __dirname (works in both Vite middleware and tsx/node ESM)
 const __dirname = typeof globalThis.__dirname !== 'undefined'
@@ -1171,7 +1171,77 @@ function recordCampaignCopy(campaignId: string, creationType: string, copyConten
   }
 }
 
-export function buildCopyPrompt(ctx: PipelineContext, campaignContext?: string, archetypeList?: string): string {
+/**
+ * Build a compact photo availability summary for the copy agent.
+ * Tells the agent whether image-heavy archetypes are appropriate.
+ */
+export function buildPhotoAvailabilitySummary(creationType: string, archetypes: Map<string, ArchetypeMeta>): string {
+  const images = getBrandAssets('images');
+  const platformArchetypes = filterArchetypesByPlatform(archetypes, creationType);
+
+  // Identify which platform archetypes have image slots by checking schema.json
+  const imageArchetypes: string[] = [];
+  const textOnlyArchetypes: string[] = [];
+  for (const [slug, meta] of platformArchetypes) {
+    try {
+      const raw = fsSync.readFileSync(meta.schemaPath, 'utf-8');
+      const schema = JSON.parse(raw);
+      const hasImage = schema.fields?.some((f: { type: string }) => f.type === 'image');
+      if (hasImage) imageArchetypes.push(slug);
+      else textOnlyArchetypes.push(slug);
+    } catch {
+      textOnlyArchetypes.push(slug); // Can't read schema — assume text-only
+    }
+  }
+
+  if (images.length === 0) {
+    return [
+      `## Photo Assets`,
+      `None available in the brand library. Prefer text-only archetypes: ${textOnlyArchetypes.join(', ') || '(none)'}`,
+      `Avoid image-heavy archetypes unless the user provides a photo in their prompt.`,
+    ].join('\n');
+  }
+
+  const photoList = images.map(a => {
+    const desc = a.description ? ` — ${a.description}` : '';
+    return `  - ${a.name}${desc}`;
+  }).join('\n');
+
+  return [
+    `## Photo Assets`,
+    `${images.length} photo(s) available in the brand library:`,
+    photoList,
+    ``,
+    `You MAY select image-heavy archetypes: ${imageArchetypes.join(', ') || '(none for this platform)'}`,
+    `Text-only archetypes: ${textOnlyArchetypes.join(', ') || '(none)'}`,
+  ].join('\n');
+}
+
+/**
+ * Build a template list string for the copy agent's routing decision.
+ * Returns formatted text listing templates with content_type and description.
+ */
+function buildTemplateListForCopy(creationType: string): string {
+  // Map pipeline creationType to DB template type
+  const typeMap: Record<string, string> = {
+    'instagram': 'social',
+    'linkedin': 'social',
+    'one-pager': 'one-pager',
+  };
+  const dbType = typeMap[creationType] ?? 'social';
+  const templates = getAgentTemplates(dbType);
+
+  if (templates.length === 0) {
+    return '(no templates available for this platform)';
+  }
+
+  return templates.map(t => {
+    const tags = t.tags.length > 0 ? ` [${t.tags.join(', ')}]` : '';
+    return `- **${t.id}** (${t.contentType ?? 'untyped'}): ${t.description}${tags}`;
+  }).join('\n');
+}
+
+export function buildCopyPrompt(ctx: PipelineContext, campaignContext?: string, archetypeList?: string, photoSummary?: string, templateList?: string): string {
   return [
     `Generate marketing copy for a ${ctx.creationType} creation.`,
     `Topic: ${ctx.prompt}`,
@@ -1186,6 +1256,14 @@ export function buildCopyPrompt(ctx: PipelineContext, campaignContext?: string, 
     archetypeList ?? '(no archetypes discovered)',
     ``,
     `Pick the archetype whose structural pattern best fits the content.`,
+    ``,
+    ...(photoSummary ? [photoSummary, ''] : []),
+    `## Available Templates (use ONLY for exact content type match)`,
+    templateList ?? '(no templates available)',
+    `If the prompt is a near-exact match for a specific template's content type (e.g., a client testimonial maps to a testimonial template), output: Template: {template-id}`,
+    `Otherwise, output: Archetype: {slug}`,
+    `When uncertain between a template and an archetype, prefer Archetype — templates are reserved for well-recognized repeatable formats only.`,
+    `Do NOT output both Template and Archetype — pick one.`,
     ``,
     `RULES:`,
     `- For Instagram: body copy MUST be 1-2 sentences maximum. Do NOT exceed this.`,
@@ -1622,7 +1700,9 @@ export async function runApiPipeline(
     emitContextInjected(res, ctx.creationId, 'copy', copyCtx.sectionSlugs, copyCtx.tokenEstimate);
   }
   const campaignContext = getCampaignCopyContext(ctx.campaignId);
-  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx, campaignContext, archetypeList), ctx, res, copyCtx.injectedContext);
+  const photoSummary = buildPhotoAvailabilitySummary(ctx.creationType, archetypes);
+  const templateList = buildTemplateListForCopy(ctx.creationType);
+  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx, campaignContext, archetypeList, photoSummary, templateList), ctx, res, copyCtx.injectedContext);
   await generateStageNarrative('copy', copyResult.output, ctx, res);
 
   // Record this creation's copy for campaign-level dedup
