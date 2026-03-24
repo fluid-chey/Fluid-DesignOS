@@ -32,6 +32,7 @@ import {
   updateBrandAsset,
   getBrandAssetByName,
   getBrandAssetByFilePath,
+  insertUploadedAsset,
   getVoiceGuideDocs,
   getVoiceGuideDoc,
   updateVoiceGuideDoc,
@@ -803,6 +804,57 @@ export function fluidWatcherPlugin(): Plugin {
           }
 
           // ── Brand assets (catalog served via /fluid-assets/) ───────────────
+
+          // POST /api/uploads/chat-image — persist a chat sidebar image upload
+          if (url?.startsWith('/api/uploads/chat-image') && method === 'POST') {
+            try {
+              const contentType = req.headers['content-type'] ?? 'image/png';
+              const fileName = req.headers['x-filename'] as string ?? `upload-${nanoid()}.png`;
+              const uploadId = nanoid();
+
+              // Accumulate body as Buffer
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) {
+                chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+              }
+              const buffer = Buffer.concat(chunks);
+
+              // Determine extension from content-type
+              const extMap: Record<string, string> = {
+                'image/png': '.png',
+                'image/jpeg': '.jpg',
+                'image/jpg': '.jpg',
+                'image/webp': '.webp',
+                'image/gif': '.gif',
+              };
+              const ext = extMap[contentType] ?? '.png';
+              const storedName = `upload-${uploadId}${ext}`;
+
+              // Write to assets/uploads/ directory (permanent storage)
+              const uploadsDir = path.resolve(projectRoot, 'assets', 'uploads');
+              await fs.mkdir(uploadsDir, { recursive: true });
+              const filePath = path.join(uploadsDir, storedName);
+              await fs.writeFile(filePath, buffer);
+
+              // Persist to brand_assets DB with source='upload'
+              const asset = insertUploadedAsset({
+                id: uploadId,
+                name: storedName,
+                filePath: `assets/uploads/${storedName}`,
+                mimeType: contentType,
+                sizeBytes: buffer.length,
+                description: fileName.replace(/\.[^.]+$/, ''), // Strip extension for description
+              });
+
+              res.writeHead(201, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ id: asset.id, url: asset.url, name: asset.name }));
+            } catch (err) {
+              console.error('[api] POST /api/uploads/chat-image failed:', err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: String(err) }));
+            }
+            return;
+          }
 
           // POST /api/dam-sync — trigger manual DAM sync
           if (url === '/api/dam-sync' && method === 'POST') {
