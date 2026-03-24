@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-03-24T17:13:37.068Z"
+stopped_at: Completed 20-03-PLAN.md
+last_updated: "2026-03-24T17:58:41.397Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
   total_phases: 21
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 60
-  completed_plans: 61
+  completed_plans: 62
   percent: 100
 ---
 
@@ -107,6 +107,7 @@ Progress: [████████████████████] 100% (1
 | Phase 19 P03 | 8min | 1 tasks | 1 files |
 | Phase 19 P03 | continuation | 2 tasks | 1 files |
 | Phase 20 P02 | 12 | 2 tasks | 2 files |
+| Phase 20 P03 | 36min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -288,6 +289,9 @@ Recent decisions affecting current work:
 - [Phase 20]: ARCHETYPE_TEMPLATE_FILES and DEFAULT_ARCHETYPE deleted — new archetypes are filesystem-scanned, not hardcoded
 - [Phase 20]: buildLayoutPrompt has slot-fill mode (archetype HTML + slug) with freestyle fallback for when archetypes are missing
 - [Phase 20]: attachSlotSchema is non-fatal in runApiPipeline — SlotSchema failure does not block HTML generation
+- [Phase 20]: E2E tests use REST API fixture chain for archetype sidebar parity — more reliable than UI automation for CI
+- [Phase 20]: buildStylingPrompt gains isArchetypeBased mode so styling agent understands it is enhancing an archetype skeleton, not freestyling
+- [Phase 20]: Archetype backgrounds standardized to #000000 (not #111 shorthand) across all 10 archetypes for visual consistency
 
 ### Parallel Development Note
 
@@ -327,6 +331,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-24T17:13:37.066Z
-Stopped at: Completed 20-02-PLAN.md
+Last session: 2026-03-24T17:58:41.394Z
+Stopped at: Completed 20-03-PLAN.md
 Resume file: None
