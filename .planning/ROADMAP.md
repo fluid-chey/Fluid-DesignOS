@@ -297,7 +297,7 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 >
 | 14.1 Brand-Agnostic Pipeline | 3/3 | Complete    | 2026-03-17 |
 | 15. Brand Data Architecture | 3/4 | In Progress|  |
 | 16. Smart Context Pipeline | 2/3 | In Progress|  |
-| 22. Image Integration + Template Routing | 1/3 | In Progress|  |
+| 22. Image Integration + Template Routing | 2/3 | In Progress|  |
 
 ### Phase 14: Design DNA — template-extracted style rules, per-deliverable design intelligence, and exemplar-referenced generation pipeline
 
@@ -375,7 +375,7 @@ Plans:
   5. Styling agent selects contextually appropriate photos from DAM library for image slots
   6. Branded placeholder generated when no suitable photo exists
   7. Templates DB table has content_type and tags routing metadata
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 22-01-PLAN.md — DB migration (template routing columns), routing metadata seeder, getAgentTemplates(), photo availability summary, copy prompt extension
