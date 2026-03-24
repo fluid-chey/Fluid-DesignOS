@@ -340,12 +340,14 @@ Plans:
 ### Phase 20: Pipeline Integration — Archetype Selection and SlotSchema Attachment
 
 **Goal:** Rewire the generation pipeline to use archetypes instead of freestyling HTML. Changes: (1) Layout agent SELECTS an archetype rather than writing HTML from scratch — receives the archetype's HTML template and fills slots with copy. (2) Styling agent applies brand rules (fonts, colors, textures, imagery patterns) to the archetype's CSS classes — no more inventing layouts. (3) When saving an iteration, ATTACH the archetype's SlotSchema to the iteration record (currently saved as slotSchema: null for AI-generated assets). This is what makes the editor sidebar work. (4) Ensure feature parity with template-based creations: all editing, repositioning, and sidebar features that work for templates must also work for archetype-based generations. The pipeline changes from "write HTML from nothing" to "select structure, fill content, apply brand."
-**Requirements**: TBD
+**Requirements**: PIPE-20-01, PIPE-20-02, PIPE-20-03, PIPE-20-04, PIPE-20-05, PIPE-20-06, PIPE-20-07, PIPE-20-08, PIPE-20-09, PIPE-20-10
 **Depends on:** Phase 19
 **Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 20 to break down)
+- [ ] 20-01-PLAN.md — Foundation: archetype scanning, fuzzy slug matching, PipelineContext.iterationId, updateIterationSlotSchema DB function
+- [ ] 20-02-PLAN.md — Pipeline rewiring: rewrite copy/layout/styling prompts, attachSlotSchema, delete ARCHETYPE_TEMPLATE_FILES, integrate into runApiPipeline
+- [ ] 20-03-PLAN.md — Feature parity: Playwright E2E tests for editor sidebar with archetype-based iterations + visual checkpoint
 
 ### Phase 21: LinkedIn and One-Pager Archetypes
 
