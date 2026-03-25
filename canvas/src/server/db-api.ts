@@ -256,6 +256,12 @@ export function updateIterationGenerationStatus(
   db.prepare('UPDATE iterations SET generation_status = ? WHERE id = ?').run(status, id);
 }
 
+export function updateIterationSlotSchema(id: string, slotSchema: object): void {
+  const db = getDb();
+  db.prepare('UPDATE iterations SET slot_schema = ? WHERE id = ?')
+    .run(JSON.stringify(slotSchema), id);
+}
+
 export function getLatestIterationBySlide(slideId: string): Iteration | undefined {
   const db = getDb();
   const row = db.prepare(
@@ -501,6 +507,48 @@ export function updateBrandAsset(id: string, updates: { category?: string; descr
   db.prepare(`UPDATE brand_assets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
 }
 
+/**
+ * Insert a user-uploaded image as a brand asset with source='upload'.
+ * One-off uploads persist permanently so creation links never break.
+ * Users can later promote uploads to the curated library by updating the source.
+ */
+export function insertUploadedAsset(params: {
+  id: string;
+  name: string;
+  filePath: string;
+  mimeType: string;
+  sizeBytes: number;
+  description?: string;
+}): BrandAsset {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO brand_assets (id, name, category, file_path, mime_type, size_bytes, tags, description, source, dam_deleted)
+    VALUES (?, ?, 'images', ?, ?, ?, '[]', ?, 'upload', 0)
+  `).run(params.id, params.name, params.filePath, params.mimeType, params.sizeBytes, params.description ?? null);
+
+  return {
+    id: params.id,
+    name: params.name,
+    category: 'images',
+    url: `/api/brand-assets/serve/${encodeURIComponent(params.name)}`,
+    mimeType: params.mimeType,
+    sizeBytes: params.sizeBytes,
+    tags: [],
+    source: 'upload',
+    damDeleted: false,
+    description: params.description ?? null,
+  };
+}
+
+/**
+ * Promote a one-off upload to the curated brand library.
+ * Changes source from 'upload' to 'local' so it appears alongside DAM assets.
+ */
+export function promoteUploadToLibrary(assetId: string): void {
+  const db = getDb();
+  db.prepare("UPDATE brand_assets SET source = 'local' WHERE id = ? AND source = 'upload'").run(assetId);
+}
+
 // ─── DAM asset sync ──────────────────────────────────────────────────────────
 
 export interface DamAssetRow {
@@ -687,6 +735,8 @@ export interface BrandPattern {
   label: string;
   category: string;
   content: string;
+  weight: number;
+  isCore: boolean;
   sortOrder: number;
   updatedAt: number;
 }
@@ -698,6 +748,8 @@ function rowToBrandPattern(row: Record<string, unknown>): BrandPattern {
     label: row.label as string,
     category: row.category as string,
     content: row.content as string,
+    weight: (row.weight as number) ?? 50,
+    isCore: (row.is_core as number) === 1,
     sortOrder: row.sort_order as number,
     updatedAt: row.updated_at as number,
   };
@@ -717,11 +769,43 @@ export function getBrandPatternBySlug(slug: string): BrandPattern | undefined {
   return row ? rowToBrandPattern(row) : undefined;
 }
 
-export function updateBrandPattern(slug: string, content: string): void {
+export function updateBrandPattern(slug: string, updates: { content?: string; weight?: number; label?: string }): void {
   const db = getDb();
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (updates.content !== undefined) { sets.push('content = ?'); params.push(updates.content); }
+  if (updates.weight !== undefined) { sets.push('weight = ?'); params.push(updates.weight); }
+  if (updates.label !== undefined) { sets.push('label = ?'); params.push(updates.label); }
+  if (sets.length === 0) return;
+  sets.push('updated_at = ?');
+  params.push(Date.now());
+  params.push(slug);
+  db.prepare(`UPDATE brand_patterns SET ${sets.join(', ')} WHERE slug = ?`).run(...params);
+}
+
+function slugify(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+export function createBrandPattern(input: { label: string; category: string; content: string; weight?: number }): BrandPattern {
+  const db = getDb();
+  const id = nanoid();
+  const slug = slugify(input.label);
+  const now = Date.now();
+  const maxOrder = (db.prepare('SELECT MAX(sort_order) as m FROM brand_patterns WHERE category = ?').get(input.category) as { m: number | null })?.m ?? 0;
   db.prepare(
-    'UPDATE brand_patterns SET content = ?, updated_at = ? WHERE slug = ?'
-  ).run(content, Date.now(), slug);
+    'INSERT INTO brand_patterns (id, slug, label, category, content, weight, is_core, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)'
+  ).run(id, slug, input.label, input.category, input.content, input.weight ?? 50, maxOrder + 1, now);
+  return { id, slug, label: input.label, category: input.category, content: input.content, weight: input.weight ?? 50, isCore: false, sortOrder: maxOrder + 1, updatedAt: now };
+}
+
+export function deleteBrandPattern(slug: string): 'deleted' | 'is_core' | 'not_found' {
+  const db = getDb();
+  const row = db.prepare('SELECT is_core FROM brand_patterns WHERE slug = ?').get(slug) as { is_core: number } | undefined;
+  if (!row) return 'not_found';
+  if (row.is_core === 1) return 'is_core';
+  db.prepare('DELETE FROM brand_patterns WHERE slug = ?').run(slug);
+  return 'deleted';
 }
 
 // ─── Design Rules (template_design_rules) ────────────────────────────────────
@@ -815,6 +899,18 @@ export interface Template {
   previewPath: string;
   sortOrder: number;
   updatedAt: number;
+  contentType: string | null;
+  tags: string[];
+}
+
+export interface AgentTemplateSummary {
+  id: string;
+  name: string;
+  platform: string;
+  contentType: string | null;
+  description: string;
+  tags: string[];
+  dims: string | null;
 }
 
 function rowToTemplate(row: Record<string, unknown>): Template {
@@ -832,6 +928,8 @@ function rowToTemplate(row: Record<string, unknown>): Template {
     previewPath: row.preview_path as string,
     sortOrder: row.sort_order as number,
     updatedAt: row.updated_at as number,
+    contentType: (row.content_type as string | null) ?? null,
+    tags: JSON.parse((row.tags as string) ?? '[]'),
   };
 }
 
@@ -864,6 +962,44 @@ export function updateTemplate(
   vals.push(Date.now());
   vals.push(id);
   db.prepare(`UPDATE templates SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+}
+
+/** Seed content_type and tags routing metadata for the 8 built-in templates. Idempotent. */
+export function seedTemplateRoutingMetadata(): void {
+  const db = getDb();
+  const ROUTING_METADATA: Record<string, { content_type: string; tags: string[] }> = {
+    't1-quote':                { content_type: 'testimonial',       tags: ['quote', 'client', 'portrait'] },
+    't2-app-highlight':        { content_type: 'feature-highlight', tags: ['product', 'app', 'mockup'] },
+    't3-partner-alert':        { content_type: 'announcement',      tags: ['partner', 'alert', 'landscape'] },
+    't4-fluid-ad':             { content_type: 'feature-highlight', tags: ['capabilities', 'features', 'ad'] },
+    't5-partner-announcement': { content_type: 'announcement',      tags: ['partner', 'person', 'landscape'] },
+    't6-employee-spotlight':   { content_type: 'spotlight',         tags: ['employee', 'person', 'portrait'] },
+    't7-carousel':             { content_type: 'carousel-insights', tags: ['carousel', 'insights', 'multi-slide'] },
+    't8-quarterly-stats':      { content_type: 'carousel-stats',    tags: ['carousel', 'stats', 'data', 'quarterly'] },
+  };
+
+  const stmt = db.prepare('UPDATE templates SET content_type = ?, tags = ? WHERE id = ?');
+  for (const [id, meta] of Object.entries(ROUTING_METADATA)) {
+    stmt.run(meta.content_type, JSON.stringify(meta.tags), id);
+  }
+}
+
+/** Return lightweight template summaries for copy-agent routing decisions. */
+export function getAgentTemplates(platform?: string): AgentTemplateSummary[] {
+  const db = getDb();
+  const query = platform
+    ? 'SELECT id, name, type, dims, description, content_type, tags FROM templates WHERE type = ? ORDER BY sort_order'
+    : 'SELECT id, name, type, dims, description, content_type, tags FROM templates ORDER BY sort_order';
+  const rows = (platform ? db.prepare(query).all(platform) : db.prepare(query).all()) as Record<string, unknown>[];
+  return rows.map(row => ({
+    id: row.id as string,
+    name: row.name as string,
+    platform: (row.type as string) ?? 'unknown',
+    contentType: (row.content_type as string) ?? null,
+    description: row.description as string,
+    tags: JSON.parse((row.tags as string) ?? '[]'),
+    dims: (row.dims as string) ?? null,
+  }));
 }
 
 /**

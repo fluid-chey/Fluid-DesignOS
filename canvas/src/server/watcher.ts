@@ -32,11 +32,14 @@ import {
   updateBrandAsset,
   getBrandAssetByName,
   getBrandAssetByFilePath,
+  insertUploadedAsset,
   getVoiceGuideDocs,
   getVoiceGuideDoc,
   updateVoiceGuideDoc,
   getBrandPatterns,
   updateBrandPattern,
+  createBrandPattern,
+  deleteBrandPattern,
   getDesignRules,
   getDesignRule,
   updateDesignRule,
@@ -44,6 +47,7 @@ import {
   getTemplates,
   getTemplate,
   updateTemplate,
+  seedTemplateRoutingMetadata,
   getContextMap,
   upsertContextMapEntry,
   deleteContextMapEntry,
@@ -51,7 +55,7 @@ import {
 } from './db-api';
 import { getDb } from '../lib/db';
 import { scanAndSeedBrandAssets } from './asset-scanner';
-import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, migratePatternsToMarkdown, seedGlobalVisualStyleIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
+import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, migratePatternsToMarkdown, splitPatternEntries, seedGlobalVisualStyleIfEmpty, seedFontEnforcementIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
 import { runDamSync } from './dam-sync';
 import { collectTransformTargets, type TransformTarget } from '../lib/slot-schema';
 import { resolveSlotSchemaForIteration } from '../lib/template-configs';
@@ -221,6 +225,9 @@ export function fluidWatcherPlugin(): Plugin {
         // Migrate existing HTML patterns to clean markdown (safe to call multiple times)
         const migrated = await migratePatternsToMarkdown(patternSeedsDir);
         if (migrated > 0) console.log(`[watcher] Migrated ${migrated} patterns to markdown`);
+        // Split large pattern entries into individual rules (idempotent)
+        const split = await splitPatternEntries(patternSeedsDir);
+        if (split > 0) console.log(`[watcher] Split ${split} pattern entries into individual rules`);
       }).catch(err =>
         console.error('[asset-scan] Failed:', err)
       );
@@ -234,12 +241,20 @@ export function fluidWatcherPlugin(): Plugin {
       seedGlobalVisualStyleIfEmpty().catch(err =>
         console.warn('[watcher] Global visual style seeding failed:', err)
       );
+      seedFontEnforcementIfEmpty().catch(err =>
+        console.warn('[watcher] Font enforcement seeding failed:', err)
+      );
       seedDesignRulesIfEmpty().catch(err =>
         console.warn('[watcher] Design rules seeding failed:', err)
       );
       seedTemplatesIfEmpty().catch(err =>
         console.warn('[watcher] Templates seeding failed:', err)
       );
+      try {
+        seedTemplateRoutingMetadata();
+      } catch (err) {
+        console.warn('[watcher] Template routing metadata seeding failed:', err);
+      }
       try {
         seedContextMapIfEmpty();
       } catch (err) {
@@ -360,6 +375,7 @@ export function fluidWatcherPlugin(): Plugin {
           });
           res.end(data);
         } catch {
+          console.error(`[watcher] Brand asset file not found: ${fullPath} (DB file_path: ${asset.file_path})`);
           res.writeHead(404, { 'Content-Type': 'text/plain' });
           res.end('Asset file not found on disk');
         }
@@ -795,6 +811,57 @@ export function fluidWatcherPlugin(): Plugin {
 
           // ── Brand assets (catalog served via /fluid-assets/) ───────────────
 
+          // POST /api/uploads/chat-image — persist a chat sidebar image upload
+          if (url?.startsWith('/api/uploads/chat-image') && method === 'POST') {
+            try {
+              const contentType = req.headers['content-type'] ?? 'image/png';
+              const fileName = req.headers['x-filename'] as string ?? `upload-${nanoid()}.png`;
+              const uploadId = nanoid();
+
+              // Accumulate body as Buffer
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) {
+                chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+              }
+              const buffer = Buffer.concat(chunks);
+
+              // Determine extension from content-type
+              const extMap: Record<string, string> = {
+                'image/png': '.png',
+                'image/jpeg': '.jpg',
+                'image/jpg': '.jpg',
+                'image/webp': '.webp',
+                'image/gif': '.gif',
+              };
+              const ext = extMap[contentType] ?? '.png';
+              const storedName = `upload-${uploadId}${ext}`;
+
+              // Write to assets/uploads/ directory (permanent storage)
+              const uploadsDir = path.resolve(projectRoot, 'assets', 'uploads');
+              await fs.mkdir(uploadsDir, { recursive: true });
+              const filePath = path.join(uploadsDir, storedName);
+              await fs.writeFile(filePath, buffer);
+
+              // Persist to brand_assets DB with source='upload'
+              const asset = insertUploadedAsset({
+                id: uploadId,
+                name: storedName,
+                filePath: `assets/uploads/${storedName}`,
+                mimeType: contentType,
+                sizeBytes: buffer.length,
+                description: fileName.replace(/\.[^.]+$/, ''), // Strip extension for description
+              });
+
+              res.writeHead(201, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ id: asset.id, url: asset.url, name: asset.name }));
+            } catch (err) {
+              console.error('[api] POST /api/uploads/chat-image failed:', err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: String(err) }));
+            }
+            return;
+          }
+
           // POST /api/dam-sync — trigger manual DAM sync
           if (url === '/api/dam-sync' && method === 'POST') {
             const token = process.env.VITE_FLUID_DAM_TOKEN;
@@ -886,16 +953,58 @@ export function fluidWatcherPlugin(): Plugin {
             return;
           }
 
+          // POST /api/brand-patterns — create a new rule
+          if (url === '/api/brand-patterns' && method === 'POST') {
+            const body = JSON.parse(await readBody(req));
+            if (!body.label || !body.category || typeof body.content !== 'string') {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'label, category, and content are required' }));
+              return;
+            }
+            const pattern = createBrandPattern({
+              label: body.label,
+              category: body.category,
+              content: body.content,
+              weight: typeof body.weight === 'number' ? body.weight : undefined,
+            });
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(pattern));
+            return;
+          }
+
           // PUT /api/brand-patterns/:slug
           const brandPatternSlugMatch = url.match(/^\/api\/brand-patterns\/([^/?]+)$/);
           if (brandPatternSlugMatch && method === 'PUT') {
             const body = JSON.parse(await readBody(req));
-            if (typeof body.content !== 'string') {
+            const updates: { content?: string; weight?: number; label?: string } = {};
+            if (typeof body.content === 'string') updates.content = body.content;
+            if (typeof body.weight === 'number') updates.weight = body.weight;
+            if (typeof body.label === 'string') updates.label = body.label;
+            if (Object.keys(updates).length === 0) {
               res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'content is required' }));
+              res.end(JSON.stringify({ error: 'at least one of content, weight, or label is required' }));
               return;
             }
-            updateBrandPattern(brandPatternSlugMatch[1], body.content);
+            updateBrandPattern(brandPatternSlugMatch[1], updates);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+
+          // DELETE /api/brand-patterns/:slug
+          const brandPatternDeleteMatch = url.match(/^\/api\/brand-patterns\/([^/?]+)$/);
+          if (brandPatternDeleteMatch && method === 'DELETE') {
+            const result = deleteBrandPattern(brandPatternDeleteMatch[1]);
+            if (result === 'not_found') {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Pattern not found' }));
+              return;
+            }
+            if (result === 'is_core') {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Cannot delete core patterns' }));
+              return;
+            }
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true }));
             return;
@@ -1356,18 +1465,17 @@ export function fluidWatcherPlugin(): Plugin {
             }
 
             // Strategy 3: canonical path .fluid/campaigns/{cId}/{creationId}/{slideId}/{iterId}.html
-            if (!found) {
-              const hierarchy = db.prepare(`
-                SELECT c.campaign_id, s.creation_id, i.slide_id
-                FROM iterations i
-                JOIN slides s ON s.id = i.slide_id
-                JOIN creations c ON c.id = s.creation_id
-                WHERE i.id = ?
-              `).get(iterationId) as { campaign_id: string; creation_id: string; slide_id: string } | undefined;
-              if (hierarchy) {
-                const canonicalPath = path.join(fluidDir, 'campaigns', hierarchy.campaign_id, hierarchy.creation_id, hierarchy.slide_id, `${iterationId}.html`);
-                try { await fs.access(canonicalPath); templatePath = canonicalPath; found = true; } catch { /* noop */ }
-              }
+            // Hierarchy is hoisted so Strategy 7 can also use it
+            const hierarchy = !found ? db.prepare(`
+              SELECT c.campaign_id, s.creation_id, i.slide_id
+              FROM iterations i
+              JOIN slides s ON s.id = i.slide_id
+              JOIN creations c ON c.id = s.creation_id
+              WHERE i.id = ?
+            `).get(iterationId) as { campaign_id: string; creation_id: string; slide_id: string } | undefined : undefined;
+            if (!found && hierarchy) {
+              const canonicalPath = path.join(fluidDir, 'campaigns', hierarchy.campaign_id, hierarchy.creation_id, hierarchy.slide_id, `${iterationId}.html`);
+              try { await fs.access(canonicalPath); templatePath = canonicalPath; found = true; } catch { /* noop */ }
             }
 
             // Strategy 4: fallback to templates/social/ by basename
@@ -1376,7 +1484,35 @@ export function fluidWatcherPlugin(): Plugin {
               try { await fs.access(fallbackPath); templatePath = fallbackPath; found = true; } catch { /* noop */ }
             }
 
+            // Strategy 5: strip leading .fluid/ prefix and resolve from fluidDir
+            if (!found && row.html_path.startsWith('.fluid/')) {
+              const strippedPath = row.html_path.replace(/^\.fluid\//, '');
+              const stripped = path.resolve(fluidDir, strippedPath);
+              try { await fs.access(stripped); templatePath = stripped; found = true; } catch { /* noop */ }
+            }
+
+            // Strategy 6: strip leading .fluid/ and resolve from projectRoot/.fluid/
+            if (!found && row.html_path.startsWith('.fluid/')) {
+              const fromRoot = path.resolve(projectRoot, row.html_path);
+              try { await fs.access(fromRoot); templatePath = fromRoot; found = true; } catch { /* noop */ }
+            }
+
+            // Strategy 7: skip slide directory level — some iterations were written
+            // at campaign/creation/iter.html instead of campaign/creation/slide/iter.html
+            if (!found && hierarchy) {
+              const noSlidePath = path.join(fluidDir, 'campaigns', hierarchy.campaign_id, hierarchy.creation_id, `${iterationId}.html`);
+              try { await fs.access(noSlidePath); templatePath = noSlidePath; found = true; } catch { /* noop */ }
+            }
+
             if (!found) {
+              const tried = [
+                `stored: ${path.resolve(projectRoot, row.html_path)}`,
+                `fluid: ${path.resolve(fluidDir, row.html_path)}`,
+                `canonical: .fluid/campaigns/.../${iterationId}.html`,
+                `template: ${path.join(socialTemplatesDir, path.basename(row.html_path))}`,
+                ...(row.html_path.startsWith('.fluid/') ? [`stripped: ${path.resolve(fluidDir, row.html_path.replace(/^\.fluid\//, ''))}`] : []),
+              ];
+              console.error(`[watcher] Iteration ${iterationId} html_path="${row.html_path}" — tried ${tried.length} strategies, none found:\n  ${tried.join('\n  ')}`);
               res.writeHead(404, { 'Content-Type': 'text/plain' });
               res.end(`HTML file not found on disk (tried: stored="${row.html_path}", canonical=.fluid/campaigns/.../${iterationId}.html)`);
               return;
@@ -1756,7 +1892,8 @@ export function fluidWatcherPlugin(): Plugin {
               html = html.replace('</body>', listenerScript + '</body>');
               res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
               res.end(html);
-            } catch {
+            } catch (err) {
+              console.error(`[watcher] fs.readFile failed for iteration ${iterationId} at ${templatePath}:`, err);
               res.writeHead(404, { 'Content-Type': 'text/plain' });
               res.end('HTML file not found on disk');
             }
@@ -1864,6 +2001,7 @@ export function fluidWatcherPlugin(): Plugin {
           if (req.url === '/api/generate' && req.method === 'POST') {
             const body = JSON.parse(await readBody(req));
             const { prompt, template, customization, skillType } = body;
+            const userImageUrl = body.userImageUrl as string | undefined;
 
             // ── CAMPAIGN MODE: Multi-creation parallel API generation ────────
 
@@ -1990,6 +2128,8 @@ export function fluidWatcherPlugin(): Plugin {
                 htmlOutputPath: entry.absHtmlPath,
                 creationId: entry.creation.id,
                 campaignId,
+                iterationId: entry.iterationId,  // needed for SlotSchema attachment
+                userImageUrl,  // user-uploaded image URL from chat sidebar
               };
 
               // Fire and forget — each pipeline runs independently in parallel

@@ -271,7 +271,6 @@ Plans:
 - [ ] 13-01-PLAN.md — DB migration + DAM client + sync engine + tests
 - [ ] 13-02-PLAN.md — API endpoint + watcher startup integration + AssetsScreen UI
 
-
 ## Progress
 
 **Execution Order:**
@@ -298,6 +297,7 @@ Phases execute in numeric order: 1 > 2 > 3 > 4 > 4.1 > 4.2 > 5 > 6 > 7 > 8 > 9 >
 | 14.1 Brand-Agnostic Pipeline | 3/3 | Complete    | 2026-03-17 |
 | 15. Brand Data Architecture | 3/4 | In Progress|  |
 | 16. Smart Context Pipeline | 2/3 | In Progress|  |
+| 22. Image Integration + Template Routing | 3/3 | Complete   | 2026-03-24 |
 
 ### Phase 14: Design DNA — template-extracted style rules, per-deliverable design intelligence, and exemplar-referenced generation pipeline
 
@@ -325,45 +325,59 @@ Plans:
   1. Zero occurrences of "Fluid" brand references in api-pipeline.ts stage prompts (platform dimension constants excluded)
   2. Stage prompts are brand-agnostic process instructions that tell agents to query DB tools for brand context
   3. CLI orchestrator skills (/fluid-social, /fluid-one-pager, /fluid-theme-section) are thin wrappers that POST to /api/generate — no brand file reads, no duplicate pipeline logic
-  4. brand-intelligence/SKILL.md routes agents to DB tools, not brand/*.md files
-  5. CLAUDE.md contains zero brand/*.md file routing
-  6. brand/ directory archived to Reference/brand-seed-archive/ — no runtime code reads from it
+
+### Phase 19: Build Design Components and Instagram Archetypes
+
+**Goal:** Implement the design component library (13 brandless functional blocks documented as inline HTML/CSS patterns) and 6 Instagram archetypes (1080x1080). Each archetype ships with index.html (brandless wireframe), schema.json (SlotSchema for editor sidebar parity), and README.md. Validated by CLI tool (tools/validate-archetypes.cjs) and Playwright E2E tests verifying editor sidebar integration.
+**Requirements**: TBD
+**Depends on:** Phase 18
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 14.1-01-PLAN.md — Brand-agnostic stage prompts in api-pipeline.ts (delete SKILL_FILES/loadStagePrompt, rewrite prompt builders)
-- [ ] 14.1-02-PLAN.md — CLI orchestrators → thin API wrappers (rewrite 3 skill files to POST /api/generate)
-- [ ] 14.1-03-PLAN.md — Cleanup: brand-intelligence rewrite, CLAUDE.md update, brand/ archive, skill-map.json retirement
+- [x] 19-01-PLAN.md — Validator script (tools/validate-archetypes.cjs) + component library README + directory structure
+- [x] 19-02-PLAN.md — Build all 6 Instagram archetypes (hero-stat, photo-bg-overlay, split-photo-text, quote-testimonial, minimal-statement, data-dashboard)
+- [ ] 19-03-PLAN.md — Playwright E2E tests for editor integration + final validation checkpoint
 
-### Phase 15: Brand Data Architecture
+### Phase 20: Pipeline Integration — Archetype Selection and SlotSchema Attachment
 
-**Goal:** Reorganize how brand data is structured in the DB and presented in the UI. Users understand what each page is for and can intuitively find/edit brand data. Data is structured for optimal agent consumption. Asset categories align between app, DB, and DAM.
-**Depends on:** Phase 14.1
-**Success Criteria** (what must be TRUE):
-  1. Patterns page organized into Foundations (colors, typography, spacing/opacity) and Rules (asset usage, visual techniques) — layout archetypes removed
-  2. Assets page uses new categories (Fonts, Images, Brand Elements, Decorations) with optional short descriptions per asset — categories match DAM folder structure
-  3. Templates page shows each template as unified card: text header (purpose, characteristics) + HTML preview — "archetype" nomenclature retired
-  4. All brand pages have subtitles explaining their purpose and internal grouping where applicable
-**Plans:** 3/4 plans executed
+**Goal:** Rewire the generation pipeline to use archetypes instead of freestyling HTML. Changes: (1) Layout agent SELECTS an archetype rather than writing HTML from scratch — receives the archetype's HTML template and fills slots with copy. (2) Styling agent applies brand rules (fonts, colors, textures, imagery patterns) to the archetype's CSS classes — no more inventing layouts. (3) When saving an iteration, ATTACH the archetype's SlotSchema to the iteration record (currently saved as slotSchema: null for AI-generated assets). This is what makes the editor sidebar work. (4) Ensure feature parity with template-based creations: all editing, repositioning, and sidebar features that work for templates must also work for archetype-based generations. The pipeline changes from "write HTML from nothing" to "select structure, fill content, apply brand."
+**Requirements**: PIPE-20-01, PIPE-20-02, PIPE-20-03, PIPE-20-04, PIPE-20-05, PIPE-20-06, PIPE-20-07, PIPE-20-08, PIPE-20-09, PIPE-20-10
+**Depends on:** Phase 19
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 15-01-PLAN.md — Patterns page: remove archetypes, Foundations/Rules grouping, DB recategorization
-- [ ] 15-02-PLAN.md — Assets page: new categories, description field, asset-scanner + DAM sync alignment
-- [ ] 15-03-PLAN.md — Templates page: unified template + header cards, drop archetype nomenclature
-- [ ] 15-04-PLAN.md — UI communication: page subtitles, internal grouping, empty state guidance
+- [ ] 20-01-PLAN.md — Foundation: archetype scanning, fuzzy slug matching, PipelineContext.iterationId, updateIterationSlotSchema DB function
+- [ ] 20-02-PLAN.md — Pipeline rewiring: rewrite copy/layout/styling prompts, attachSlotSchema, delete ARCHETYPE_TEMPLATE_FILES, integrate into runApiPipeline
+- [ ] 20-03-PLAN.md — Feature parity: Playwright E2E tests for editor sidebar with archetype-based iterations + visual checkpoint
 
-### Phase 16: Smart Context Pipeline
+### Phase 21: LinkedIn and One-Pager Archetypes
 
-**Goal:** Replace agent self-discovery of brand context with deterministic, creation-type-aware pre-injection. Each pipeline stage receives exactly the brand data it needs. The context mapping is configurable and observable for iterative refinement.
-**Depends on:** Phase 15
-**Success Criteria** (what must be TRUE):
-  1. A dev-editable context map defines (creation type, stage) → exact brand sections to inject
-  2. Pipeline pre-loads brand context from DB per the context map and injects it into stage system prompts — agents receive brand context without calling discovery tools
-  3. Each generation logs what brand context was loaded per stage (token count, sections used, any fallback discovery tool calls)
-  4. Discovery tool usage during pre-injected stages is tracked as "context gap" signals for mapping refinement
-**Plans:** 2/3 plans executed
+**Goal:** Extend the archetype library to LinkedIn (1200x627) and One-Pager (US Letter 612x792, printable) formats. LinkedIn: 5 adapted Instagram archetypes + 1 LinkedIn-only layout (article-preview-li). One-Pager: 3 archetypes with print spec enforcement (@page rules, flexbox layout, overflow:hidden). Add SlotSchema platform field, extend validator with platform-aware checks, backfill all existing archetypes. Add pipeline filterArchetypesByPlatform for platform-specific archetype selection.
+**Requirements**: ARCH-21-01, ARCH-21-02, ARCH-21-03, ARCH-21-04, ARCH-21-05, ARCH-21-06, ARCH-21-07, ARCH-21-08, ARCH-21-09
+**Depends on:** Phase 20
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 16-01-PLAN.md — DB schema (context_map/context_log), db-api CRUD functions, seeder defaults, API endpoints, unit tests
-- [ ] 16-02-PLAN.md — Pipeline pre-injection: loadContextForStage(), buildSystemPrompt extension, wildcard expansion, token budget, gap signal logging, SSE context_injected event
-- [ ] 16-03-PLAN.md — Settings page (context map editor), ContextPanel in chat sidebar, LeftNav settings tab
+- [ ] 21-01-PLAN.md — Validator platform-aware update + SlotSchema platform field + backfill existing archetypes/templates
+- [ ] 21-02-PLAN.md — Build 6 LinkedIn archetypes (5 adapted + 1 LinkedIn-only)
+- [ ] 21-03-PLAN.md — Build 3 one-pager archetypes + pipeline filterArchetypesByPlatform
+
+### Phase 22: Image Integration and Template-vs-Archetype Routing
+
+**Goal:** Two capabilities: (1) Image integration — wire brand asset photos from the DAM to image slots in archetypes, support user-uploaded photos and DAM reference by name, with branded placeholders as fallback. (2) Template-vs-archetype routing — build the agent decision layer in the copy stage: check DB-backed templates first for a strong content-type match, fall back to archetypes when no template fits. Both paths produce iterations with SlotSchemas so the editor sidebar works identically.
+**Requirements**: IMG-22-01, IMG-22-02, IMG-22-03, IMG-22-04, IMG-22-05, IMG-22-06, IMG-22-07, ROUTE-22-01, ROUTE-22-02, ROUTE-22-03, ROUTE-22-04, ROUTE-22-05, ROUTE-22-06
+**Depends on:** Phase 21
+**Success Criteria** (what must be TRUE):
+  1. Copy agent receives photo availability summary and template routing list, making informed template-vs-archetype decisions
+  2. Template path skips styling stage and attaches SlotSchema from TEMPLATE_SCHEMAS
+  3. Archetype path unchanged from Phase 20 (copy -> layout -> styling -> spec-check)
+  4. User-uploaded images persist permanently and flow through to styling prompt
+  5. Styling agent selects contextually appropriate photos from DAM library for image slots
+  6. Branded placeholder generated when no suitable photo exists
+  7. Templates DB table has content_type and tags routing metadata
+**Plans:** 3/3 plans complete
+
+Plans:
+- [ ] 22-01-PLAN.md — DB migration (template routing columns), routing metadata seeder, getAgentTemplates(), photo availability summary, copy prompt extension
+- [ ] 22-02-PLAN.md — Image upload endpoint, persistent storage (brand_assets source='upload'), image slot styling prompt extension
+- [ ] 22-03-PLAN.md — Template routing branch in pipeline (skip styling + SlotSchema), userImageUrl wiring, integration tests

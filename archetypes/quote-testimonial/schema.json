@@ -1,0 +1,14 @@
+{
+  "archetypeId": "quote-testimonial",
+  "platform": "instagram-square",
+  "width": 1080,
+  "height": 1080,
+  "fields": [
+    { "type": "text", "sel": ".quote-text", "label": "Quote", "mode": "pre", "rows": 5 },
+    { "type": "image", "sel": ".portrait img", "label": "Portrait Photo", "dims": "100 x 100px" },
+    { "type": "text", "sel": ".attribution", "label": "Name", "mode": "text", "rows": 1 },
+    { "type": "text", "sel": ".title", "label": "Title", "mode": "text", "rows": 1 }
+  ],
+  "brush": null,
+  "brushAdditional": []
+}

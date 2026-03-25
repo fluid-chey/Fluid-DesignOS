@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!-- archetype: quote-testimonial | target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    overflow: hidden;
+    background: #000000;
+    position: relative;
+    font-family: sans-serif;
+  }
+
+  .decorative-zone {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* SLOT: .quote-text */
+  .quote-text {
+    position: absolute;
+    left: 68px;
+    top: 200px;
+    width: 900px;
+    font-size: 62px;
+    font-style: italic;
+    line-height: 1.25;
+    color: #ffffff;
+    z-index: 1;
+  }
+
+  .attrib-row {
+    position: absolute;
+    left: 68px;
+    bottom: 160px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    z-index: 1;
+  }
+
+  /* SLOT: .portrait img */
+  .portrait {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #2a2a2a;
+  }
+
+  .portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .attrib-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* SLOT: .attribution */
+  .attribution {
+    font-size: 38px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  /* SLOT: .title */
+  .title {
+    font-size: 32px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+</style>
+</head>
+<body>
+  <div class="decorative-zone"></div>
+
+  <!-- SLOT: quote-text -->
+  <p class="quote-text">"The moment we stopped thinking about marketing as a department and started thinking about it as a system, everything changed."</p>
+
+  <div class="attrib-row">
+    <!-- SLOT: portrait -->
+    <div class="portrait">
+      <img src="" alt="Portrait photo"/>
+    </div>
+
+    <div class="attrib-text">
+      <!-- SLOT: attribution -->
+      <p class="attribution">Michael Torres</p>
+
+      <!-- SLOT: title -->
+      <p class="title">VP of Marketing, Acme Corp</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-03-18T16:42:44.101Z"
+stopped_at: Completed 22-03-PLAN.md
+last_updated: "2026-03-24T21:41:51.081Z"
 last_activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 progress:
-  total_phases: 20
-  completed_phases: 17
-  total_plans: 61
-  completed_plans: 62
-  percent: 100
+  total_phases: 22
+  completed_phases: 22
+  total_plans: 69
+  completed_plans: 69
+  percent: 94
 ---
 
 # Project State
@@ -29,7 +29,7 @@ Phase: 12 — Post-API Migration Cleanup & Audit
 Status: Complete (plan 03 of 03 done).
 Last activity: 2026-03-17 -- Phase 12 plan 03 complete (coherence verification — tests clean, MCP audit, skill files confirmed embedding-free, CLAUDE.md updated)
 
-Progress: [████████████████████] 100% (16/16 phases, 48/48 plans)
+Progress: [████████████████████] 94% (19/22 phases, 62/66 plans)
 
 ## Performance Metrics
 
@@ -102,6 +102,19 @@ Progress: [████████████████████] 100% (1
 | Phase 15-brand-data-architecture P02 | 5min | 2 tasks | 6 files |
 | Phase 16-smart-context-pipeline P01 | 4min | 2 tasks | 6 files |
 | Phase 16-smart-context-pipeline P02 | 4min | 2 tasks | 5 files |
+| Phase 17-pipeline-quick-fixes P01 | 3min | 2 tasks | 3 files |
+| Phase 19 P02 | 3min | 2 tasks | 18 files |
+| Phase 19 P03 | 8min | 1 tasks | 1 files |
+| Phase 19 P03 | continuation | 2 tasks | 1 files |
+| Phase 20 P02 | 12 | 2 tasks | 2 files |
+| Phase 20 P03 | 36min | 2 tasks | 12 files |
+| Phase 20-pipeline-integration-archetype-selection-and-slotschema-attachment P01 | 4min | 2 tasks | 5 files |
+| Phase 21 P01 | 7min | 2 tasks | 13 files |
+| Phase 21-linkedin-and-one-pager-archetypes P03 | 8min | 2 tasks | 11 files |
+| Phase 21 P02 | 5min | 2 tasks | 19 files |
+| Phase 22-image-integration-and-template-vs-archetype-routing P02 | 12min | 2 tasks | 3 files |
+| Phase 22-image-integration-and-template-vs-archetype-routing P01 | 12min | 2 tasks | 4 files |
+| Phase 22-image-integration-and-template-vs-archetype-routing P03 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -269,6 +282,42 @@ Recent decisions affecting current work:
 - [Phase 16-02]: loadContextMap() in db-api.ts: DB access centralized, pipeline only orchestrates
 - [Phase 16-02]: Gap signals tracked as gapToolCalls array per stage, written to context_log after stage end — not per-call DB writes
 - [Phase 16-02]: buildSystemPrompt injectedContext injected between base instructions and tool section — context is part of agent identity
+- [Phase 17-pipeline-quick-fixes]: System-invariant rules (word limits, inline styles ban, decorative elements, circle emphasis, font fallbacks) live in prompt builders in code, not DB — avoids extractHardRules cache invalidation issues
+- [Phase 17-pipeline-quick-fixes]: font-non-brand-family removed from MICRO_FIXABLE_RULES — font violations escalate to full fix loop (styling agent), not regex replacement
+- [Phase 17-pipeline-quick-fixes]: Font enforcement seeded as brand pattern (weight: 90, slug: font-enforcement) so extractHardRules picks it up at runtime
+- [19-01]: Validator exits 0 on empty archetypes/ — non-error state, not a missing-directory error
+- [19-01]: components/README.md is a single inline-pattern file (HTML/CSS copy-paste library), not a meta-doc — archetype authors copy patterns directly
+- [19-01]: archetypes/README.md updated to list all 6 Phase 19 slugs and reference validate-archetypes.cjs
+- [19-02]: split-photo-text text slots flow inside a flex container rather than absolute positioning — preserves vertical centering without fixed top values
+- [19-03]: E2E archetype tests use REST API fixture chain rather than UI automation — more reliable for CI; sidebar field verification via GET /api/iterations/:id slotSchema resolution
+- [19-02]: data-dashboard uses CSS grid for the 3-stat layout rather than absolute-positioned individual stats — ensures equal column widths without manual math
+- [19-02]: divider type field in data-dashboard schema uses label "---" to match the plan spec exactly
+- [Phase 19]: Archetype count expanded from 6 to 10 during user visual review — hero-stat-split, split-photo-quote, minimal-photo-top, stat-hero-single added; all pass validator with 0 errors
+- [Phase 20]: ARCHETYPE_TEMPLATE_FILES and DEFAULT_ARCHETYPE deleted — new archetypes are filesystem-scanned, not hardcoded
+- [Phase 20]: buildLayoutPrompt has slot-fill mode (archetype HTML + slug) with freestyle fallback for when archetypes are missing
+- [Phase 20]: attachSlotSchema is non-fatal in runApiPipeline — SlotSchema failure does not block HTML generation
+- [Phase 20]: E2E tests use REST API fixture chain for archetype sidebar parity — more reliable than UI automation for CI
+- [Phase 20]: buildStylingPrompt gains isArchetypeBased mode so styling agent understands it is enhancing an archetype skeleton, not freestyling
+- [Phase 20]: Archetype backgrounds standardized to #000000 (not #111 shorthand) across all 10 archetypes for visual consistency
+- [Phase 20-01]: scanArchetypes() gracefully returns empty Map when archetypes/ missing; skips components/ and dot dirs
+- [Phase 20-01]: PipelineContext.iterationId is required (not optional) — watcher.ts passes entry.iterationId at all call sites
+- [Phase 20-01]: resolveArchetypeSlug normalizes input (lowercase, strip non-alphanumeric/dash) before levenshtein matching; edit distance ≤ 2 fuzzy match, else alphabetical first fallback
+- [Phase 21-01]: Validator platform-aware: getPlatformForSlug derives platform from slug suffix (-li=linkedin-landscape, -op=one-pager, else instagram-square); PLATFORM_DIMS replaces hardcoded REQUIRED_DIMS
+- [Phase 21-01]: SlotSchema.platform is optional ('instagram-square' | 'linkedin-landscape' | 'one-pager'); TemplateMetadata.platform union extended with 'one-pager'
+- [Phase 21-01]: All 10 Instagram archetypes backfilled with archetypeId and platform: instagram-square in schema.json
+- [Phase 21]: Slug suffix convention (-li, -op) chosen for platform detection — validator stays zero-config for new archetypes
+- [Phase 21-03]: One-pager layout uses display:flex flex-direction:column on .page wrapper — print-safe document flow without coordinate math
+- [Phase 21-03]: filterArchetypesByPlatform() uses endsWith('-li') / endsWith('-op') slug convention — consistent with validator, zero-config for new archetypes
+- [Phase 21]: LinkedIn archetypes use vertical stat column (hero-stat-li) rather than horizontal row — 3 stats stack in right 38% of 1200px canvas
+- [Phase 21]: article-preview-li is LinkedIn-only (no Instagram equivalent) — editorial card pattern native to LinkedIn article sharing
+- [Phase 22-image-integration-and-template-vs-archetype-routing]: Chat image uploads use raw binary (application/octet-stream) with metadata in headers — simpler than multipart for frontend
+- [Phase 22-image-integration-and-template-vs-archetype-routing]: source='upload' in brand_assets keeps one-off uploads distinct from 'local' and 'dam'; uploads persist permanently in assets/uploads/
+- [Phase 22-image-integration-and-template-vs-archetype-routing]: getArchetypeImageSlotLabels reads schema.json at pipeline runtime (synchronous fsSync.readFileSync) — always reflects current archetype
+- [Phase 22-01]: seedTemplateRoutingMetadata() called from watcher.ts startup to avoid circular imports between db.ts and db-api.ts
+- [Phase 22-01]: Copy agent prompt: prefer Archetype when uncertain — templates reserved for well-recognized repeatable formats only
+- [Phase 22-01]: buildPhotoAvailabilitySummary classifies archetypes as image-heavy or text-only by reading schema.json fields at prompt-build time
+- [Phase 22-03]: isTemplatePath + scoped variables declared at runApiPipeline level so fix loop cascade can access without re-parsing copy.md
+- [Phase 22-03]: Template HTML subdir from ctx.creationType: one-pager maps to one-pagers/, all others to social/
 
 ### Parallel Development Note
 
@@ -293,6 +342,12 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 - Phase 12: Post-API Migration Cleanup & Audit — migrate validation tools from rules.json to SQLite DB, delete orphaned directories, verify infrastructure coherence (completed 2026-03-17)
 - Phase 13: DAM Sync — Fluid DAM as upstream source of truth (completed 2026-03-17)
 - Phase 14 added: Design DNA — template-extracted style rules, per-deliverable design intelligence, and exemplar-referenced generation pipeline
+- Phase 17 added: Pipeline Quick Fixes — immediate quality fixes from 11-run simulation audit + user video review (broken paths, copy limits, font enforcement, brushstroke standardization, circle positioning, inline styles ban, spec-check gaps)
+- Phase 18 added: Archetype System Research and Component Design — collaborative research phase to design brandless archetype format + design component library, derived from real high-performing social posts
+- Phase 19 added: Build Design Components and Instagram Archetypes — implement component primitives + 6-8 Instagram archetypes with SlotSchema for editor sidebar parity
+- Phase 20 added: Pipeline Integration — Archetype Selection and SlotSchema Attachment — rewire pipeline to select archetypes instead of freestyling HTML, attach SlotSchema to iterations
+- Phase 21 added: LinkedIn and One-Pager Archetypes — extend archetype library to LinkedIn (1200x627) and One-Pager (US Letter, printable, single-page)
+- Phase 22 added: Image Integration and Template-vs-Archetype Routing — wire DAM photos to image slots, build agent decision layer (template match vs archetype adaptation)
 
 ### Blockers/Concerns
 
@@ -302,6 +357,6 @@ Jonathan pushes directly to main via Cursor. His changes are NOT tracked by GSD 
 
 ## Session Continuity
 
-Last session: 2026-03-18T16:42:44.098Z
-Stopped at: Completed 16-02-PLAN.md
+Last session: 2026-03-24T21:41:51.078Z
+Stopped at: Completed 22-03-PLAN.md
 Resume file: None

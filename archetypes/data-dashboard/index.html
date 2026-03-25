@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!-- archetype: data-dashboard | target: 1080x1080 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1080px;
+    height: 1080px;
+    overflow: hidden;
+    background: #000000;
+    position: relative;
+    font-family: sans-serif;
+  }
+
+  .decorative-zone {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* SLOT: .headline */
+  .headline {
+    position: absolute;
+    left: 68px;
+    right: 68px;
+    top: 80px;
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #ffffff;
+    text-align: center;
+    z-index: 2;
+  }
+
+  .stats-grid {
+    position: absolute;
+    left: 68px;
+    right: 68px;
+    top: 220px;
+    bottom: 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 40px;
+    z-index: 2;
+  }
+
+  .stat-1, .stat-2, .stat-3, .stat-4 {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Bottom row: when only stat-3 is populated (stat-4 empty),
+     it centers across both columns */
+  .stat-3:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* SLOT: .stat-1-num */
+  .stat-1-num,
+  .stat-2-num,
+  .stat-3-num,
+  .stat-4-num {
+    font-size: 140px;
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+  }
+
+  /* SLOT: .stat-1-label */
+  .stat-1-label,
+  .stat-2-label,
+  .stat-3-label,
+  .stat-4-label {
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+  <div class="decorative-zone"></div>
+
+  <!-- SLOT: headline -->
+  <p class="headline">Q3 performance at a glance</p>
+
+  <div class="stats-grid">
+    <div class="stat-1">
+      <!-- SLOT: stat-1-num -->
+      <div class="stat-1-num">2.4x</div>
+      <!-- SLOT: stat-1-label -->
+      <div class="stat-1-label">Roas improvement</div>
+    </div>
+    <div class="stat-2">
+      <!-- SLOT: stat-2-num -->
+      <div class="stat-2-num">47%</div>
+      <!-- SLOT: stat-2-label -->
+      <div class="stat-2-label">Cost reduction</div>
+    </div>
+    <div class="stat-3">
+      <!-- SLOT: stat-3-num -->
+      <div class="stat-3-num">312K</div>
+      <!-- SLOT: stat-3-label -->
+      <div class="stat-3-label">New users acquired</div>
+    </div>
+    <div class="stat-4">
+      <!-- SLOT: stat-4-num -->
+      <div class="stat-4-num">98%</div>
+      <!-- SLOT: stat-4-label -->
+      <div class="stat-4-label">Retention rate</div>
+    </div>
+  </div>
+</body>
+</html>

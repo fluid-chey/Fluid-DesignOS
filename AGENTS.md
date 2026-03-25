@@ -54,12 +54,17 @@ canvas/                        # The app (React + Vite + SQLite)
 
 tools/                         # CLI validation + verification tools (Node.js CommonJS)
 assets/                        # Brand assets (SVGs, fonts, textures, logos, photos)
+archetypes/                    # Brandless structural layout patterns (filesystem, not DB)
+  SPEC.md                      # Authoritative format specification
+  components/                  # Reusable design component patterns (pattern.html + README)
+  {archetype-slug}/            # One dir per archetype (index.html + schema.json + README)
 templates/                     # Template library (social/, gold-standard/, one-pagers/)
 pattern-seeds/                 # Clean markdown pattern files (seeded into DB)
 patterns/                      # Legacy visual pattern page (archival — DB is source of truth)
 voice-guide/                   # Brand voice docs (13 .md files, seeded into DB)
 feedback/                      # Agent-written usage data for learning loop
 Reference/                     # Archival source material (NEVER load directly)
+  Archetype Research/          # Reference post curation + deconstruction framework
 skills/marketing/              # 30+ marketing domain skills for subagent use
 
 .agents/skills/                # Project-scoped agent skills (fluid-campaign orchestrator)
@@ -129,11 +134,14 @@ On first startup, if `canvas/seed-data.json` exists and the DB is empty, it auto
 
 Brand data lives in the SQLite database, managed through the app UI. There are NO brand files to read from disk.
 
-**Four pages in the app manage brand data:**
+**Six pages in the app manage brand data and configuration:**
 - **Voice Guide** — voice rules, messaging frameworks, identity docs
-- **Patterns** — design tokens (colors, typography, spacing), visual patterns (brushstrokes, circles, textures)
-- **Assets** — brand assets (fonts, images, logos) served at `/fluid-assets/` URLs
-- **Templates** — reference templates with design rules
+- **Patterns** — two sections: Foundations (colors, typography) and Rules (layout archetypes, brushstroke rendering, circle emphasis, opacity patterns, etc.). Each pattern has a weight and optional `is_core` flag.
+- **Assets** — brand assets in 4 categories: Fonts, Images, Brand Elements, Decorations. Served at `/fluid-assets/` URLs. Optional description field per asset. DAM sync auto-categorizes by mime type.
+- **Templates** — reference templates with per-template design rules (scope: global-social, platform, archetype)
+- **Settings** — context map editor for configuring which brand sections are injected per (creation_type, stage) combination. Shows token budgets and injection priorities.
+
+**Navigation:** LeftNav with Create, My Creations, Assets, Templates, Patterns, Voice Guide, Settings (gear icon at bottom). AI Chat sidebar toggles independently.
 
 **Agents access brand context via pipeline tools:**
 - `list_brand_sections(category?)` — discover available brand docs
@@ -149,6 +157,19 @@ Brand rules carry weights 1-100:
 - **51-80** = should follow (strong preference)
 - **21-50** = recommended (flexible)
 - **1-20** = nice-to-have (optional)
+
+## Archetype System
+
+Archetypes are **brandless structural layout patterns** — content skeletons that define spatial hierarchy without any brand expression. They live on the filesystem (`archetypes/`), not in the database.
+
+**Key architectural norms:**
+- **Brand-neutral:** No brand fonts, colors, assets, `text-transform: uppercase`, vertical side labels, or any brand convention. Casing, decoration, and styling are brand-layer decisions applied at generation time.
+- **Content/decorative split:** Archetypes define content layout only. A `.decorative-zone` div in each archetype receives brand decorative elements (brushstrokes, textures, circles) at generation time.
+- **`archetypeId`, not `templateId`:** Archetype schemas use `archetypeId` to avoid collision with `TEMPLATE_SCHEMAS` resolution in `template-configs.ts`. `brush` is always `null` — the brand layer provides decorative transform targets.
+- **Identical output shape:** Both templates and archetypes produce renderable HTML + SlotSchema. The pipeline can select either; the editor sidebar works with both.
+- **Components are patterns, not runtime includes:** Design components (`archetypes/components/`) are reference HTML/CSS patterns. When building an archetype, copy the markup structure and SlotSchema fields — there is no partial/import system.
+
+See `archetypes/SPEC.md` for the authoritative format specification.
 
 ## Generation Pipeline
 
@@ -172,7 +193,7 @@ copy → layout → styling → spec-check (→ fix if needed)
 - **Styling:** Sonnet (complex CSS composition)
 - **Spec-check:** Sonnet (holistic brand judgment)
 
-**Smart context injection:** The `context_map` table maps (creation_type, pipeline_stage) to specific brand sections. Agents receive pre-loaded brand context instead of discovering it via tools. Token budgets: Copy ~8K, Layout ~6K, Styling ~10K. Per-section cap (60% of budget) prevents any single section from monopolizing the injection. Safety caps truncate oversized sections.
+**Smart context injection:** The `context_map` table maps (creation_type, stage, page) to specific brand sections. Agents receive pre-loaded brand context instead of discovering it via tools. Token budgets: Copy ~8K, Layout ~6K, Styling ~10K. Per-section cap (60% of budget) prevents any single section from monopolizing the injection. Safety caps truncate oversized sections. Wildcard patterns (`voice-guide:*`, `category:*`) expand at runtime. The `context_log` table records what was actually injected per generation (sections, token estimate, gap tool calls) for observability. The Settings page provides a UI for editing the context map.
 
 **Hard rules extraction:** Brand patterns with weight ≥ 81 are automatically parsed and promoted to system prompt directives (injected into layout/styling stages as `## Hard Rules (NON-NEGOTIABLE)`). This ensures the model treats critical brand rules as constraints, not suggestions.
 
@@ -182,7 +203,16 @@ copy → layout → styling → spec-check (→ fix if needed)
 
 **Micro-fix loop:** Before spinning up full API-based fix agents, the pipeline attempts regex-based fixes for simple violations (wrong background color, non-brand font families). Saves ~$0.03 and ~15s per fix.
 
-**Design DNA:** For social posts, layout and styling stages receive Design DNA (visual compositor contract + platform rules + archetype notes + HTML exemplar) in the system prompt. Injected once — not duplicated in the user prompt.
+**Design DNA:** For social posts, layout and styling stages receive Design DNA (visual compositor contract + platform rules + archetype notes + HTML exemplar) in the system prompt. Design DNA is sourced from `brand_patterns` (visual-style category) and `template_design_rules` (scoped by platform and archetype). Injected once — not duplicated in the user prompt.
+
+**Brand-agnostic pipeline:** All stage prompts are generic — no brand name or brand-specific content is hardcoded. Brand identity is runtime data loaded from the DB. The pipeline works for any brand whose data is seeded into the database.
+
+**System-invariant hard rules** (injected into stage system prompts, not stored in DB):
+- **Copy length limits:** IG ~20 words total visible copy, LI ~30 words
+- **Inline styles ban:** all styling must be in `<style>` blocks with CSS classes, never `style=""` attributes
+- **Font enforcement:** only fonts registered in brand assets are allowed; non-brand fonts trigger a full fix loop (not micro-fix)
+- **Decorative elements:** brushstrokes/circles use `<div>` with `background-image: url(); background-size: contain`, never `<img>` tags. Minimum 2 brushstrokes per social post.
+- **Circle emphasis:** CSS mask with proper bounding box calculation
 
 ## API Endpoints
 
@@ -199,6 +229,8 @@ All routes served from Vite middleware (`canvas/src/server/watcher.ts`):
 | `/api/iterations/:id/html` | GET | Serve iteration HTML (with path fallback + slot application) |
 | `/api/iterations/:id/status` | PATCH | Update review status |
 | `/api/generate` | POST | Start generation (SSE stream) |
+| `/api/context-map` | GET, POST, PUT/:id, DELETE/:id | CRUD for smart context injection mappings |
+| `/api/context-log` | GET | Audit trail of injected context per generation |
 | `/api/templates` | GET, POST | List/create templates |
 | `/` | GET | Template library (static HTML) |
 | `/app/*` | GET | React canvas app |
@@ -362,6 +394,8 @@ npm run test:watch          # Watch mode
 - Do NOT read from `brand/` files — that directory does not exist. All brand data is in the DB.
 - Do NOT duplicate brand doc content in prompts; use DB tools to load brand data.
 - `Reference/` is archival only — never load directly.
+- `archetypes/SPEC.md` is the authoritative format reference for building archetypes. Do not invent format conventions — follow the spec.
+- Archetypes must be 100% brand-neutral: no `text-transform: uppercase`, no rotated side labels, no brand fonts/colors/assets. Casing and decoration are brand-layer decisions.
 - `feedback/` is for agents to write usage data back (learning loop).
 - `voice-guide/*.md` and `pattern-seeds/*.md` are seed sources — the DB is the live copy.
 - Pattern content is clean markdown with code snippets — never raw HTML or base64. All assets referenced via `/api/brand-assets/serve/` URLs.

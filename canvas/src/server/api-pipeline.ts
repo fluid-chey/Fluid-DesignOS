@@ -6,10 +6,18 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
-import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog } from './db-api';
+import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog, updateIterationSlotSchema, getAgentTemplates } from './db-api';
+import { getTemplateSchema } from '../lib/template-configs';
+
+// ESM-safe __dirname (works in both Vite middleware and tsx/node ESM)
+const __dirname = typeof globalThis.__dirname !== 'undefined'
+  ? globalThis.__dirname
+  : path.dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
 // Campaign copy accumulator — prevents tagline/headline repetition across creations
@@ -56,7 +64,16 @@ export interface PipelineContext {
   htmlOutputPath: string; // absolute path where final HTML goes
   creationId: string;
   campaignId: string;
+  iterationId: string; // DB iteration ID — needed for SlotSchema attachment
   brandName?: string;  // Loaded from DB at pipeline entry; prompts use "the brand" if absent
+  userImageUrl?: string; // URL of user-uploaded image from chat sidebar
+}
+
+export interface ArchetypeMeta {
+  slug: string;
+  description: string;   // first non-heading, non-metadata paragraph line from README.md
+  htmlPath: string;      // absolute path to archetypes/{slug}/index.html
+  schemaPath: string;    // absolute path to archetypes/{slug}/schema.json
 }
 
 // ---------------------------------------------------------------------------
@@ -151,15 +168,15 @@ const listBrandSectionsTool: Anthropic.Tool = {
   name: 'list_brand_sections',
   description:
     'List available brand sections from the DB. Returns slug, label, and category for each section. ' +
-    'Categories: "voice-guide" (brand voice docs), "design-tokens" (colors, typography, opacity), ' +
-    '"layout-archetype" (layout types), "pattern" (brushstrokes, circles, textures, footer, etc.). ' +
+    'Categories: "voice-guide" (brand voice docs), "colors" (palette, overlays), "typography" (fonts, scales), ' +
+    '"logos" (logo usage rules), "images" (photo/mockup rules), "decorations" (textures, brushstrokes), "archetypes" (layout templates). ' +
     'Use this to discover what brand content is available, then read_brand_section to load specific ones.',
   input_schema: {
     type: 'object' as const,
     properties: {
       category: {
         type: 'string',
-        description: 'Optional filter: "voice-guide", "design-tokens", "layout-archetype", or "pattern".',
+        description: 'Optional filter: "voice-guide", "colors", "typography", "logos", "images", "decorations", or "archetypes".',
       },
     },
     required: [],
@@ -205,15 +222,16 @@ const listBrandAssetsTool: Anthropic.Tool = {
 const listBrandPatternsTool: Anthropic.Tool = {
   name: 'list_brand_patterns',
   description:
-    'List available brand patterns (design tokens, brushstrokes, circles, textures, etc.) from the DB. ' +
-    'Returns slug, label, category, and a short description for each pattern. ' +
+    'List available brand patterns from the DB. ' +
+    'Returns slug, label, category, and weight for each pattern. ' +
+    'Categories: "colors", "typography", "logos", "images", "decorations", "archetypes". ' +
     'Use read_brand_pattern to load full content by slug.',
   input_schema: {
     type: 'object' as const,
     properties: {
       category: {
         type: 'string',
-        description: 'Optional filter: "design-tokens", "brushstrokes", "circles", "textures", etc.',
+        description: 'Optional filter: "colors", "typography", "logos", "images", "decorations", or "archetypes".',
       },
     },
     required: [],
@@ -329,19 +347,133 @@ export const STAGE_TOOLS: Record<PipelineStage, Anthropic.Tool[]> = {
 // ---------------------------------------------------------------------------
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-/** Maps archetype slug to template HTML file for exemplar injection */
-const ARCHETYPE_TEMPLATE_FILES: Record<string, string> = {
-  'problem-first': path.join(PROJECT_ROOT, 'templates/social/problem-first.html'),
-  'quote': path.join(PROJECT_ROOT, 'templates/social/quote.html'),
-  'stat-proof': path.join(PROJECT_ROOT, 'templates/social/stat-proof.html'),
-  'app-highlight': path.join(PROJECT_ROOT, 'templates/social/app-highlight.html'),
-  'manifesto': path.join(PROJECT_ROOT, 'templates/social/manifesto.html'),
-  'partner-alert': path.join(PROJECT_ROOT, 'templates/social/partner-alert.html'),
-  'feature-spotlight': path.join(PROJECT_ROOT, 'templates/social/feature-spotlight.html'),
-};
+// ---------------------------------------------------------------------------
+// Archetype filesystem directory
+// ---------------------------------------------------------------------------
+const ARCHETYPES_DIR = path.join(PROJECT_ROOT, 'archetypes');
 
-/** Default archetype when copy stage doesn't specify one */
-const DEFAULT_ARCHETYPE = 'problem-first';
+// ---------------------------------------------------------------------------
+// Archetype scanning + slug resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan the archetypes/ directory and return a Map of slug -> ArchetypeMeta.
+ * Skips "components", dot-prefixed directories, and directories missing index.html or schema.json.
+ * Returns empty Map when archetypes/ directory does not exist.
+ */
+export async function scanArchetypes(): Promise<Map<string, ArchetypeMeta>> {
+  const map = new Map<string, ArchetypeMeta>();
+  let dirents;
+  try {
+    dirents = await fs.readdir(ARCHETYPES_DIR, { withFileTypes: true });
+  } catch {
+    return map;
+  }
+  const entries = dirents
+    .filter(d => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'components')
+    .map(d => d.name);
+
+  for (const slug of entries) {
+    const htmlPath = path.join(ARCHETYPES_DIR, slug, 'index.html');
+    const schemaPath = path.join(ARCHETYPES_DIR, slug, 'schema.json');
+    const readmePath = path.join(ARCHETYPES_DIR, slug, 'README.md');
+    try {
+      await fs.access(htmlPath);
+      await fs.access(schemaPath);
+      const readmeContent = await fs.readFile(readmePath, 'utf-8').catch(() => '');
+      const description = readmeContent
+        .split('\n')
+        .find(l => l.trim() && !l.startsWith('#') && !l.startsWith('**'))
+        ?.trim() ?? slug;
+      map.set(slug, { slug, description, htmlPath, schemaPath });
+    } catch {
+      // Skip incomplete archetypes
+    }
+  }
+  return map;
+}
+
+/**
+ * Levenshtein edit distance between two strings.
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Resolve a raw archetype slug against the available archetypes map.
+ * - Exact match: returns { slug, matched: true }
+ * - Fuzzy match (edit distance ≤ 2): returns { slug: bestMatch, matched: false }
+ * - No match: returns { slug: alphabetical first, matched: false }
+ */
+export function resolveArchetypeSlug(
+  raw: string,
+  available: Map<string, ArchetypeMeta>
+): { slug: string; matched: boolean } {
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  if (available.has(normalized)) return { slug: normalized, matched: true };
+
+  let best = { slug: '', dist: Infinity };
+  for (const slug of available.keys()) {
+    const dist = levenshtein(normalized, slug);
+    if (dist < best.dist) best = { slug, dist };
+  }
+  if (best.dist <= 2 && best.slug) {
+    console.warn(`[api-pipeline] Fuzzy matched archetype "${raw}" -> "${best.slug}"`);
+    return { slug: best.slug, matched: false };
+  }
+
+  const fallback = [...available.keys()].sort()[0] ?? '';
+  console.warn(`[api-pipeline] Unknown archetype "${raw}", falling back to "${fallback}"`);
+  return { slug: fallback, matched: false };
+}
+
+/**
+ * Check if an archetype has image slots by reading its schema.json.
+ * Returns the image field labels (e.g., ["Portrait Photo", "Background Photo"]).
+ */
+function getArchetypeImageSlotLabels(schemaPath: string): string[] {
+  try {
+    const raw = fsSync.readFileSync(schemaPath, 'utf-8');
+    const schema = JSON.parse(raw);
+    return (schema.fields ?? [])
+      .filter((f: { type: string }) => f.type === 'image')
+      .map((f: { label: string }) => f.label);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Filter archetypes by platform using slug suffix convention.
+ * - No suffix = Instagram (1080x1080)
+ * - `-li` suffix = LinkedIn (1200x627)
+ * - `-op` suffix = One-pager (612x792)
+ */
+export function filterArchetypesByPlatform(
+  archetypes: Map<string, ArchetypeMeta>,
+  creationType: string
+): Map<string, ArchetypeMeta> {
+  return new Map(
+    [...archetypes.entries()].filter(([slug]) => {
+      if (creationType === 'linkedin') return slug.endsWith('-li');
+      if (creationType === 'one-pager') return slug.endsWith('-op');
+      // instagram (default): exclude -li and -op suffixed archetypes
+      return !slug.endsWith('-li') && !slug.endsWith('-op');
+    })
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Tool executor
@@ -619,17 +751,17 @@ function matchSimpleGlob(filename: string, pattern: string): boolean {
 
 /**
  * Load Design DNA context for injection into agent system prompts.
- * Assembles: global visual style + social general + platform rules + archetype notes + HTML exemplar.
+ * Assembles: global visual style + social general + platform rules + archetype notes.
+ * No HTML exemplar injection — archetypes provide structure directly via slot-fill.
  * Returns a formatted string block ready to prepend to system prompts.
  */
-async function loadDesignDna(ctx: PipelineContext, archetypeSlug?: string): Promise<string> {
+async function loadDesignDna(ctx: PipelineContext, archetypeSlug: string): Promise<string> {
   // Only inject for social media types (instagram, linkedin) — not one-pagers or theme-sections
   if (ctx.creationType !== 'instagram' && ctx.creationType !== 'linkedin') {
     return '';
   }
 
-  const slug = archetypeSlug || DEFAULT_ARCHETYPE;
-  const dna = getDesignDnaForPipeline(ctx.creationType, slug);
+  const dna = getDesignDnaForPipeline(ctx.creationType, archetypeSlug);
 
   const parts: string[] = [
     '## Design DNA — Visual Style Intelligence',
@@ -648,25 +780,7 @@ async function loadDesignDna(ctx: PipelineContext, archetypeSlug?: string): Prom
     parts.push('', '### Archetype Design Notes', dna.archetypeNotes);
   }
 
-  // Load HTML exemplar
-  const templatePath = ARCHETYPE_TEMPLATE_FILES[slug];
-  if (templatePath) {
-    try {
-      const html = await fs.readFile(templatePath, 'utf-8');
-      parts.push(
-        '',
-        '### Reference Exemplar',
-        `This is a hand-designed ${slug} template. Study its structure, positioning, typography scale, and layer composition. Your output should match this quality level.`,
-        '',
-        '<example>',
-        html,
-        '</example>',
-      );
-    } catch {
-      // Template file missing — skip exemplar
-    }
-  }
-
+  // No more HTML exemplar injection — archetypes provide structure directly
   return parts.join('\n');
 }
 
@@ -1059,7 +1173,77 @@ function recordCampaignCopy(campaignId: string, creationType: string, copyConten
   }
 }
 
-export function buildCopyPrompt(ctx: PipelineContext, campaignContext?: string): string {
+/**
+ * Build a compact photo availability summary for the copy agent.
+ * Tells the agent whether image-heavy archetypes are appropriate.
+ */
+export function buildPhotoAvailabilitySummary(creationType: string, archetypes: Map<string, ArchetypeMeta>): string {
+  const images = getBrandAssets('images');
+  const platformArchetypes = filterArchetypesByPlatform(archetypes, creationType);
+
+  // Identify which platform archetypes have image slots by checking schema.json
+  const imageArchetypes: string[] = [];
+  const textOnlyArchetypes: string[] = [];
+  for (const [slug, meta] of platformArchetypes) {
+    try {
+      const raw = fsSync.readFileSync(meta.schemaPath, 'utf-8');
+      const schema = JSON.parse(raw);
+      const hasImage = schema.fields?.some((f: { type: string }) => f.type === 'image');
+      if (hasImage) imageArchetypes.push(slug);
+      else textOnlyArchetypes.push(slug);
+    } catch {
+      textOnlyArchetypes.push(slug); // Can't read schema — assume text-only
+    }
+  }
+
+  if (images.length === 0) {
+    return [
+      `## Photo Assets`,
+      `None available in the brand library. Prefer text-only archetypes: ${textOnlyArchetypes.join(', ') || '(none)'}`,
+      `Avoid image-heavy archetypes unless the user provides a photo in their prompt.`,
+    ].join('\n');
+  }
+
+  const photoList = images.map(a => {
+    const desc = a.description ? ` — ${a.description}` : '';
+    return `  - ${a.name}${desc}`;
+  }).join('\n');
+
+  return [
+    `## Photo Assets`,
+    `${images.length} photo(s) available in the brand library:`,
+    photoList,
+    ``,
+    `You MAY select image-heavy archetypes: ${imageArchetypes.join(', ') || '(none for this platform)'}`,
+    `Text-only archetypes: ${textOnlyArchetypes.join(', ') || '(none)'}`,
+  ].join('\n');
+}
+
+/**
+ * Build a template list string for the copy agent's routing decision.
+ * Returns formatted text listing templates with content_type and description.
+ */
+function buildTemplateListForCopy(creationType: string): string {
+  // Map pipeline creationType to DB template type
+  const typeMap: Record<string, string> = {
+    'instagram': 'social',
+    'linkedin': 'social',
+    'one-pager': 'one-pager',
+  };
+  const dbType = typeMap[creationType] ?? 'social';
+  const templates = getAgentTemplates(dbType);
+
+  if (templates.length === 0) {
+    return '(no templates available for this platform)';
+  }
+
+  return templates.map(t => {
+    const tags = t.tags.length > 0 ? ` [${t.tags.join(', ')}]` : '';
+    return `- **${t.id}** (${t.contentType ?? 'untyped'}): ${t.description}${tags}`;
+  }).join('\n');
+}
+
+export function buildCopyPrompt(ctx: PipelineContext, campaignContext?: string, archetypeList?: string, photoSummary?: string, templateList?: string): string {
   return [
     `Generate marketing copy for a ${ctx.creationType} creation.`,
     `Topic: ${ctx.prompt}`,
@@ -1068,39 +1252,108 @@ export function buildCopyPrompt(ctx: PipelineContext, campaignContext?: string):
     `Then read_voice_guide to load the ones relevant to this topic (always include "voice-and-style", plus the product-specific doc if applicable).`,
     ``,
     `Write structured copy (headline, subtext, accent color, archetype selection) to ${ctx.workingDir}/copy.md.`,
-    `Include an "Archetype:" line in your output specifying which visual archetype to use. Options: problem-first, quote, stat-proof, app-highlight, manifesto, partner-alert, feature-spotlight.`,
+    `Include an "Archetype:" line in your output specifying which layout archetype to use.`,
+    ``,
+    `## Available Archetypes`,
+    archetypeList ?? '(no archetypes discovered)',
+    ``,
+    `Pick the archetype whose structural pattern best fits the content.`,
+    ``,
+    ...(photoSummary ? [photoSummary, ''] : []),
+    `## Available Templates (use ONLY for exact content type match)`,
+    templateList ?? '(no templates available)',
+    `If the prompt is a near-exact match for a specific template's content type (e.g., a client testimonial maps to a testimonial template), output: Template: {template-id}`,
+    `Otherwise, output: Archetype: {slug}`,
+    `When uncertain between a template and an archetype, prefer Archetype — templates are reserved for well-recognized repeatable formats only.`,
+    `Do NOT output both Template and Archetype — pick one.`,
     ``,
     `RULES:`,
     `- For Instagram: body copy MUST be 1-2 sentences maximum. Do NOT exceed this.`,
     `- For LinkedIn: body copy may be 2-3 sentences.`,
+    `- WORD LIMITS (total visible copy = headline + body + tagline combined, footer/brand elements excluded):`,
+    `  Instagram: 20 words maximum total`,
+    `  LinkedIn: 30 words maximum total`,
     `- For stat-proof archetype: the HEADLINE must be a giant number or short stat phrase (e.g., "6X", "4 DAYS", "82%", "$75,000"). NOT a full sentence.`,
     `- Accent color options: orange=#FF8B58 (urgency/pain), blue=#42b1ff (trust/tech), green=#44b574 (success/proof), purple=#c985e5 (premium/analytical). Pick ONE.`,
-    `- If this is part of a campaign with multiple creations, ensure your tagline is DISTINCT from other posts — do not reuse similar phrasing.`,
+    `- If this is part of a campaign with multiple creations, ensure your tagline is DISTINCT from other posts -- do not reuse similar phrasing.`,
     ...(campaignContext ? [campaignContext] : []),
   ].join('\n');
 }
 
-export function buildLayoutPrompt(ctx: PipelineContext, designDna?: string): string {
+export function buildLayoutPrompt(ctx: PipelineContext, archetypeHtml?: string, archetypeSlug?: string): string {
+  if (archetypeHtml && archetypeSlug) {
+    return [
+      `You are the layout agent. Your job is to fill the content slots in the archetype HTML skeleton with the copy from copy.md.`,
+      ``,
+      `## Your Task`,
+      `1. Read the copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
+      `2. The archetype skeleton is provided below. Fill every text element with the corresponding copy content.`,
+      `3. Do NOT change any CSS, positioning, or structural HTML.`,
+      `4. Do NOT add or remove HTML elements -- only change text content inside existing slot elements.`,
+      `5. Write the filled HTML to ${ctx.workingDir}/layout.html using write_file.`,
+      ``,
+      `## Archetype: ${archetypeSlug}`,
+      ``,
+      `<archetype-skeleton>`,
+      archetypeHtml,
+      `</archetype-skeleton>`,
+      ``,
+      `Fill only the text inside content elements. Preserve all class names, positioning, and structure exactly.`,
+    ].join('\n');
+  }
+  // Fallback: no archetype available — use old freestyle mode
   return [
     `Create structural HTML layout for a ${ctx.creationType} creation.`,
     `Read copy from ${ctx.workingDir}/copy.md using the read_file tool.`,
     ``,
-    `Use list_brand_sections(category="layout-archetype") to discover layout types, then read_brand_section to load details.`,
-    ...(designDna ? [
-      '',
-      designDna,
-      '',
-    ] : []),
+    `Use list_brand_sections(category="archetypes") to discover layout types, then read_brand_section to load details.`,
     ``,
     `Write layout HTML to ${ctx.workingDir}/layout.html.`,
   ].join('\n');
 }
 
-export function buildStylingPrompt(ctx: PipelineContext, designDna?: string): string {
+export function buildStylingPrompt(
+  ctx: PipelineContext,
+  designDna?: string,
+  isArchetypeBased?: boolean,
+  imageSlotLabels?: string[],
+  userImageUrl?: string,
+): string {
   return [
-    `Apply brand styling to create a complete HTML output.`,
-    `Read copy from ${ctx.workingDir}/copy.md and layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
+    ...(isArchetypeBased ? [
+      `Apply brand styling and polish to the archetype-based layout.`,
+      `Read layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
+      `The layout already has structural CSS from the archetype. Your job is to ENHANCE it with:`,
+      `- Brand fonts (discover via list_brand_assets(category="fonts") and inject @font-face + font-family)`,
+      `- Decorative brand assets (brushstrokes, textures — discover via list_brand_assets)`,
+      `- Brand color enforcement (background MUST be #000000, accent colors per copy.md)`,
+      `- Visual polish (opacity, letter-spacing, subtle animations if appropriate)`,
+      `Do NOT remove or restructure existing HTML elements or CSS positioning. ADD brand layers on top.`,
+    ] : [
+      `Apply brand styling to create a complete HTML output.`,
+      `Read copy from ${ctx.workingDir}/copy.md and layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
+    ]),
     ``,
+    ...(imageSlotLabels && imageSlotLabels.length > 0 ? [
+      `## Image Slots to Fill`,
+      `This archetype has ${imageSlotLabels.length} image slot(s): ${imageSlotLabels.join(', ')}`,
+      ...(userImageUrl ? [
+        `The user provided an image. Use this URL for the primary image slot: ${userImageUrl}`,
+        `Set the img src attribute to this URL exactly. User-provided images take priority.`,
+      ] : [
+        `Use list_brand_assets(category='images') to discover available photos in the brand library.`,
+        `Select the most contextually appropriate photo for each slot based on the slot label:`,
+        ...imageSlotLabels.map(label => `  - "${label}" — pick a photo whose name/description suggests ${label.toLowerCase()} content`),
+        `Use the imgSrc field from the asset for img src attributes.`,
+        ``,
+        `If no suitable photo exists for a slot, generate a branded placeholder:`,
+        `  <div style="width:100%;height:100%;background:linear-gradient(135deg, {accent-color}22, #000000);display:flex;align-items:center;justify-content:center;">`,
+        `    <span style="color:{accent-color};opacity:0.3;font-size:14px;">Photo</span>`,
+        `  </div>`,
+        `Replace {accent-color} with the accent color from copy.md. The placeholder MUST be visible and use brand colors.`,
+      ]),
+      ``,
+    ] : []),
     `Use list_brand_patterns to discover available visual patterns, then read_brand_pattern to load what you need:`,
     `- Design tokens: color palette, typography, opacity patterns`,
     `- Visual patterns: brushstrokes, circles, textures, footer structure — load only the ones relevant to this creation`,
@@ -1120,16 +1373,71 @@ export function buildStylingPrompt(ctx: PipelineContext, designDna?: string): st
     `  WRONG: /api/brand-assets/serve/brushstrokes/brush-texture-01.png, /api/brand-assets/serve/fonts/flfontbold.ttf`,
     `- CSS FONT FALLBACKS: Always use "sans-serif" as the fallback. NEVER use Georgia, Times New Roman, serif, or cursive.`,
     `- POSITIONING: Social posts use position:absolute for ALL major layout elements (not flexbox/grid for the main composition).`,
+    `- CSS CLASSES: ALL styling MUST be in <style> blocks using CSS class selectors. Inline style="" attributes are PROHIBITED. No exceptions.`,
+    `- DECORATIVE ELEMENTS: Decorative/background image assets (brushstrokes, textures, circles) MUST use <div> elements with background-image + background-size: contain + background-repeat: no-repeat. NEVER use <img> tags for decorative elements.`,
+    `- CIRCLE EMPHASIS: The ::before pseudo-element on circle-target elements must use percentage sizing relative to the target text. Use width: 110%; height: 130%; left: -5%; top: -15% instead of fixed pixel values. This prevents mask bounding box clipping on varying text widths.`,
+    `- FONT FALLBACKS: Never use Georgia, Times New Roman, Times, serif, or cursive as font-family values or fallbacks. Always use sans-serif as the generic fallback.`,
     ...(designDna ? [
       '',
       designDna,
       '',
     ] : []),
     ``,
+    `DECORATION DECLARATION: At the very end of your HTML (before </html>), write a machine-readable comment declaring what decorative elements you placed:`,
+    `<!-- DECORATIONS: brush=".your-brush-selector" brushAdditional=[".selector1",".selector2"] -->`,
+    `If you placed no brush element, write: <!-- DECORATIONS: brush="" brushAdditional=[] -->`,
+    `This comment is parsed by the pipeline for editor sidebar integration.`,
+    ``,
     `CRITICAL: Write the final complete self-contained HTML (all CSS inline) using write_file to EXACTLY this path:`,
     `${ctx.htmlOutputPath}`,
     `Do NOT write to styled.html or any other filename. The output MUST go to the exact path above.`,
   ].join('\n');
+}
+
+/**
+ * After the styling stage completes, merge the archetype's schema.json with decoration
+ * selectors extracted from the DECORATIONS comment in the generated HTML, then persist
+ * to the iterations table via updateIterationSlotSchema.
+ */
+export async function attachSlotSchema(
+  ctx: PipelineContext,
+  archetypeSlug: string,
+  schemaPath: string,
+): Promise<void> {
+  // 1. Load archetype schema (trusted — Phase 19 validated)
+  const rawSchema = await fs.readFile(schemaPath, 'utf-8');
+  const archetypeSchema = JSON.parse(rawSchema);
+
+  // 2. Read final HTML to detect decoration comment
+  const html = await fs.readFile(ctx.htmlOutputPath, 'utf-8').catch(() => '');
+
+  // 3. Parse DECORATIONS comment (Strategy A — agent-explicit)
+  const decoMatch = html.match(/<!-- DECORATIONS:\s*brush="([^"]*)"\s*brushAdditional=\[([^\]]*)\]\s*-->/);
+  let brushSel: string | null = null;
+  let brushAdditional: Array<{ sel: string; label: string }> | undefined;
+
+  if (decoMatch) {
+    brushSel = decoMatch[1] || null;
+    const additionalRaw = decoMatch[2]?.trim();
+    if (additionalRaw) {
+      brushAdditional = additionalRaw
+        .split(',')
+        .map(s => s.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean)
+        .map(sel => ({ sel, label: 'Decorative element' }));
+    }
+  }
+
+  // 4. Merge: archetype schema + decoration fields
+  const mergedSchema = {
+    ...archetypeSchema,
+    brush: brushSel,
+    brushLabel: brushSel ? 'Decorative element' : undefined,
+    brushAdditional: brushAdditional && brushAdditional.length > 0 ? brushAdditional : undefined,
+  };
+
+  // 5. Persist to DB
+  updateIterationSlotSchema(ctx.iterationId, mergedSchema);
 }
 
 function buildSpecCheckPrompt(ctx: PipelineContext): string {
@@ -1313,19 +1621,7 @@ interface SpecViolation {
 
 const MICRO_FIXABLE_RULES = new Set([
   'color-bg-pure-black',
-  'font-non-brand-family',
 ]);
-
-// Map of non-brand fonts to their brand replacements
-const FONT_REPLACEMENTS: Record<string, string> = {
-  'Georgia': "'NeueHaas', sans-serif",
-  'Times New Roman': "'NeueHaas', sans-serif",
-  'Times': "'NeueHaas', sans-serif",
-  'Helvetica': "'NeueHaas', sans-serif",
-  'Arial': "'NeueHaas', sans-serif",
-  'serif': 'sans-serif',
-  'cursive': 'sans-serif',
-};
 
 /**
  * Attempt regex-based fixes for simple brand violations.
@@ -1353,21 +1649,6 @@ async function tryMicroFix(htmlPath: string, violations: SpecViolation[]): Promi
         }
       }
 
-      if (v.rule === 'font-non-brand-family' && v.found) {
-        const fontName = v.found.trim();
-        const replacement = FONT_REPLACEMENTS[fontName];
-        if (replacement) {
-          // Replace font-family declarations containing the non-brand font
-          // Match patterns like: 'Georgia', serif  or  "Georgia", serif  or  Georgia, serif
-          const escaped = fontName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const pattern = new RegExp(`(['"]?)${escaped}\\1(?:\\s*,\\s*[^;}"']+)?`, 'gi');
-          const newHtml = html.replace(pattern, replacement);
-          if (newHtml !== html) {
-            html = newHtml;
-            modified = true;
-          }
-        }
-      }
     }
 
     if (modified) {
@@ -1404,13 +1685,26 @@ export async function runApiPipeline(
     contextMap = new Map(); // Graceful fallback — agents self-discover via tools
   }
 
+  // ── Scan available archetypes ───────────────────────────────────────────────
+  const archetypes = await scanArchetypes();
+  let archetypeList = '';
+  if (archetypes.size > 0) {
+    archetypeList = [...archetypes.values()]
+      .map(a => `- ${a.slug}: ${a.description}`)
+      .join('\n');
+  } else {
+    console.warn('[api-pipeline] No archetypes found in archetypes/ directory');
+  }
+
   // ── Stage 1: Copy ──────────────────────────────────────────────────────────
   const copyCtx = loadContextForStage(contextMap, ctx.creationType, 'copy');
   if (copyCtx.sectionSlugs.length > 0) {
     emitContextInjected(res, ctx.creationId, 'copy', copyCtx.sectionSlugs, copyCtx.tokenEstimate);
   }
   const campaignContext = getCampaignCopyContext(ctx.campaignId);
-  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx, campaignContext), ctx, res, copyCtx.injectedContext);
+  const photoSummary = buildPhotoAvailabilitySummary(ctx.creationType, archetypes);
+  const templateList = buildTemplateListForCopy(ctx.creationType);
+  const copyResult = await runStageWithTools('copy', buildCopyPrompt(ctx, campaignContext, archetypeList, photoSummary, templateList), ctx, res, copyCtx.injectedContext);
   await generateStageNarrative('copy', copyResult.output, ctx, res);
 
   // Record this creation's copy for campaign-level dedup
@@ -1419,59 +1713,185 @@ export async function runApiPipeline(
     recordCampaignCopy(ctx.campaignId, ctx.creationType, copyContent);
   } catch { /* best-effort */ }
 
-  // ── Detect archetype from copy output and load Design DNA ──────────────────
-  let detectedArchetype: string | undefined;
+  // ── Detect routing signal from copy output ──────────────────────────────────
+  let resolvedArchetypeSlug = '';
+  let archetypeMeta: ArchetypeMeta | undefined;
+  let isTemplatePath = false;
+  let resolvedTemplateId = '';
+  let templateHtml: string | undefined;
+
   try {
     const copyMd = await fs.readFile(path.join(ctx.workingDir, 'copy.md'), 'utf-8');
-    const archetypeMatch = copyMd.match(/archetype[:\s]+(\S+)/i);
-    if (archetypeMatch) {
-      const slug = archetypeMatch[1].toLowerCase().replace(/[^a-z-]/g, '');
-      if (ARCHETYPE_TEMPLATE_FILES[slug]) {
-        detectedArchetype = slug;
+
+    // Check for template signal FIRST (template takes precedence per CONTEXT.md)
+    const templateMatch = copyMd.match(/template[:\s]+(\S+)/i);
+    if (templateMatch) {
+      resolvedTemplateId = templateMatch[1].toLowerCase().trim();
+
+      // Verify template HTML exists on disk before committing to template path
+      const templateSubdir = ctx.creationType === 'one-pager' ? 'one-pagers' : 'social';
+      const templateHtmlPath = path.join(PROJECT_ROOT, 'templates', templateSubdir, `${resolvedTemplateId}.html`);
+      try {
+        await fs.access(templateHtmlPath);
+        templateHtml = await fs.readFile(templateHtmlPath, 'utf-8');
+        isTemplatePath = true;
+        console.log(`[api-pipeline] Template path: "${resolvedTemplateId}" (${templateHtmlPath})`);
+      } catch {
+        console.warn(`[api-pipeline] Template HTML not found: ${templateHtmlPath}, falling back to archetype path`);
+        // Fall through to archetype detection
       }
     }
-  } catch { /* copy.md not found — use default */ }
 
-  const designDna = await loadDesignDna(ctx, detectedArchetype);
+    // If not template path, check for archetype signal (existing logic)
+    if (!isTemplatePath) {
+      const archetypeMatch = copyMd.match(/archetype[:\s]+(\S+)/i);
+      if (archetypeMatch) {
+        const result = resolveArchetypeSlug(archetypeMatch[1], archetypes);
+        resolvedArchetypeSlug = result.slug;
+        archetypeMeta = archetypes.get(resolvedArchetypeSlug);
+      }
+    }
+  } catch { /* copy.md not found */ }
 
-  // ── Stage 2: Layout ────────────────────────────────────────────────────────
-  const layoutCtx = loadContextForStage(contextMap, ctx.creationType, 'layout');
-  const layoutInjected = designDna ? `${designDna}\n\n${layoutCtx.injectedContext}` : layoutCtx.injectedContext;
-  if (layoutCtx.sectionSlugs.length > 0) {
-    emitContextInjected(res, ctx.creationId, 'layout', layoutCtx.sectionSlugs, layoutCtx.tokenEstimate);
+  // Fallback: use first available archetype if neither template nor archetype detected
+  if (!isTemplatePath && !archetypeMeta && archetypes.size > 0) {
+    resolvedArchetypeSlug = [...archetypes.keys()].sort()[0];
+    archetypeMeta = archetypes.get(resolvedArchetypeSlug);
+    console.warn(`[api-pipeline] No template/archetype in copy.md, falling back to "${resolvedArchetypeSlug}"`);
   }
-  const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx), ctx, res, layoutInjected);
-  await generateStageNarrative('layout', layoutResult.output, ctx, res);
 
-  // ── Stage 3: Styling ───────────────────────────────────────────────────────
-  const stylingCtx = loadContextForStage(contextMap, ctx.creationType, 'styling');
-  const assetManifest = buildAssetManifest();
-  const stylingParts = [designDna, assetManifest, stylingCtx.injectedContext].filter(Boolean);
-  const stylingInjected = stylingParts.join('\n\n');
-  if (stylingCtx.sectionSlugs.length > 0) {
-    emitContextInjected(res, ctx.creationId, 'styling', stylingCtx.sectionSlugs, stylingCtx.tokenEstimate);
-  }
-  const stylingResult = await runStageWithTools('styling', buildStylingPrompt(ctx), ctx, res, stylingInjected);
-  await generateStageNarrative('styling', stylingResult.output, ctx, res);
+  const designDna = isTemplatePath ? undefined : await loadDesignDna(ctx, resolvedArchetypeSlug);
 
-  // Fallback: if agent wrote to styled.html in workingDir instead of htmlOutputPath, copy it
-  try {
-    await fs.access(ctx.htmlOutputPath);
-  } catch {
-    // htmlOutputPath doesn't exist — check for common agent mistakes
-    const fallbackPaths = [
-      path.join(ctx.workingDir, 'styled.html'),
-      path.join(ctx.workingDir, 'output.html'),
-      path.join(ctx.workingDir, 'index.html'),
-    ];
-    for (const fallback of fallbackPaths) {
+  // Variables needed in fix loop scope — declared here for visibility across both branches
+  let archetypeHtml: string | undefined;
+  let imageSlotLabels: string[] = [];
+  let stylingInjected = '';
+
+  if (isTemplatePath && templateHtml) {
+    // ════════════════════════════════════════════════════════════════════════
+    // TEMPLATE PATH: copy -> layout (fill slots) -> spec-check (SKIP styling)
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Stage 2: Layout — fill template slots with copy content
+    const layoutCtx = loadContextForStage(contextMap, ctx.creationType, 'layout');
+    if (layoutCtx.sectionSlugs.length > 0) {
+      emitContextInjected(res, ctx.creationId, 'layout', layoutCtx.sectionSlugs, layoutCtx.tokenEstimate);
+    }
+    const layoutResult = await runStageWithTools(
+      'layout',
+      buildLayoutPrompt(ctx, templateHtml, resolvedTemplateId),
+      ctx, res, layoutCtx.injectedContext
+    );
+    await generateStageNarrative('layout', layoutResult.output, ctx, res);
+
+    // SKIP Stage 3: Styling — template is already branded
+    emitStageStatus(res, ctx.creationId, 'styling', 'skipped-template');
+
+    // Fallback: copy output HTML if agent wrote to wrong path
+    try {
+      await fs.access(ctx.htmlOutputPath);
+    } catch {
+      const fallbackPaths = [
+        path.join(ctx.workingDir, 'layout.html'),
+        path.join(ctx.workingDir, 'styled.html'),
+        path.join(ctx.workingDir, 'output.html'),
+        path.join(ctx.workingDir, 'index.html'),
+      ];
+      for (const fallback of fallbackPaths) {
+        try {
+          await fs.access(fallback);
+          await fs.mkdir(path.dirname(ctx.htmlOutputPath), { recursive: true });
+          await fs.copyFile(fallback, ctx.htmlOutputPath);
+          console.log(`[api-pipeline] Template path fallback: copied ${path.basename(fallback)} to htmlOutputPath`);
+          break;
+        } catch { /* try next */ }
+      }
+    }
+
+    // Attach SlotSchema from TEMPLATE_SCHEMAS (NOT archetype schema.json)
+    const templateSchema = getTemplateSchema(resolvedTemplateId);
+    if (templateSchema) {
       try {
-        await fs.access(fallback);
-        await fs.mkdir(path.dirname(ctx.htmlOutputPath), { recursive: true });
-        await fs.copyFile(fallback, ctx.htmlOutputPath);
-        console.log(`[api-pipeline] Fallback: copied ${path.basename(fallback)} to htmlOutputPath`);
-        break;
-      } catch { /* try next */ }
+        updateIterationSlotSchema(ctx.iterationId, templateSchema);
+        console.log(`[api-pipeline] Attached template SlotSchema for "${resolvedTemplateId}" to iteration ${ctx.iterationId}`);
+      } catch (err) {
+        console.error(`[api-pipeline] Failed to attach template SlotSchema:`, err);
+      }
+    } else {
+      console.warn(`[api-pipeline] No SlotSchema found for template "${resolvedTemplateId}" in TEMPLATE_SCHEMAS`);
+    }
+
+  } else {
+    // ════════════════════════════════════════════════════════════════════════
+    // ARCHETYPE PATH: copy -> layout (fill archetype) -> styling -> spec-check
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Stage 2: Layout
+    if (archetypeMeta) {
+      try {
+        archetypeHtml = await fs.readFile(archetypeMeta.htmlPath, 'utf-8');
+      } catch {
+        console.warn(`[api-pipeline] Failed to read archetype HTML: ${archetypeMeta.htmlPath}`);
+      }
+    }
+
+    const layoutCtx = loadContextForStage(contextMap, ctx.creationType, 'layout');
+    const layoutInjected = designDna ? `${designDna}\n\n${layoutCtx.injectedContext}` : layoutCtx.injectedContext;
+    if (layoutCtx.sectionSlugs.length > 0) {
+      emitContextInjected(res, ctx.creationId, 'layout', layoutCtx.sectionSlugs, layoutCtx.tokenEstimate);
+    }
+    const layoutResult = await runStageWithTools('layout', buildLayoutPrompt(ctx, archetypeHtml, resolvedArchetypeSlug || undefined), ctx, res, layoutInjected);
+    await generateStageNarrative('layout', layoutResult.output, ctx, res);
+
+    // Stage 3: Styling
+    imageSlotLabels = archetypeMeta
+      ? getArchetypeImageSlotLabels(archetypeMeta.schemaPath)
+      : [];
+
+    const stylingCtx = loadContextForStage(contextMap, ctx.creationType, 'styling');
+    const assetManifest = buildAssetManifest();
+    const stylingParts = [designDna, assetManifest, stylingCtx.injectedContext].filter(Boolean);
+    stylingInjected = stylingParts.join('\n\n');
+    if (stylingCtx.sectionSlugs.length > 0) {
+      emitContextInjected(res, ctx.creationId, 'styling', stylingCtx.sectionSlugs, stylingCtx.tokenEstimate);
+    }
+    const stylingResult = await runStageWithTools(
+      'styling',
+      buildStylingPrompt(ctx, undefined, !!archetypeMeta, imageSlotLabels, ctx.userImageUrl),
+      ctx, res, stylingInjected
+    );
+    await generateStageNarrative('styling', stylingResult.output, ctx, res);
+
+    // Fallback: if agent wrote to styled.html in workingDir instead of htmlOutputPath, copy it
+    try {
+      await fs.access(ctx.htmlOutputPath);
+    } catch {
+      // htmlOutputPath doesn't exist — check for common agent mistakes
+      const fallbackPaths = [
+        path.join(ctx.workingDir, 'styled.html'),
+        path.join(ctx.workingDir, 'output.html'),
+        path.join(ctx.workingDir, 'index.html'),
+      ];
+      for (const fallback of fallbackPaths) {
+        try {
+          await fs.access(fallback);
+          await fs.mkdir(path.dirname(ctx.htmlOutputPath), { recursive: true });
+          await fs.copyFile(fallback, ctx.htmlOutputPath);
+          console.log(`[api-pipeline] Fallback: copied ${path.basename(fallback)} to htmlOutputPath`);
+          break;
+        } catch { /* try next */ }
+      }
+    }
+
+    // Attach SlotSchema from archetype schema.json
+    if (archetypeMeta) {
+      try {
+        await attachSlotSchema(ctx, resolvedArchetypeSlug, archetypeMeta.schemaPath);
+        console.log(`[api-pipeline] Attached SlotSchema for archetype "${resolvedArchetypeSlug}" to iteration ${ctx.iterationId}`);
+      } catch (err) {
+        console.error(`[api-pipeline] Failed to attach SlotSchema:`, err);
+        // Non-fatal — HTML is already generated, editor sidebar just won't have custom fields
+      }
     }
   }
 
@@ -1540,13 +1960,16 @@ export async function runApiPipeline(
         await runStageWithTools(target, buildFixPrompt(target, issues, ctx), ctx, res);
       }
 
-      // Cascade rule: if copy was fixed, re-run layout and styling too
+      // Cascade rule: if copy was fixed, re-run layout and (on archetype path) styling too
       if (hasCopyFix) {
         if (!issuesByTarget.has('layout')) {
-          await runStageWithTools('layout', buildLayoutPrompt(ctx, designDna), ctx, res);
+          const inputHtml = isTemplatePath ? templateHtml : archetypeHtml;
+          const inputId = isTemplatePath ? resolvedTemplateId : (resolvedArchetypeSlug || undefined);
+          await runStageWithTools('layout', buildLayoutPrompt(ctx, inputHtml, inputId), ctx, res);
         }
-        if (!issuesByTarget.has('styling')) {
-          await runStageWithTools('styling', buildStylingPrompt(ctx, designDna), ctx, res);
+        // Only re-run styling on archetype path — template path skips styling
+        if (!isTemplatePath && !issuesByTarget.has('styling')) {
+          await runStageWithTools('styling', buildStylingPrompt(ctx, designDna, !!archetypeMeta, imageSlotLabels, ctx.userImageUrl), ctx, res, stylingInjected);
         }
       }
 
