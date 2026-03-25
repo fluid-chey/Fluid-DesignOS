@@ -57,6 +57,7 @@ function makeCtx(overrides: Partial<PipelineContext> = {}): PipelineContext {
     htmlOutputPath: '/tmp/test-working-dir/output.html',
     creationId: 'creation-test',
     campaignId: 'campaign-test',
+    iterationId: 'iter-test',
     ...overrides,
   };
 }
