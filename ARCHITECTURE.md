@@ -5,29 +5,39 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Brand Intelligence Layer                                │
-│  13 modular docs (brand/)  •  Weight system (1-100)      │
-│  Role-specific loading  •  Max 3-6 docs per subagent     │
+│  SQLite DB (voice_guide_docs, brand_patterns, etc.)      │
+│  Weight system (1-100)  •  Smart context injection       │
+│  context_map routes sections per (type, stage, page)     │
 └────────────────────────┬────────────────────────────────┘
-                         │ loaded by
+                         │ brand context pre-injected by
 ┌────────────────────────▼────────────────────────────────┐
-│  Orchestrator Layer                                      │
-│  Skill definitions (~/.agents/skills/)                   │
+│  Archetype Layer (brandless structural patterns)         │
+│  Filesystem: archetypes/{slug}/index.html + schema.json  │
+│  Content/decorative split  •  Components as patterns     │
+│  archetypeId (not templateId)  •  brush: null always     │
+└────────────────────────┬────────────────────────────────┘
+                         │ selected + branded by
+┌────────────────────────▼────────────────────────────────┐
+│  Pipeline Layer (brand-agnostic)                         │
+│  Anthropic SDK (api-pipeline.ts)                         │
 │  Pipeline: copy → layout → styling → spec-check → fix   │
-│  Parallel subagent spawning (one per asset)              │
+│  Parallel creations  •  Design DNA  •  Hard rules        │
 └────────────────────────┬────────────────────────────────┘
                          │ writes HTML to
 ┌────────────────────────▼────────────────────────────────┐
 │  Runtime Layer                                           │
-│  .fluid/campaigns/{cId}/{aId}/{fId}/{iterId}.html        │
-│  SQLite records → HMR push to browser                      │
-│  Vite middleware: API routes + static serving              │
+│  .fluid/campaigns/{cId}/{creationId}/{slideId}/{iterId}.html │
+│  SQLite records → HMR push to browser                    │
+│  Vite middleware: API routes + static serving             │
 └────────────────────────┬────────────────────────────────┘
                          │ renders in
 ┌────────────────────────▼────────────────────────────────┐
 │  Canvas UI Layer                                         │
 │  React 19 + Zustand 5 + Vite 6                           │
-│  Dashboard → Campaign → Asset → Frame → Iteration        │
+│  Dashboard → Campaign → Creation → Slide → Iteration     │
 │  ContentEditor for slot editing via postMessage           │
+│  LeftNav: Create, My Creations, Assets, Templates,       │
+│           Patterns, Voice Guide, Settings                │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -37,19 +47,19 @@
 Campaign
 ├── id, title, channels (JSON array)
 │
-├── Asset 1 (instagram)
-│   ├── Frame 0
+├── Creation 1 (instagram)
+│   ├── Slide 0
 │   │   ├── Iteration 0 (generationStatus: complete, source: ai)
 │   │   ├── Iteration 1 (status: winner, source: ai)
 │   │   └── Annotations (pin @ x,y / sidebar notes)
-│   └── Frame 1 (carousel slide 2)
+│   └── Slide 1 (carousel slide 2)
 │
-├── Asset 2 (linkedin)
-│   └── Frame 0
+├── Creation 2 (linkedin)
+│   └── Slide 0
 │       └── Iteration 0
 │
-└── Asset 3 (one-pager)
-    └── Frame 0
+└── Creation 3 (one-pager)
+    └── Slide 0
         └── Iteration 0
 ```
 
@@ -68,13 +78,17 @@ The server is a **Vite middleware plugin** (`canvas/src/server/watcher.ts`), not
 
 **Campaigns:** `POST|GET /api/campaigns`, `GET|PATCH /api/campaigns/:id`, `GET /api/campaigns/:id/preview-urls`
 
-**Assets:** `GET|PATCH /api/assets/:id`, `GET /api/assets/:id/frames`
+**Creations:** `GET /api/campaigns/:cId/creations`, `GET|PATCH /api/creations/:id`, `GET /api/creations/:id/slides`
 
-**Frames:** `GET /api/frames/:id/iterations`, `POST /api/frames/:id/iterations`
+**Slides:** `GET /api/slides/:id/iterations`, `POST /api/slides/:id/iterations`
 
 **Iterations:** `GET /api/iterations/:id`, `GET /api/iterations/:id/html`, `PATCH /api/iterations/:id/status`
 
 **Generation:** `POST /api/generate` (SSE stream)
+
+**Brand:** `GET /api/brand-assets`, `GET /api/brand-assets/serve/:name`, `GET /api/voice-guide`, `GET /api/brand-patterns`
+
+**Context:** `GET|POST|PUT|DELETE /api/context-map`, `GET /api/context-log`
 
 **Templates:** `GET /api/templates`, `POST /api/templates/preview`
 
@@ -84,7 +98,7 @@ The iteration HTML endpoint uses a 4-strategy fallback to find the file:
 
 1. **Stored path** — `path.resolve(projectRoot, row.html_path)`
 2. **`.fluid/` relative** — `path.resolve('.fluid/', row.html_path)`
-3. **Canonical path** — `.fluid/campaigns/{campaignId}/{assetId}/{frameId}/{iterationId}.html` (looked up via DB join)
+3. **Canonical path** — `.fluid/campaigns/{campaignId}/{creationId}/{slideId}/{iterationId}.html` (looked up via DB join)
 4. **Templates fallback** — `templates/social/{basename}`
 
 After reading the file, the server:
@@ -107,17 +121,17 @@ When generation completes or data changes, the server pushes a Vite HMR custom e
 
 **Zustand** with a single primary store (`store/campaign.ts`):
 
-- **Navigation state machine:** `dashboard → campaign → asset → frame` (+ iteration selection within frame view)
-- **Data cache:** `campaigns[]`, `assets[]`, `frames[]`, `iterations[]`, `latestIterationByAssetId{}`
+- **Navigation state machine:** `dashboard → campaign → creation → slide` (+ iteration selection within slide view)
+- **Data cache:** `campaigns[]`, `creations[]`, `slides[]`, `iterations[]`, `latestIterationByCreationId{}`
 - **Race condition guard:** `_requestId` counter increments on each fetch; stale responses are discarded
 - **Sidebar state:** `leftSidebarOpen`, `rightSidebarOpen`
 
 Navigation actions fetch data then set view:
 ```
 navigateToDashboard() → fetchCampaigns()
-navigateToCampaign(id) → fetchAssets(id) → fetchLatestIterations(id)
-navigateToAsset(id) → fetchFrames(id) → fetchIterations(per frame)
-navigateToFrame(id) → fetchIterations(id)
+navigateToCampaign(id) → fetchCreations(id) → fetchLatestIterations(id)
+navigateToCreation(id) → fetchSlides(id) → fetchIterations(per slide)
+navigateToSlide(id) → fetchIterations(id)
 ```
 
 ## MCP Server
@@ -139,28 +153,44 @@ Agents never write SQLite directly. The MCP server and API endpoints own all dat
 ```
 POST /api/generate { prompt, campaignId? }
   │
-  ├── Parse prompt for channel hints ("just LinkedIn" → 3 LinkedIn assets)
-  ├── Pre-create Campaign + Assets + Frames + Iterations in SQLite
+  ├── Parse prompt for channel hints ("just LinkedIn" → 3 LinkedIn creations)
+  ├── Pre-create Campaign + Creation + Slide + Iteration records in SQLite
   ├── Set all iterations to generationStatus: 'pending'
   │
-  ├── For each asset (parallel):
-  │   ├── Load brand docs by role (copy: voice-rules, styling: design-tokens, etc.)
-  │   ├── Load 1-2 marketing skills from skill-map.json
+  ├── Load context_map once (creation_type → brand sections per stage)
+  ├── Load brand context from DB (voice docs, patterns, assets, design DNA)
+  │
+  ├── For each creation (parallel):
+  │   ├── Pre-inject brand context per stage from context_map
+  │   ├── Extract hard rules (weight ≥ 81) → system prompt directives
+  │   ├── Build asset manifest (all brand asset URLs for styling stage)
   │   ├── Run pipeline: copy → layout → styling → spec-check → fix
-  │   ├── Write HTML to .fluid/campaigns/{cId}/{aId}/{fId}/{iterId}.html
+  │   ├── Write HTML to .fluid/campaigns/{cId}/{creationId}/{slideId}/{iterId}.html
+  │   ├── Log injected context to context_log (sections, tokens, gap calls)
   │   └── Update generationStatus to 'complete'
   │
-  └── Stream SSE events: { campaignId, status, stderr }
+  └── Stream SSE events: { campaignId, status, stage updates, context_injected }
 ```
 
 ## Brand Data Loading
 
-Brand data lives in SQLite (`canvas/fluid.db`), managed through the app's UI pages. Agents load brand context at runtime via pipeline tools (`list_brand_sections`, `read_brand_section`, `list_brand_assets`).
+Brand data lives in SQLite (`canvas/fluid.db`), managed through the app's UI pages. The pipeline is **brand-agnostic** — all stage prompts are generic, brand identity is runtime data from the DB.
 
-**DB tables:** `voice_guide_docs`, `brand_patterns`, `brand_assets`, `templates`, `template_design_rules`
+**DB tables:** `voice_guide_docs`, `brand_patterns`, `brand_assets`, `templates`, `template_design_rules`, `context_map`, `context_log`
+
+**Smart context injection:** The `context_map` table maps `(creation_type, stage, page)` to specific brand sections. Wildcard patterns (`voice-guide:*`, `category:*`) expand at runtime. Token budgets enforce per-stage limits (Copy ~8K, Layout ~6K, Styling ~10K). The `context_log` records what was actually injected per generation for observability.
+
+**Design DNA:** For social posts, layout and styling stages receive Design DNA sourced from `brand_patterns` (visual-style category) and `template_design_rules`. Includes visual compositor contract, platform rules, archetype notes, and HTML exemplar.
+
+**System-invariant hard rules** (in stage system prompts, not DB):
+- Copy length: IG ~20 words, LI ~30 words total visible copy
+- Inline styles ban: all styling in `<style>` blocks, never `style=""` attributes
+- Font enforcement: only brand-registered fonts allowed (non-brand triggers full fix loop)
+- Decorative elements: `<div>` with `background-image`, never `<img>` tags
+- Circle emphasis: CSS mask with proper bounding box
 
 **Weight system** (in each doc): rules carry weights 1-100. Enforcement:
-- 81-100 = must follow (brand-critical)
+- 81-100 = must follow (brand-critical) — auto-promoted to hard rules in system prompt
 - 51-80 = should follow (strong preference)
 - 21-50 = recommended (flexible)
 - 1-20 = nice-to-have
@@ -174,6 +204,49 @@ Templates use Jonathan's standard format:
 4. **Dimensions** — native pixel size (1080x1080, 1200x627, 816x1056)
 
 8 social templates have been ported to TypeScript configs in `canvas/src/lib/template-configs.ts` for programmatic access via the template gallery UI.
+
+## Archetype System
+
+Archetypes are **brandless structural layout patterns** — content skeletons stored on the filesystem (`archetypes/`), not in the database. They define spatial hierarchy and content slots without any brand expression.
+
+### Archetypes vs Templates
+
+| | Templates | Archetypes |
+|---|---|---|
+| **Storage** | Database (SQLite) | Filesystem (`archetypes/`) |
+| **Brand** | Fully styled, brand-specific | Brandless, neutral placeholder |
+| **Selection** | Exact match on `templateId` | Best structural fit for content type |
+| **Output** | Renderable HTML + SlotSchema | Renderable HTML + SlotSchema (identical shape) |
+
+Both produce the same output format. The pipeline can select either; the editor sidebar works with both.
+
+### Content/Decorative Split
+
+Archetypes enforce a strict separation:
+- **Content (archetype-defined):** text blocks, image zones, layout structure, positioning
+- **Decorative (brand-defined, injected at generation):** brushstrokes, textures, circles, gradients, logos
+
+Each archetype includes a `.decorative-zone` div where the pipeline injects brand decorative elements. The archetype `schema.json` sets `brush: null` — the brand layer provides all decorative transform targets.
+
+### Brand Neutrality Rules
+
+Archetypes must contain zero brand expression:
+- No brand fonts, colors, or asset URLs
+- No `text-transform: uppercase` (casing is a brand decision)
+- No rotated side labels or other brand-specific layout conventions
+- Placeholder text in sentence case, concise and neutral
+- All styling: grayscale, `font-family: sans-serif`
+
+### Design Components
+
+Reusable mid-level functional blocks in `archetypes/components/`. Each component has `pattern.html` + `README.md`. Components are **reference patterns, not runtime includes** — when building an archetype, copy the markup and SlotSchema fields directly. There is no partial/import system.
+
+### Key Schema Rules
+
+- Use `archetypeId` (not `templateId`) to avoid collision with `TEMPLATE_SCHEMAS` in `template-configs.ts`
+- `brush` is always `null` — brand layer merges decorative fields at generation time
+- Every `sel` in `fields` must match a CSS class in `index.html`
+- Authoritative spec: `archetypes/SPEC.md`
 
 ## Testing
 
@@ -202,10 +275,15 @@ beforeAll(() => {
 | Vite middleware, not Express | One process, HMR integration, simpler deployment |
 | SQLite with WAL mode | Concurrent reads from MCP + Vite, no external DB dependency |
 | HTML on disk, metadata in SQLite | Files are the artifact; DB tracks relationships and state |
-| Canonical file paths | `.fluid/campaigns/{cId}/{aId}/{fId}/{iterId}.html` prevents collisions |
+| Canonical file paths | `.fluid/campaigns/{cId}/{creationId}/{slideId}/{iterId}.html` prevents collisions |
 | Zustand over Redux/Context | Minimal boilerplate, single store, race condition guard built-in |
 | MCP via stdio, not TCP | No external service; integrates with agent's context window |
-| Brand docs as required context | Agents can't skip brand rules; weight system enables tuning |
-| Max 3-6 brand docs per agent | Prevents context overload; role-specific loading |
+| Brand-agnostic pipeline | No brand hardcoded in prompts; brand identity is runtime DB data |
+| Smart context injection | context_map pre-injects brand data per (type, stage); agents don't self-discover |
+| Hard rules extraction | Weight ≥ 81 patterns auto-promoted to NON-NEGOTIABLE system prompt directives |
 | HMR push on data changes | Server sends custom Vite HMR event after writes; `useFileWatcher` refreshes UI |
 | Parallel subagents per asset | Each asset gets fresh context; no cross-contamination between assets |
+| Archetypes on filesystem, not DB | Structural patterns are code artifacts; version-controlled, not user-editable data |
+| `archetypeId` not `templateId` | Avoids collision with `TEMPLATE_SCHEMAS` lookup in `resolveSlotSchemaForIteration()` |
+| Content/decorative split | Archetypes define layout only; `.decorative-zone` + `brush: null` defers all brand decoration to pipeline |
+| Components as patterns | No runtime include/partial system; components are reference HTML for copy-paste composition |
