@@ -25,6 +25,20 @@ mkdir -p $REPORT_DIR
 
 Read test prompts from `tools/test-prompts.txt`. Each line is one prompt.
 
+### 1.5 Load Operator Context
+
+Read `feedback/FEEDBACK-CONTEXT.md` if it exists. This contains the operator's latest feedback, priority issues ranked by severity, and specific things to watch for this run.
+
+Use this context to:
+- Prioritize which eval dimensions get the most attention
+- In the self-improvement phase, focus fixes on the operator's top priorities FIRST
+- In the art director eval, pay special attention to operator-flagged issues
+- In the summary, report progress specifically against the operator's priority issues
+
+Also check `feedback/` for any recent `*-overnight-review-human.md` files — these contain per-asset ratings and notes from the operator's last review.
+
+If no FEEDBACK-CONTEXT.md exists, proceed with default behavior.
+
 ### 2. For each prompt
 
 #### INIT
@@ -126,33 +140,93 @@ node tools/report-summary.cjs {REPORT_DIR}/eval.json
 
 Read SUMMARY.md and diagnose top failures.
 
-### 4. Self-improving loop (when invoked via /loop)
+If `feedback/FEEDBACK-CONTEXT.md` was loaded in step 1.5, include this section in SUMMARY.md:
+
+```
+## Progress vs Operator Priorities
+| Priority | Issue | Baseline | This Cycle | Status |
+|----------|-------|----------|------------|--------|
+| 1 CRITICAL | Decorative elements | 10% usage | ??% | improved/same/regressed |
+| 2 HIGH | Archetype selection | ~56% valid | ??% | ... |
+| ... | ... | ... | ... | ... |
+```
+
+### 4. Self-improving loop (context-aware, when invoked via /loop)
 
 Check if a previous cycle's report exists in `.fluid/reports/`. If yes:
-1. Read the previous SUMMARY.md
-2. Compare via `node tools/compare-runs.cjs <prev-eval.json> <this-eval.json>`
-3. Make up to 5 targeted adjustments (see guardrails below)
-4. Log every change to `{REPORT_DIR}/changes.log`
-5. If pattern-seeds or voice-guide files were edited: run `node tools/reseed-patterns.cjs`
-6. Create git branch `overnight/{timestamp}/cycle-{N}` and commit changes
+
+1. Read `feedback/FEEDBACK-CONTEXT.md` for operator priorities
+2. Read the previous cycle's SUMMARY.md
+3. Compare via `node tools/compare-runs.cjs <prev-eval.json> <this-eval.json>`
+4. Rank potential fixes by OPERATOR PRIORITY (from FEEDBACK-CONTEXT.md), not just failure count
+   - An issue the operator flagged as CRITICAL gets fixed before a more frequent but LOW-priority issue
+5. Apply up to 5 high-confidence adjustments (see guardrails below)
+6. Log every applied change to `{REPORT_DIR}/changes.log`
+7. Log speculative improvements to `{REPORT_DIR}/proposals.log` (see convergence behavior below)
+8. If pattern-seeds or voice-guide files were edited: run `node tools/reseed-patterns.cjs`
+9. Create git branch `overnight/{timestamp}/cycle-{N}` and commit changes
+
+### Convergence behavior
+
+NEVER declare "converged — nothing to do" and skip the cycle entirely. Even if no high-confidence changes remain:
+
+1. Still run a reduced batch (3-4 creations) to monitor for regressions
+2. Still reason about potential improvements — log them to `{REPORT_DIR}/proposals.log`
+3. Still report progress against operator priorities in SUMMARY.md
+
+**Two-tier action model:**
+
+- **High-confidence changes:** You are sure this will help, backed by specific eval failures or operator priority items. Apply the change, log to `changes.log`, commit it.
+- **Speculative improvements:** You think this *might* help but aren't sure. Do NOT apply. Instead log to `proposals.log`:
+
+```
+## Proposal: [short title]
+**Target:** [which eval metric or operator priority]
+**Change:** [what file, what edit]
+**Reasoning:** [why this might help]
+**Uncertainty:** [why not applying — low signal, edge case, etc.]
+**Estimated impact:** [score delta or failure rate delta]
+```
+
+These proposals feed into the next human review — the operator can promote them.
+
+### Auto-generate feedback entry
+
+At the end of each cycle, write `feedback/{date}-overnight-cycle-{N}.md` with:
+- Frontmatter: date, asset_type: pipeline, outcome: partial/success
+- Cycle number, changes made, metrics before/after
+- Any issues that persisted despite fixes
 
 ## Art Director Visual Eval Rubric
 
 When spawning the visual eval subagent, use this prompt with both screenshot PNGs:
 
 ```
-You are a senior art director evaluating whether a generated social media post meets the visual standard of the brand's curated templates.
+You are a senior art director evaluating whether a generated social media post meets the visual standard of a premium brand.
 
 You are seeing TWO images:
-1. REFERENCE: A curated, human-approved brand template (the gold standard)
-2. GENERATED: An AI-generated post that should look like it belongs to the same brand
+1. REFERENCE: A curated, human-approved brand template (for BRAND STANDARD reference only)
+2. GENERATED: An AI-generated post
 
-Rate the GENERATED image on each dimension. Use ONLY these ratings:
-  PASS — meets the standard set by the reference
+DO NOT evaluate whether the GENERATED image matches the REFERENCE template's layout or structure. They may use completely different archetypes — that's fine.
+
+Instead, evaluate: would the GENERATED image feel AT HOME in the same social media feed as the REFERENCE? The reference establishes the QUALITY BAR and BRAND LANGUAGE (color palette, font choices, decorative textures, overall polish level), not the specific layout.
+
+Rate each dimension. Use ONLY these ratings:
+  PASS — meets the quality bar set by the reference
   WEAK — noticeably below the reference but recognizable as the same brand
-  FAIL — would not be recognized as the same brand
+  FAIL — would not feel at home in the same feed
 
-Dimensions: COLOR USAGE, TYPOGRAPHY, COMPOSITION, DECORATIVE ELEMENTS, FOOTER, BRAND COHESION, VISUAL POLISH, DISTINCTIVENESS
+Dimensions:
+1. COLOR USAGE — Brand palette adherence (black bg, accent colors, opacity values)
+2. TYPOGRAPHY — Font choices, sizing, hierarchy (headline commanding the space)
+3. COMPOSITION — Canvas fill, balance, intentional use of space (not vast empty black)
+4. DECORATIVE ELEMENTS — Brushstrokes, textures, emphasis marks present and well-placed (FAIL if zero decoratives)
+5. BORDERS — Footer/header present, full-width, correct brand elements
+6. BRAND COHESION — Would this pass as professional content from this brand?
+7. VISUAL POLISH — Finishing details, spacing, alignment, no text overflow
+8. VISUAL RICHNESS — Textures, depth, layering (not just flat text on black)
+9. SCROLL_STOPPING_POWER — Would someone stop scrolling for this?
 
 Return ONLY valid JSON:
 {
@@ -162,10 +236,11 @@ Return ONLY valid JSON:
     "typography": { "rating": "...", "note": "..." },
     "composition": { "rating": "...", "note": "..." },
     "decorative_elements": { "rating": "...", "note": "..." },
-    "footer": { "rating": "...", "note": "..." },
+    "borders": { "rating": "...", "note": "..." },
     "brand_cohesion": { "rating": "...", "note": "..." },
     "visual_polish": { "rating": "...", "note": "..." },
-    "distinctiveness": { "rating": "...", "note": "..." }
+    "visual_richness": { "rating": "...", "note": "..." },
+    "scroll_stopping_power": { "rating": "...", "note": "..." }
   },
   "overall": "PASS|WEAK|FAIL",
   "art_director_note": "2-3 sentences of candid feedback"

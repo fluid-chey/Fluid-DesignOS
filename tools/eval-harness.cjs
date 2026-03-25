@@ -286,6 +286,61 @@ function checkDimensions(absHtmlPath) {
   return result;
 }
 
+function checkDecorativeElements(htmlContent) {
+  const result = { name: 'decorative-elements', status: 'skip', details: {} };
+
+  // Count background-image references to brand asset URLs (brushstrokes/textures)
+  const bgImageMatches = htmlContent.match(/background-image\s*:\s*url\([^)]*\/api\/brand-assets\/serve\/[^)]*\)/gi) || [];
+  const brushMatches = bgImageMatches.filter(m => /brush|texture|line|scribble|x-mark/i.test(m));
+  result.details.brushstrokeCount = brushMatches.length;
+
+  // Count mask-image references (circle/underline emphasis)
+  const maskMatches = htmlContent.match(/mask-image\s*:\s*url\([^)]*\/api\/brand-assets\/serve\/(circle|underline)[^)]*\)/gi) || [];
+  result.details.emphasisCount = maskMatches.length;
+
+  // Also count img tags referencing brush assets (older pattern from pattern-seeds)
+  const imgBrushMatches = htmlContent.match(/<(?:img|div)[^>]*src=["'][^"']*\/api\/brand-assets\/serve\/brush[^"']*["']/gi) || [];
+  const totalDecorative = brushMatches.length + imgBrushMatches.length;
+  result.details.totalDecorative = totalDecorative;
+
+  if (totalDecorative < 2) {
+    result.status = 'fail';
+    result.details.note = `Only ${totalDecorative} decorative element(s) found, minimum 2 required`;
+  } else if (maskMatches.length === 0) {
+    result.status = 'warn';
+    result.details.note = 'Brushstrokes present but no circle/underline emphasis detected';
+  } else {
+    result.status = 'pass';
+  }
+
+  return result;
+}
+
+function checkCanvasFill(htmlContent, type) {
+  const result = { name: 'canvas-fill', status: 'skip', details: {} };
+  if (type === 'one-pager') return result; // not applicable to one-pagers
+
+  // Extract font-size values from CSS
+  const fontSizes = [];
+  const matches = htmlContent.matchAll(/font-size\s*:\s*(\d+)px/gi);
+  for (const m of matches) fontSizes.push(parseInt(m[1]));
+  if (fontSizes.length === 0) return result;
+
+  const maxSize = Math.max(...fontSizes);
+  result.details.maxFontSize = maxSize;
+  result.details.allSizes = [...new Set(fontSizes)].sort((a, b) => b - a).slice(0, 5);
+
+  const minHeadline = type === 'linkedin' ? 52 : 72;
+  if (maxSize < minHeadline) {
+    result.status = 'warn';
+    result.details.note = `Largest font-size is ${maxSize}px, recommended minimum headline is ${minHeadline}px`;
+  } else {
+    result.status = 'pass';
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Per-creation evaluation
 // ---------------------------------------------------------------------------
@@ -309,6 +364,8 @@ function evaluateCreation(absHtmlPath, workDir, type) {
     checkAssetUrlIntegrity(htmlContent),
     checkCssHygiene(htmlContent),
     checkDecorationsComment(htmlContent),
+    checkDecorativeElements(htmlContent),
+    checkCanvasFill(htmlContent, type),
     checkBrandCompliance(absHtmlPath, type),
     checkDimensions(absHtmlPath),
   ];
