@@ -11,6 +11,7 @@ import type { Iteration } from '../lib/campaign-types';
 import {
   applySlotValuesToIframe,
   clearHistoryDebounceSchedule,
+  flushPendingUndoSnapshot,
   scheduleUndoSnapshot,
   slotMapsEqual,
   MAX_UNDO,
@@ -104,6 +105,10 @@ interface EditorStore {
    * Stored under `${SLOT_TRANSFORM_PREFIX}${sel}` so it saves with user-state.
    */
   updateElementTransform: (sel: string, transform: string) => void;
+  /**
+   * Brush / overlay transforms persisted in `__brushTransform__` JSON map (selector → CSS string).
+   */
+  patchBrushTransform: (sel: string, transform: string) => void;
   /**
    * Text fields: width/height and optional left/top in layout px, optional text align.
    * w: null = hug content (Figma-style “Hug”); number = fixed width. Clears saved transform for this sel.
@@ -316,8 +321,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
   },
 
-
-
   updateTextBox: (sel, box) => {
     const before = structuredClone(get().slotValues);
     const tbKey = `${SLOT_TEXT_BOX_PREFIX}${sel}`;
@@ -477,45 +480,81 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   undo: () => {
     const s = get();
-    if (s.undoStack.length === 0 || !s.slotSchema || !s.iframeRef?.contentWindow) return;
+    if (!s.selectedIterationId || !s.iframeRef?.contentWindow) return;
+
+    flushPendingUndoSnapshot(
+      () => get().slotValues,
+      (snapshot) => {
+        const after = get().slotValues;
+        if (!slotMapsEqual(snapshot, after)) {
+          set((st) => ({
+            undoStack: [...st.undoStack, snapshot].slice(-MAX_UNDO),
+            redoStack: [],
+          }));
+        }
+      }
+    );
+
+    const s2 = get();
+    if (s2.undoStack.length === 0) return;
+    const win = s2.iframeRef?.contentWindow;
+    if (!win) return;
     clearHistoryDebounceSchedule();
-    const prev = s.undoStack[s.undoStack.length - 1]!;
-    const newPast = s.undoStack.slice(0, -1);
-    const current = structuredClone(s.slotValues);
+    const prev = s2.undoStack[s2.undoStack.length - 1]!;
+    const newPast = s2.undoStack.slice(0, -1);
+    const current = structuredClone(s2.slotValues);
     const next = structuredClone(prev);
     set({
       undoStack: newPast,
-      redoStack: [...s.redoStack, current].slice(-MAX_UNDO),
+      redoStack: [...s2.redoStack, current].slice(-MAX_UNDO),
       slotValues: next,
-      isDirty: !slotMapsEqual(next, s.baselineSlotValues),
+      isDirty: !slotMapsEqual(next, s2.baselineSlotValues),
       pickedTransform: null,
     });
-    applySlotValuesToIframe(next, current, s.slotSchema, s.iframeRef.contentWindow);
-    s.iframeRef.contentWindow.postMessage({ type: 'fluidClearPick' }, '*');
+    applySlotValuesToIframe(next, current, s2.slotSchema, win);
+    win.postMessage({ type: 'fluidClearPick' }, '*');
   },
 
   redo: () => {
     const s = get();
-    if (s.redoStack.length === 0 || !s.slotSchema || !s.iframeRef?.contentWindow) return;
+    if (!s.selectedIterationId || !s.iframeRef?.contentWindow) return;
+
+    flushPendingUndoSnapshot(
+      () => get().slotValues,
+      (snapshot) => {
+        const after = get().slotValues;
+        if (!slotMapsEqual(snapshot, after)) {
+          set((st) => ({
+            undoStack: [...st.undoStack, snapshot].slice(-MAX_UNDO),
+            redoStack: [],
+          }));
+        }
+      }
+    );
+
+    const s2 = get();
+    if (s2.redoStack.length === 0) return;
+    const win = s2.iframeRef?.contentWindow;
+    if (!win) return;
     clearHistoryDebounceSchedule();
-    const forward = s.redoStack[s.redoStack.length - 1]!;
-    const newFut = s.redoStack.slice(0, -1);
-    const current = structuredClone(s.slotValues);
+    const forward = s2.redoStack[s2.redoStack.length - 1]!;
+    const newFut = s2.redoStack.slice(0, -1);
+    const current = structuredClone(s2.slotValues);
     const next = structuredClone(forward);
     set({
       redoStack: newFut,
-      undoStack: [...s.undoStack, current].slice(-MAX_UNDO),
+      undoStack: [...s2.undoStack, current].slice(-MAX_UNDO),
       slotValues: next,
-      isDirty: !slotMapsEqual(next, s.baselineSlotValues),
+      isDirty: !slotMapsEqual(next, s2.baselineSlotValues),
       pickedTransform: null,
     });
-    applySlotValuesToIframe(next, current, s.slotSchema, s.iframeRef.contentWindow);
-    s.iframeRef.contentWindow.postMessage({ type: 'fluidClearPick' }, '*');
+    applySlotValuesToIframe(next, current, s2.slotSchema, win);
+    win.postMessage({ type: 'fluidClearPick' }, '*');
   },
 
   resetToBaseline: () => {
     const s = get();
-    if (!s.selectedIterationId || !s.slotSchema || !s.iframeRef?.contentWindow) return;
+    if (!s.selectedIterationId || !s.iframeRef?.contentWindow) return;
     clearHistoryDebounceSchedule();
     const baseline = structuredClone(s.baselineSlotValues);
     const current = structuredClone(s.slotValues);
@@ -529,6 +568,39 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     });
     applySlotValuesToIframe(baseline, current, s.slotSchema, s.iframeRef.contentWindow);
     s.iframeRef.contentWindow.postMessage({ type: 'fluidClearPick' }, '*');
+  },
+
+  patchBrushTransform: (sel: string, transform: string) => {
+    const before = structuredClone(get().slotValues);
+    set((state) => {
+      let map: Record<string, string> = {};
+      try {
+        map = JSON.parse(state.slotValues[BRUSH_TRANSFORM_STATE_KEY] || '{}') as Record<string, string>;
+      } catch {
+        map = {};
+      }
+      map[sel] = transform;
+      return {
+        slotValues: { ...state.slotValues, [BRUSH_TRANSFORM_STATE_KEY]: JSON.stringify(map) },
+        isDirty: true,
+      };
+    });
+    scheduleUndoSnapshot(before, (snapshot) => {
+      const after = get().slotValues;
+      if (!slotMapsEqual(snapshot, after)) {
+        set((st) => ({
+          undoStack: [...st.undoStack, snapshot].slice(-MAX_UNDO),
+          redoStack: [],
+        }));
+      }
+    });
+    const { iframeRef } = get();
+    if (iframeRef?.contentWindow) {
+      iframeRef.contentWindow.postMessage(
+        { type: 'tmpl', sel, action: 'transform', transform },
+        '*'
+      );
+    }
   },
 
   saveUserState: async () => {
@@ -578,8 +650,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       redoStack: [],
       isDirty: false,
       iframeRef: null,
-      activeCarouselSlide: 1,
       pickedTransform: null,
+      activeCarouselSlide: 1,
     });
   },
 }));

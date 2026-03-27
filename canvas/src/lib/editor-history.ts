@@ -9,6 +9,7 @@ import { textBoxFontPostMessage } from './textbox-typography';
 /** Keep in sync with store/editor.ts — duplicated here to avoid circular imports */
 const TX_PREFIX = '__transform__:';
 const TB_PREFIX = '__textbox__:';
+const BRUSH_BLOB_KEY = '__brushTransform__';
 
 export const MAX_UNDO = 50;
 export const HISTORY_DEBOUNCE_MS = 350;
@@ -22,6 +23,27 @@ export function clearHistoryDebounceSchedule(): void {
     historyTimer = null;
   }
   debounceBefore = null;
+}
+
+/**
+ * If an edit burst is still inside the debounce window, commit its "before" snapshot now.
+ * Must run before undo/redo so Cmd+Z works immediately after a change (not only after 350ms).
+ */
+export function flushPendingUndoSnapshot(
+  getCurrentSlotValues: () => Record<string, string>,
+  commit: (snapshot: Record<string, string>) => void
+): void {
+  if (historyTimer != null) {
+    clearTimeout(historyTimer);
+    historyTimer = null;
+  }
+  const b = debounceBefore;
+  debounceBefore = null;
+  if (!b) return;
+  const after = getCurrentSlotValues();
+  if (!slotMapsEqual(b, after)) {
+    commit(b);
+  }
 }
 
 export function scheduleUndoSnapshot(
@@ -77,6 +99,30 @@ function collectAllKeys(
   return [...s];
 }
 
+/**
+ * Apply order for iframe replay (undo/redo/reset).
+ * The transform handler zeroes inline left/top when folding into translate; if __textbox__ runs
+ * before __transform__, those positions are wiped and the preview "jumps" (wrong undo).
+ * Order: slot content → transform → text box (text box wins).
+ */
+function sortKeysForIframeApply(keys: readonly string[]): string[] {
+  const plain: string[] = [];
+  const brushBlob: string[] = [];
+  const tx: string[] = [];
+  const tb: string[] = [];
+  for (const k of keys) {
+    if (k === BRUSH_BLOB_KEY) brushBlob.push(k);
+    else if (k.startsWith(TX_PREFIX)) tx.push(k);
+    else if (k.startsWith(TB_PREFIX)) tb.push(k);
+    else plain.push(k);
+  }
+  plain.sort((a, b) => a.localeCompare(b));
+  tx.sort((a, b) => a.localeCompare(b));
+  tb.sort((a, b) => a.localeCompare(b));
+  // Content → brush blob → per-element transforms → text boxes
+  return [...plain, ...brushBlob, ...tx, ...tb];
+}
+
 function textBoxJsonHasActiveFont(raw: string | undefined): boolean {
   if (!raw) return false;
   try {
@@ -105,9 +151,27 @@ export function applySlotValuesToIframe(
       []
   );
 
-  const keys = collectAllKeys(target, previous, schema);
+  const keys = sortKeysForIframeApply(collectAllKeys(target, previous, schema));
 
   for (const key of keys) {
+    if (key === BRUSH_BLOB_KEY) {
+      const raw = target[key];
+      try {
+        const map =
+          typeof raw === 'string' ? (JSON.parse(raw) as Record<string, string>) : (raw as Record<string, string>);
+        if (map && typeof map === 'object') {
+          for (const [sel, transform] of Object.entries(map)) {
+            if (typeof transform === 'string') {
+              win.postMessage({ type: 'tmpl', sel, action: 'transform', transform }, '*');
+            }
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
     if (key.startsWith(TX_PREFIX)) {
       const sel = key.slice(TX_PREFIX.length);
       const transform = target[key] ?? '';

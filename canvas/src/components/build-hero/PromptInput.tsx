@@ -7,7 +7,7 @@ import {
 } from '../tokens';
 import {
   CREATION_TYPES, SOCIAL_POST_FORMATS, SOCIAL_POST_DIMENSIONS,
-  VIDEO_FORMATS, VIDEO_DIMENSIONS,
+  VIDEO_FORMATS, VIDEO_DIMENSIONS, type VideoFormatTag,
 } from './constants';
 import { Dropdown } from './Dropdown';
 import { SparklesIcon, MicIcon, PlusIcon, ArrowRightIcon, SettingsIcon } from './Icons';
@@ -58,7 +58,7 @@ export function PromptInput({
   const isVideo = creationTypeId === 'instagram-story';
 
   const videoDimensionsForFormat = VIDEO_DIMENSIONS.filter((d) =>
-    d.formats.includes(videoFormatId as 'story' | 'video')
+    (d.formats as readonly VideoFormatTag[]).includes(videoFormatId as VideoFormatTag)
   );
 
   useEffect(() => {

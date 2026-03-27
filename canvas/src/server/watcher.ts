@@ -1705,6 +1705,15 @@ export function fluidWatcherPlugin(): Plugin {
                 'var TX_PREFIX="__transform__:";var TB_PREFIX="__textbox__:";' +
                 'for(var sel in initial){' +
                 'var v=initial[sel];' +
+                'if(sel==="__brushTransform__"){' +
+                'try{' +
+                'var tmap=typeof v==="string"?JSON.parse(v):v;' +
+                'for(var bsel in tmap){' +
+                'var bel=document.querySelector(bsel);' +
+                'if(bel&&bel.style){bel.style.transformOrigin="50% 50%";bel.style.transform=tmap[bsel]||"";}' +
+                '}' +
+                '}catch(_){}' +
+                'continue;}' +
                 'if(sel.indexOf(TX_PREFIX)===0){' +
                 'var tsel=sel.substring(TX_PREFIX.length);' +
                 'var tel=document.querySelector(tsel);' +
@@ -1875,8 +1884,7 @@ export function fluidWatcherPlugin(): Plugin {
                 '}' +
                 'el.style.transform=d.transform||"";el.style.transformOrigin="50% 50%";' +
                 '}' +
-                '}' +
-                'else if(d.mode==="br"){' +
+                '}else if(d.mode==="br"){' +
                 'var x=document.createElement("div");x.textContent=d.value;' +
                 'el.innerHTML=x.innerHTML.replace(/\\n/g,"<br>");' +
                 '}else{el.textContent=d.value;}' +

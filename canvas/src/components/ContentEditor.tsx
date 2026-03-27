@@ -34,10 +34,14 @@ function parsePickKind(v: unknown): TransformTargetKind {
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'winner': return '#44b574';
-    case 'rejected': return '#e05555';
-    case 'final': return '#44B2FF';
-    default: return '#555';
+    case 'winner':
+      return '#44b574';
+    case 'rejected':
+      return '#e05555';
+    case 'final':
+      return '#44B2FF';
+    default:
+      return '#555';
   }
 }
 
@@ -53,8 +57,8 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
     slotSchema,
     slotValues,
     isDirty,
-    activeCarouselSlide,
     pickedTransform,
+    activeCarouselSlide,
     selectIteration,
     setIframeRef,
     updateSlotValue,
@@ -240,12 +244,12 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
       <div style={artboardSelectionActive ? { ...styles.header, ...styles.headerCompact } : styles.header}>
         <div style={styles.headerInfo}>
           <span style={styles.iterationLabel}>
-            {carouselMode
+            {carouselMode && !artboardSelectionActive
               ? `Slide ${String(activeCarouselSlide).padStart(2, '0')}`
-              : iteration.source === 'template' ? 'Template' : 'AI Generated'}
-            {artboardSelectionActive && iteration.templateId
-              ? ` · ${iteration.templateId}`
-              : null}
+              : iteration.source === 'template'
+                ? 'Template'
+                : 'AI Generated'}
+            {artboardSelectionActive && iteration.templateId ? ` · ${iteration.templateId}` : null}
           </span>
           {!artboardSelectionActive && iteration.templateId && (
             <span style={styles.templateId}>{iteration.templateId}</span>
@@ -329,7 +333,6 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
                         assetWidth={slotSchema.width}
                         assetHeight={slotSchema.height}
                         iframeEl={iframeEl}
-                        layoutOnly
                       />
                     </div>
                   </div>
@@ -351,7 +354,7 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
         </div>
       )}
 
-      {/* Content fields — hidden while a layer is selected; filtered by carousel slide when in carousel mode */}
+      {/* Content fields — hidden while a layer is picked; filtered by carousel slide when in carousel mode */}
       {!artboardSelectionActive && (
         <div style={styles.fieldsContainer}>
           {slotSchema == null ? (
@@ -379,6 +382,24 @@ export function ContentEditor({ iteration, iframeEl }: ContentEditorProps) {
               ))}
             </>
           )}
+        </div>
+      )}
+
+      {/* Schema brush / transform — when not in artboard pick mode */}
+      {slotSchema?.brush && showBrush && !artboardSelectionActive && (
+        <div style={styles.section}>
+          <div style={styles.sectionLabel}>
+            {slotSchema.brushLabel
+              ? slotSchema.brushLabel.charAt(0).toUpperCase() + slotSchema.brushLabel.slice(1)
+              : 'Transform'}
+          </div>
+          <BrushTransform
+            brushSel={slotSchema.brush}
+            brushLabel={slotSchema.brushLabel}
+            assetWidth={slotSchema.width}
+            assetHeight={slotSchema.height}
+            iframeEl={iframeEl}
+          />
         </div>
       )}
 
@@ -442,6 +463,21 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#888',
     textTransform: 'uppercase',
     letterSpacing: '0.1em',
+  },
+  templateId: {
+    fontSize: '0.72rem',
+    color: '#aaa',
+    fontFamily: 'ui-monospace, monospace',
+  },
+  statusBadge: {
+    fontSize: '0.62rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    padding: '4px 8px',
+    borderRadius: 4,
+    color: '#e8e8e8',
+    flexShrink: 0,
   },
   section: {
     marginBottom: '1rem',
