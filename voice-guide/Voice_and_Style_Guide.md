@@ -327,6 +327,29 @@ When in doubt, return to these. They represent the voice at its best.
 
 ---
 
+## Copy.md Output Format for Pipeline
+
+When writing copy.md for the generation pipeline, use EXACTLY these section headers:
+
+```
+## HEADLINE
+[Your headline text]
+
+## BODY
+[Your body copy text]
+
+## TAGLINE
+[Your tagline text]
+
+Archetype: [slug]
+Accent: [hex color]
+Photo: [asset-name] (if applicable)
+```
+
+This format is mandatory — the eval harness parses these headers to validate copy structure.
+
+---
+
 ## One-Sentence Summary of the Voice
 
 Write like someone who has thought deeply about a broken industry, fixed a real part of it, and wants to tell you exactly what they found — without wasting your time.
