@@ -348,6 +348,8 @@ Photo: [asset-name] (if applicable)
 
 This format is mandatory — the eval harness parses these headers to validate copy structure.
 
+**CRITICAL — Archetype slug rule:** The `Archetype:` value MUST be an exact slug from the Available Archetypes list provided in the copy prompt. Do NOT invent conceptual names like `pain-relief`, `bold-innovator`, `trust-builder`, etc. These are not valid archetypes and will cause routing failures. Use ONLY the exact slugs listed (e.g., `stat-hero-single`, `minimal-statement`, `hero-stat-split`).
+
 ---
 
 ## One-Sentence Summary of the Voice
