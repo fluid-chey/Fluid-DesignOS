@@ -113,25 +113,29 @@ try {
  * Checks the DB for file_path, falls back to scanning assets/ directory.
  */
 function findAssetOnDisk(assetName) {
+  const assetsDir = path.join(PROJECT_ROOT, 'assets');
+
   // Try DB lookup first
   if (db) {
     try {
       const row = db.prepare(
         'SELECT file_path FROM brand_assets WHERE name = ? AND (dam_deleted = 0 OR dam_deleted IS NULL) LIMIT 1'
       ).get(assetName);
-      if (row && row.file_path && fs.existsSync(row.file_path)) {
-        return row.file_path;
+      if (row && row.file_path) {
+        const absPath = path.join(assetsDir, row.file_path);
+        if (fs.existsSync(absPath)) return absPath;
       }
     } catch { /* fall through */ }
   }
 
-  // Scan assets/ directory
-  const assetsDir = path.join(PROJECT_ROOT, 'assets');
+  // Scan assets/ directory — match with or without extension
   if (fs.existsSync(assetsDir)) {
     try {
       const entries = fs.readdirSync(assetsDir, { withFileTypes: true, recursive: true });
       for (const entry of entries) {
-        if (entry.isFile() && entry.name === assetName) {
+        if (!entry.isFile()) continue;
+        const nameNoExt = path.parse(entry.name).name;
+        if (entry.name === assetName || nameNoExt === assetName) {
           return path.join(entry.parentPath || entry.path, entry.name);
         }
       }
