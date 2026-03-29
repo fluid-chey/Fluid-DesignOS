@@ -11,6 +11,10 @@ Social = NeueHaasDisplay + FLFont. Website = Syne + DM Sans + Space Mono. Never 
 | DM Sans | `DM Sans` | (web font) | Website — body copy | 80 |
 | Space Mono | `Space Mono` | (web font) | Website — labels, metadata | 75 |
 
+## Font Fallbacks (weight: 90)
+
+NEVER use `cursive`, `Georgia`, `Times New Roman`, `serif`, or `"Inter"` as font-family fallback values. The ONLY acceptable generic fallback is `sans-serif`. Example: `font-family: 'flfontbold', sans-serif;` — NOT `font-family: 'flfontbold', cursive;`.
+
 ## Canvas Fill — Social Posts Only (weight: 85)
 
 For Instagram and LinkedIn posts, content must fill at least 60% of the canvas area. Vast empty black space with tiny centered text is a design failure. (weight: 85)
