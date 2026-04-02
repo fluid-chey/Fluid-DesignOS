@@ -187,5 +187,6 @@ export function slotFieldSelFromLayoutPick(
   if (picked.kind === 'text' || picked.kind === 'image') {
     return findInFields(schema.fields);
   }
+  // Group picks don't map to a content field — they're container-level only
   return null;
 }

@@ -37,15 +37,19 @@ export function StylesScreen() {
   // Load brand styles and system defaults
   useEffect(() => {
     Promise.all([
-      fetch('/api/brand-styles').then(r => r.json()),
-      fetch('/api/system-styles').then(r => r.json()).catch(() => ({})),
+      fetch('/api/brand-styles').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/system-styles').then(r => r.ok ? r.json() : {}).catch(() => ({})),
     ]).then(([styles, defaults]) => {
-      const map: Record<string, string> = {};
-      for (const s of styles as BrandStyle[]) {
-        map[s.scope] = s.cssContent;
+      if (Array.isArray(styles)) {
+        const map: Record<string, string> = {};
+        for (const s of styles as BrandStyle[]) {
+          map[s.scope] = s.cssContent;
+        }
+        setBrandStyles(prev => ({ ...prev, ...map }));
       }
-      setBrandStyles(prev => ({ ...prev, ...map }));
       setSystemDefaults(prev => ({ ...prev, ...(defaults as Record<string, string>) }));
+      setLoading(false);
+    }).catch(() => {
       setLoading(false);
     });
   }, []);
