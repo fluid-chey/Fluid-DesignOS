@@ -29,6 +29,7 @@ function StandaloneCreationsView() {
   const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
   const createViewportTab = useCampaignStore((s) => s.createViewportTab);
   const [standaloneCreations, setStandaloneCreations] = useState<Creation[]>([]);
+  const [standaloneCampaignId, setStandaloneCampaignId] = useState<string | null>(null);
   const [standaloneLoading, setStandaloneLoading] = useState(true);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [filterChannel, setFilterChannel] = useState('all');
@@ -47,6 +48,7 @@ function StandaloneCreationsView() {
         const campaigns = await campaignsRes.json();
         const standalone = campaigns.find((c: { title: string }) => c.title === '__standalone__');
         if (!standalone || cancelled) { setStandaloneLoading(false); return; }
+        setStandaloneCampaignId(standalone.id);
 
         // Fetch its creations
         const crRes = await fetch(`/api/campaigns/${standalone.id}/creations`);
@@ -147,7 +149,14 @@ function StandaloneCreationsView() {
           {sorted.map((cr) => (
             <div
               key={cr.id}
-              onClick={() => navigateToCreation(cr.id)}
+              onClick={() => {
+                // Set the standalone campaign as active so breadcrumb/back button
+                // correctly identify this as a standalone creation
+                if (standaloneCampaignId) {
+                  useCampaignStore.setState({ activeCampaignId: standaloneCampaignId });
+                }
+                navigateToCreation(cr.id);
+              }}
               style={{
                 backgroundColor: '#1a1a1e',
                 borderRadius: 8,
