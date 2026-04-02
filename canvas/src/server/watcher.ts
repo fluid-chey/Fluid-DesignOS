@@ -52,6 +52,10 @@ import {
   upsertContextMapEntry,
   deleteContextMapEntry,
   getContextLogs,
+  getBrandStyles,
+  getBrandStyleByScope,
+  upsertBrandStyle,
+  deleteBrandStyle,
 } from './db-api';
 import { getDb } from '../lib/db';
 import { scanAndSeedBrandAssets } from './asset-scanner';
@@ -1976,6 +1980,9 @@ export function fluidWatcherPlugin(): Plugin {
       srv.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/api/')) return next();
 
+        const url = req.url.split('?')[0];
+        const method = req.method ?? 'GET';
+
         try {
           // GET /api/templates -- return template listing
           if (req.url === '/api/templates' && req.method === 'GET') {
@@ -2155,6 +2162,68 @@ export function fluidWatcherPlugin(): Plugin {
             }
 
             return;
+          }
+
+          // ─── System Styles API (read-only, from disk) ────────────────────────
+          if (url === '/api/system-styles' && method === 'GET') {
+            const stylesDir = path.resolve(projectRoot, 'styles');
+            const scopes: Record<string, string> = {};
+            try {
+              scopes.global = await fs.readFile(path.join(stylesDir, 'global.css'), 'utf-8');
+            } catch { scopes.global = '/* global.css not found */'; }
+            try {
+              scopes.instagram = await fs.readFile(path.join(stylesDir, 'platforms', 'instagram.css'), 'utf-8');
+            } catch { scopes.instagram = ''; }
+            try {
+              scopes.linkedin = await fs.readFile(path.join(stylesDir, 'platforms', 'linkedin.css'), 'utf-8');
+            } catch { scopes.linkedin = ''; }
+            try {
+              scopes['one-pager'] = await fs.readFile(path.join(stylesDir, 'platforms', 'one-pager.css'), 'utf-8');
+            } catch { scopes['one-pager'] = ''; }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(scopes));
+            return;
+          }
+
+          // ─── Brand Styles API ────────────────────────────────────────────────
+          if (url === '/api/brand-styles' && method === 'GET') {
+            const styles = getBrandStyles();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(styles));
+            return;
+          }
+
+          const brandStylesScopeMatch = url.match(/^\/api\/brand-styles\/([^/]+)$/);
+          if (brandStylesScopeMatch) {
+            const scope = decodeURIComponent(brandStylesScopeMatch[1]);
+
+            if (method === 'GET') {
+              const style = getBrandStyleByScope(scope);
+              if (!style) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Scope not found' }));
+                return;
+              }
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(style));
+              return;
+            }
+
+            if (method === 'PUT') {
+              const body = JSON.parse(await readBody(req));
+              const { cssContent } = body;
+              const style = upsertBrandStyle(scope, cssContent ?? '');
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(style));
+              return;
+            }
+
+            if (method === 'DELETE') {
+              const deleted = deleteBrandStyle(scope);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ deleted }));
+              return;
+            }
           }
 
           next();
