@@ -1109,6 +1109,9 @@ async function buildPreStyledHtml(
     'one-pager': 'one-pager.css',
   };
   const platformFile = platformMap[creationType];
+  if (!platformFile) {
+    console.warn(`[css-merge] No platform CSS for creationType "${creationType}" — using global defaults only`);
+  }
   if (platformFile) {
     try {
       const platformCss = await fs.readFile(path.join(stylesDir, 'platforms', platformFile), 'utf-8');
