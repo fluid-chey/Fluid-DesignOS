@@ -4,7 +4,11 @@ import {
   listPatterns, readPattern,
   listAssets, listTemplates,
   listArchetypes, readArchetype,
+  createPattern, deletePattern,
+  saveCreation, getCreation,
 } from '../src/server/agent-tools';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('Brand Discovery Tools', () => {
   it('listVoiceGuide returns array with slug and title', () => {
@@ -84,5 +88,75 @@ describe('Brand Discovery Tools', () => {
 
   it('readArchetype returns null for invalid slug', () => {
     expect(readArchetype('nonexistent-archetype-xyz')).toBeNull();
+  });
+});
+
+describe('Brand Editing Tools', () => {
+  it('createPattern creates and deletePattern removes a pattern', () => {
+    const created = createPattern('colors', 'Test Agent Pattern', '# Test\nSome test content');
+    expect(created.slug).toBe('test-agent-pattern');
+    expect(created.category).toBe('colors');
+    expect(created.weight).toBe(50);
+
+    // Verify it can be read back
+    const found = readPattern('test-agent-pattern');
+    expect(found).not.toBeNull();
+    expect(found!.content).toBe('# Test\nSome test content');
+
+    // Delete and verify removal
+    const deleted = deletePattern('test-agent-pattern');
+    expect(deleted).toBe(true);
+    expect(readPattern('test-agent-pattern')).toBeNull();
+
+    // Deleting again should return false
+    expect(deletePattern('test-agent-pattern')).toBe(false);
+  });
+});
+
+describe('Visual Tools', () => {
+  it('saveCreation creates DB records and writes HTML file', () => {
+    const html = '<html><body>Test creation</body></html>';
+    const slotSchema = { headline: { selector: '.headline', type: 'text' } };
+    const result = saveCreation(html, slotSchema, 'instagram');
+
+    expect(result.campaignId).toBeTruthy();
+    expect(result.creationId).toBeTruthy();
+    expect(result.slideId).toBeTruthy();
+    expect(result.iterationId).toBeTruthy();
+    expect(result.htmlPath).toContain('.fluid/campaigns/');
+
+    // Verify HTML file was written
+    const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+    const absPath = path.resolve(PROJECT_ROOT, result.htmlPath);
+    expect(fs.existsSync(absPath)).toBe(true);
+    expect(fs.readFileSync(absPath, 'utf-8')).toBe(html);
+
+    // Cleanup: remove the generated file
+    try { fs.rmSync(path.dirname(absPath), { recursive: true }); } catch {}
+  });
+});
+
+describe('Context Tools', () => {
+  it('getCreation returns merged slot state', () => {
+    const html = '<html><body>Context test</body></html>';
+    const slotSchema = { title: { selector: '.title', type: 'text' } };
+    const result = saveCreation(html, slotSchema, 'linkedin');
+
+    const creation = getCreation(result.iterationId);
+    expect(creation).not.toBeNull();
+    expect(creation!.creationType).toBe('linkedin');
+    expect(creation!.slotSchema).toEqual(slotSchema);
+    expect(creation!.status).toBe('unmarked');
+    expect(creation!.generationStatus).toBe('complete');
+    // ai_baseline was set with null values for each slot key
+    expect(creation!.mergedSlotState).toEqual({ title: null });
+
+    // Cleanup
+    const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+    try { fs.rmSync(path.resolve(PROJECT_ROOT, path.dirname(result.htmlPath)), { recursive: true }); } catch {}
+  });
+
+  it('getCreation returns null for invalid iteration', () => {
+    expect(getCreation('nonexistent-iteration-xyz')).toBeNull();
   });
 });
