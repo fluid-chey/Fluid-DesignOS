@@ -164,7 +164,7 @@ Archetypes are **brandless structural layout patterns** — content skeletons th
 
 **Key architectural norms:**
 - **Brand-neutral:** No brand fonts, colors, assets, `text-transform: uppercase`, vertical side labels, or any brand convention. Casing, decoration, and styling are brand-layer decisions applied at generation time.
-- **Content/decorative split:** Archetypes define content layout only. A `.decorative-zone` div in each archetype receives brand decorative elements (brushstrokes, textures, circles) at generation time.
+- **Background/content/foreground split:** Archetypes define content layout only. Two layers bracket the content: `.background-layer` (z-index 0) receives textures, brushstrokes, and gradient washes; `.foreground-layer` (z-index 10) receives borders, frames, and watermarks. Content sits between them at z-index 2.
 - **`archetypeId`, not `templateId`:** Archetype schemas use `archetypeId` to avoid collision with `TEMPLATE_SCHEMAS` resolution in `template-configs.ts`. `brush` is always `null` — the brand layer provides decorative transform targets.
 - **Identical output shape:** Both templates and archetypes produce renderable HTML + SlotSchema. The pipeline can select either; the editor sidebar works with both.
 - **Components are patterns, not runtime includes:** Design components (`archetypes/components/`) are reference HTML/CSS patterns. When building an archetype, copy the markup structure and SlotSchema fields — there is no partial/import system.

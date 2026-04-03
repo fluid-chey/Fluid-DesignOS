@@ -120,7 +120,7 @@ export function CreationFrame({
           width: innerW,
           height: innerH,
           position: 'relative',
-          overflow: 'hidden',
+          overflow: 'visible',
           borderRadius: 4,
         }}>
         {!hasContent ? (

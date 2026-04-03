@@ -18,4 +18,4 @@ Every social post requires minimum decorative treatment. A post with zero decora
 
 - Text on a solid black background with NO textures, brushstrokes, or emphasis marks
 - Using only text and a colored accent line with nothing else
-- Empty `.background-layer` / `.decorative-zone` div with no children
+- Empty `.background-layer` / `.foreground-layer` div with no children

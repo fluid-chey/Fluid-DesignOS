@@ -14,7 +14,7 @@ import {
   roundLayoutRotateDeg,
   roundLayoutTranslatePx,
 } from '../lib/transform-format';
-import { elementRectToWrapOverlay } from '../lib/iframe-overlay-geometry';
+import { elementRectToWrapOverlay, elementRotatedOverlayInfo } from '../lib/iframe-overlay-geometry';
 import { collectTransformTargets } from '../lib/slot-schema';
 import {
   canSnapAxisAlignedTransform,
@@ -103,6 +103,15 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
     h: number;
   } | null>(null);
 
+  /** Rotation-aware overlay info: center + un-rotated dims + angle */
+  const [rotBox, setRotBox] = useState<{
+    cx: number;
+    cy: number;
+    w: number;
+    h: number;
+    rotDeg: number;
+  } | null>(null);
+
   const readEl = useCallback((): HTMLElement | null => {
     if (!iframeEl?.contentDocument || !sel) return null;
     return iframeEl.contentDocument.querySelector(sel) as HTMLElement | null;
@@ -119,11 +128,17 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
     const parsed = saved
       ? parseTransform(saved)
       : parseTransformComputed(cs.transform, win);
-    const left = parseFloat(cs.left);
-    const top = parseFloat(cs.top);
-    const lx = Number.isFinite(left) ? left : 0;
-    const ly = Number.isFinite(top) ? top : 0;
-    /* CSS combines left/top with transform translate — full offset is sum until we zero left/top on apply */
+    /* When a saved transform exists, left/top were already zeroed by the iframe
+       load script (__tmpl_listener__) — the translate carries the absorbed offset.
+       Only fold in left/top for never-edited elements (no saved transform). */
+    let lx = 0;
+    let ly = 0;
+    if (!saved) {
+      const left = parseFloat(cs.left);
+      const top = parseFloat(cs.top);
+      lx = Number.isFinite(left) ? left : 0;
+      ly = Number.isFinite(top) ? top : 0;
+    }
     return {
       tx: roundLayoutTranslatePx(parsed.translateX + lx),
       ty: roundLayoutTranslatePx(parsed.translateY + ly),
@@ -143,14 +158,17 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
     const el = readEl();
     if (!wrap || !el || !iframeEl) {
       setBox(null);
+      setRotBox(null);
       return;
     }
     setBox(elementRectToWrapOverlay(iframeEl, wrap, el));
+    setRotBox(elementRotatedOverlayInfo(iframeEl, wrap, el as HTMLElement));
   }, [readEl, wrapRef, iframeEl]);
 
   useEffect(() => {
     if (!sel) {
       setBox(null);
+      setRotBox(null);
       return;
     }
     syncBox();
@@ -460,9 +478,16 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
 
   if (!sel || !box || box.w < 2 || box.h < 2) return null;
 
-  const cx = box.x + box.w / 2;
-  const cy = box.y + box.h / 2;
-  const rotHandleY = box.y - ROT_STEM;
+  /* Use rotation-aware geometry when available; fall back to AABB. */
+  const useRotated = rotBox != null && rotBox.w > 2 && rotBox.h > 2;
+  const bCx = useRotated ? rotBox.cx : box.x + box.w / 2;
+  const bCy = useRotated ? rotBox.cy : box.y + box.h / 2;
+  const bW = useRotated ? rotBox.w : box.w;
+  const bH = useRotated ? rotBox.h : box.h;
+  const bRot = useRotated ? rotBox.rotDeg : 0;
+  const bX = bCx - bW / 2;
+  const bY = bCy - bH / 2;
+  const rotHandleY = bY - ROT_STEM;
 
   const wrapEl = wrapRef.current;
   let guideVOverlay: number | null = null;
@@ -519,77 +544,83 @@ export function TransformOverlay({ iframeEl, wrapRef }: TransformOverlayProps) {
             style={{ pointerEvents: 'none' }}
           />
         )}
-        {/* Bounding box — drag body to move (same for text, image, brush). */}
-        <rect
-          x={box.x}
-          y={box.y}
-          width={box.w}
-          height={box.h}
-          fill="rgba(68,178,255,0.04)"
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          strokeDasharray="6 4"
-          style={{ pointerEvents: 'all' }}
-          data-tmode="move"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          cursor="grab"
-        />
 
-        {/* Rotation stem + handle */}
-        <line
-          x1={cx}
-          y1={box.y}
-          x2={cx}
-          y2={rotHandleY + HANDLE / 2}
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          style={{ pointerEvents: 'none' }}
-        />
-        <circle
-          cx={cx}
-          cy={rotHandleY}
-          r={HANDLE / 2 + 3}
-          fill="rgba(68,178,255,0.15)"
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          style={{ pointerEvents: 'all', cursor: 'crosshair' }}
-          data-tmode="rotate"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
+        {/* Rotated group — box, handles, and rotation stem all rotate with element */}
+        <g transform={`rotate(${bRot}, ${bCx}, ${bCy})`}>
+          {/* Bounding box — drag body to move.
+              For text elements, TextBoxOverlay draws the visible border;
+              this rect is just an invisible hit area to avoid dual outlines. */}
+          <rect
+            x={bX}
+            y={bY}
+            width={bW}
+            height={bH}
+            fill={isTextLayout ? 'transparent' : 'rgba(68,178,255,0.04)'}
+            stroke={isTextLayout ? 'none' : '#44B2FF'}
+            strokeWidth={isTextLayout ? 0 : 1.5}
+            strokeDasharray={isTextLayout ? undefined : '6 4'}
+            style={{ pointerEvents: 'all' }}
+            data-tmode="move"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            cursor="grab"
+          />
 
-        {/* Corner handles — images/brushes only (scale stretches text) */}
-        {!isTextLayout &&
-          (
-            [
-              ['nw', box.x, box.y, 'nwse-resize'],
-              ['ne', box.x + box.w, box.y, 'nesw-resize'],
-              ['se', box.x + box.w, box.y + box.h, 'nwse-resize'],
-              ['sw', box.x, box.y + box.h, 'nesw-resize'],
-            ] as const
-          ).map(([mode, hx, hy, cursor]) => (
-            <rect
-              key={mode}
-              x={hx - HANDLE / 2}
-              y={hy - HANDLE / 2}
-              width={HANDLE}
-              height={HANDLE}
-              fill="#fff"
-              stroke="#44B2FF"
-              strokeWidth={1.5}
-              style={{ pointerEvents: 'all', cursor }}
-              data-tmode={mode}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-            />
-          ))}
+          {/* Rotation stem + handle */}
+          <line
+            x1={bCx}
+            y1={bY}
+            x2={bCx}
+            y2={rotHandleY + HANDLE / 2}
+            stroke="#44B2FF"
+            strokeWidth={1.5}
+            style={{ pointerEvents: 'none' }}
+          />
+          <circle
+            cx={bCx}
+            cy={rotHandleY}
+            r={HANDLE / 2 + 3}
+            fill="rgba(68,178,255,0.15)"
+            stroke="#44B2FF"
+            strokeWidth={1.5}
+            style={{ pointerEvents: 'all', cursor: 'crosshair' }}
+            data-tmode="rotate"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          />
+
+          {/* Corner handles — images/brushes only (scale stretches text) */}
+          {!isTextLayout &&
+            (
+              [
+                ['nw', bX, bY, 'nwse-resize'],
+                ['ne', bX + bW, bY, 'nesw-resize'],
+                ['se', bX + bW, bY + bH, 'nwse-resize'],
+                ['sw', bX, bY + bH, 'nesw-resize'],
+              ] as const
+            ).map(([mode, hx, hy, cursor]) => (
+              <rect
+                key={mode}
+                x={hx - HANDLE / 2}
+                y={hy - HANDLE / 2}
+                width={HANDLE}
+                height={HANDLE}
+                fill="#fff"
+                stroke="#44B2FF"
+                strokeWidth={1.5}
+                style={{ pointerEvents: 'all', cursor }}
+                data-tmode={mode}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+              />
+            ))}
+        </g>
       </svg>
     </div>
   );

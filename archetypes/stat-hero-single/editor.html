@@ -33,11 +33,17 @@
     overflow: hidden;
   }
 
-  .decorative-zone {
+  .background-layer {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 0;
+  }
+  .foreground-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
   }
 
   /* --- Editable elements (draggable) --- */
@@ -231,7 +237,8 @@
 
 <div id="canvas-wrap">
   <div id="canvas">
-    <div class="decorative-zone"></div>
+    <!-- BACKGROUND LAYER: brand fills with textures, brushstrokes -->
+    <div class="background-layer"></div>
 
     <div class="slot" id="slot-category" data-slot="category">
       <span>PAYMENT PROCESSING</span>
@@ -256,6 +263,8 @@
     <div class="slot" id="slot-body-copy" data-slot="body-copy">
       Seven PSPs. Automatic retry logic. Every transaction gets its best shot at clearing. The difference between 87% and 94% is millions in recovered revenue.
       <div class="resize-handle"></div>
+    <!-- FOREGROUND LAYER: brand fills with borders (footer, header, etc.) -->
+    <div class="foreground-layer"></div>
     </div>
   </div>
 </div>
@@ -484,20 +493,30 @@ function generateHTML() {
     font-family: sans-serif;
   }
 
-  .decorative-zone {
+  .background-layer {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 0;
+  }
+  .foreground-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
   }
 
 ${cssBlocks.join('\n\n')}
 </style>
 </head>
 <body>
-  <div class="decorative-zone"></div>
+  <!-- BACKGROUND LAYER: brand fills with textures, brushstrokes -->
+  <div class="background-layer"></div>
 
 ${slots.join('\n\n')}
+
+  <!-- FOREGROUND LAYER: brand fills with borders (footer, header, etc.) -->
+  <div class="foreground-layer"></div>
 </body>
 </html>`;
 }

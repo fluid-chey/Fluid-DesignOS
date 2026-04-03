@@ -43,7 +43,7 @@ const STAT_HERO_SCHEMA = {
 // Brush schema variant — same archetype but with brush field set
 const STAT_HERO_SCHEMA_WITH_BRUSH = {
   ...STAT_HERO_SCHEMA,
-  brush: '.decorative-zone',
+  brush: '.background-layer',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ test.describe('Phase 20: Archetype-based iteration editor parity', () => {
       slotSchema: STAT_HERO_SCHEMA,
     });
 
-    // Fixture B: brush = ".decorative-zone" (brush control should appear)
+    // Fixture B: brush = ".background-layer" (brush control should appear)
     const fixtureWithBrush = await createArchetypeFixture(request, {
       name: `E2E Archetype With Brush ${ts}`,
       slotSchema: STAT_HERO_SCHEMA_WITH_BRUSH,
@@ -256,8 +256,8 @@ test.describe('Phase 20: Archetype-based iteration editor parity', () => {
     expect(withBrushIter.slotSchema, 'with-brush iteration must have slotSchema').not.toBeNull();
     expect(
       withBrushIter.slotSchema!.brush,
-      'brush must be ".decorative-zone" — brush transform control should render'
-    ).toBe('.decorative-zone');
+      'brush must be ".background-layer" — brush transform control should render'
+    ).toBe('.background-layer');
 
   });
 

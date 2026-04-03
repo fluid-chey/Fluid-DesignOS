@@ -101,7 +101,7 @@ Archetypes define **content layout only**. The two categories are strictly separ
 - Background gradients and color fills
 - Brand watermarks and logo placements
 
-At generation time, the pipeline injects brand decorative elements into the `.decorative-zone` div and merges brand `brush`/`brushAdditional` fields into the final SlotSchema. The archetype `schema.json` always sets `brush: null` — the brand layer provides all decorative transform targets.
+At generation time, the pipeline injects brand decorative elements into `.background-layer` (textures, brushstrokes) and `.foreground-layer` (borders, frames), then merges brand `brush`/`brushAdditional` fields into the final SlotSchema. The archetype `schema.json` always sets `brush: null` — the brand layer provides all decorative transform targets.
 
 ## Schema Contract
 

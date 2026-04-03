@@ -85,11 +85,13 @@ const SINGULAR_PATTERNS = [
   /\ban?\s+(?:instagram|ig|insta)\b/i,
   /\ban?\s+(?:linkedin|li)\s+(?:post|image)\b/i,
   /\bone\s+(?:linkedin|instagram|post|one-pager|social)\b/i,
-  /^(?:create|make|generate|write|design)\s+(?:a|an|one)\s+/i,
+  /^(?:create|make|generate|write|design|do)\s+(?:a|an|one)\s+/i,
   /\ba\s+one-pager\b/i,
   /\ban?\s+image\b/i,
   /\b(?:a\s+)?single\s+(?:instagram|linkedin|post|one-pager|social|image)\b/i,
   /\bjust\s+(?:a\s+)?(?:single\s+)?(?:post|instagram|linkedin|one-pager)\b/i,
+  /\bstandalone\s+(?:creation|post|asset|piece|image)\b/i,
+  /\b(?:a|one)\s+(?:new\s+)?creation\b/i,
 ];
 
 // Patterns that indicate campaign intent (overrides singularity)
@@ -1460,7 +1462,13 @@ export function fluidWatcherPlugin(): Plugin {
 
             // Strategy 1: stored html_path resolved against project root
             const storedPath = path.resolve(projectRoot, row.html_path);
-            try { await fs.access(storedPath); templatePath = storedPath; found = true; } catch { /* noop */ }
+            try {
+              await fs.access(storedPath);
+              templatePath = storedPath;
+              found = true;
+              const stat = await fs.stat(storedPath);
+              console.log(`[watcher] iter ${iterationId} resolved via strategy 1: ${storedPath} (${stat.size} bytes)`);
+            } catch { /* noop */ }
 
             // Strategy 2: stored html_path resolved against .fluid/ directory
             if (!found) {
@@ -1523,6 +1531,7 @@ export function fluidWatcherPlugin(): Plugin {
             }
             try {
               let html = await fs.readFile(templatePath, 'utf-8');
+              console.log(`[watcher] iter ${iterationId}: serving ${templatePath} (${html.length} chars, ${html.split('\n').length} lines)`);
               // Rewrite relative asset paths for serving via /fluid-assets/
               html = html.replace(/\.\.\/\.\.\/assets\//g, '/fluid-assets/');
               html = html.replace(/<script src="nav\.js"><\/script>/g, '');
@@ -1632,8 +1641,25 @@ export function fluidWatcherPlugin(): Plugin {
                 '.fluid-artboard-editing::selection{' +
                 'background:rgba(68,178,255,.45)!important;color:#fff!important;' +
                 '}' +
-                '.fluid-artboard-editing[data-fluid-text-mode=\\"pre\\"]{white-space:pre-wrap!important}";' +
+                '.fluid-artboard-editing[data-fluid-text-mode=\\"pre\\"]{white-space:pre-wrap!important}' +
+                'body,body>*{overflow:visible!important}";' +
                 'h.appendChild(st);})();' +
+                'function __fluidSetText(el,text,mode){' +
+                'if(!el)return;' +
+                /* Check if element has child elements (decorative spans, circles, etc.).
+                   If so, compare current innerText with new text — if unchanged, skip
+                   the assignment entirely to preserve inline markup structure. */
+                'var hasKids=false;for(var ci=0;ci<el.childNodes.length;ci++){' +
+                'if(el.childNodes[ci].nodeType===1){hasKids=true;break;}}' +
+                'if(hasKids){' +
+                'var cur=(el.innerText||"").replace(/\\r\\n/g,"\\n").replace(/\\r/g,"\\n").trim();' +
+                'var nxt=(text||"").replace(/\\r\\n/g,"\\n").replace(/\\r/g,"\\n").trim();' +
+                'if(cur===nxt)return;' +
+                '}' +
+                /* No child elements, or text actually changed — apply directly */
+                'if(mode==="br"){var tmp=document.createElement("div");tmp.textContent=text;el.innerHTML=tmp.innerHTML.replace(/\\n/g,"<br>");}' +
+                'else{el.textContent=text;}' +
+                '}' +
                 'function __fluidApplyPickOutline(el){' +
                 'if(__fluidLastOutline){__fluidLastOutline.style.outline="";__fluidLastOutline.style.outlineOffset="";__fluidLastOutline=null;}' +
                 'if(el){el.style.outline="2px solid #44B2FF";el.style.outlineOffset="2px";__fluidLastOutline=el;}' +
@@ -1727,7 +1753,7 @@ export function fluidWatcherPlugin(): Plugin {
                 'var Ls0=cs0.left,Ts0=cs0.top;' +
                 'if((Ls0.indexOf("px")>=0||Ls0==="0px")&&(Ts0.indexOf("px")>=0||Ts0==="0px")){' +
                 'var L0=parseFloat(Ls0)||0,T0=parseFloat(Ts0)||0;' +
-                'if(L0!==0||T0!==0){tel.style.left="0px";tel.style.top="0px";}' +
+                'if(L0!==0||T0!==0){tel.style.left="0px";tel.style.top="0px";tel.style.right="auto";tel.style.bottom="auto";}' +
                 '}' +
                 '}' +
                 'continue;}' +
@@ -1748,8 +1774,7 @@ export function fluidWatcherPlugin(): Plugin {
                 'else if(v.indexOf("fluid-assets/")===0){src=location.origin+"/"+v;}' +
                 'else if(v.indexOf("assets/")===0){src=location.origin+"/fluid-assets/"+v.substring(7);}' +
                 'if(src)el.src=src;}' +
-                'else if(v.indexOf("\\n")>=0){var x=document.createElement("div");x.textContent=v;el.innerHTML=x.innerHTML.replace(/\\n/g,"<br>");}' +
-                'else{el.textContent=v;}' +
+                'else{__fluidSetText(el,v,v.indexOf("\\n")>=0?"br":"text");}' +
                 '}' +
                 '})();' +
                 'document.addEventListener("click",function(e){' +
@@ -1888,10 +1913,7 @@ export function fluidWatcherPlugin(): Plugin {
                 '}' +
                 'el.style.transform=d.transform||"";el.style.transformOrigin="50% 50%";' +
                 '}' +
-                '}else if(d.mode==="br"){' +
-                'var x=document.createElement("div");x.textContent=d.value;' +
-                'el.innerHTML=x.innerHTML.replace(/\\n/g,"<br>");' +
-                '}else{el.textContent=d.value;}' +
+                '}else{__fluidSetText(el,d.value,d.mode==="br"?"br":"text");}' +
                 '});</script>';
               html = html.replace('</body>', listenerScript + '</body>');
               res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

@@ -32,7 +32,7 @@ Requirements:
 - Uses placeholder text in all content elements (never empty divs)
 - Uses neutral styling: grayscale, `font-family: sans-serif`, no brand URLs
 - Contains `<!-- SLOT: {class-name} -->` HTML comments before each content element
-- Contains a `.decorative-zone` div at the top of `<body>` for brand decorative injection
+- Contains `.background-layer` and `.foreground-layer` divs for brand decorative injection
 - All CSS in a single `<style>` block in `<head>` — no inline styles, no external stylesheets
 
 ### `schema.json` — SlotSchema Definition
@@ -71,11 +71,16 @@ Covers:
   </style>
 </head>
 <body>
-  <div class="decorative-zone"></div>
+  <!-- BACKGROUND LAYER: brand fills with textures, brushstrokes -->
+  <div class="background-layer"></div>
+
   <!-- SLOT: {first-content-class} -->
   <div class="{first-content-class}">Placeholder text</div>
   <!-- SLOT: {second-content-class} -->
   ...
+
+  <!-- FOREGROUND LAYER: brand fills with borders (footer, header, etc.) -->
+  <div class="foreground-layer"></div>
 </body>
 </html>
 ```
@@ -99,26 +104,43 @@ Target dimensions by platform:
 - Instagram Square: `1080 × 1080`
 - LinkedIn Landscape: `1200 × 627`
 
-### Decorative Zone
+### Background / Foreground Layers
 
-The first element inside `<body>` must always be:
+Every archetype has two injection layers that bracket the content:
+
+- `.background-layer` — first element in `<body>`, sits **behind** content (`z-index: 0`). The pipeline injects textures, brushstrokes, gradient washes, and background imagery here.
+- `.foreground-layer` — last element in `<body>`, sits **in front of** content (`z-index: 10`). The pipeline injects borders, frames, header/footer bars, and watermarks here.
 
 ```html
-<div class="decorative-zone"></div>
+<body>
+  <!-- BACKGROUND LAYER: brand fills with textures, brushstrokes -->
+  <div class="background-layer"></div>
+
+  <!-- ... content elements (z-index: 2) ... -->
+
+  <!-- FOREGROUND LAYER: brand fills with borders (footer, header, etc.) -->
+  <div class="foreground-layer"></div>
+</body>
 ```
 
 With corresponding CSS:
 
 ```css
-.decorative-zone {
+.background-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
 }
+.foreground-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
 ```
 
-The pipeline injects brand decorative elements (brushstrokes, circles, textures) into this div at generation time. Archetypes must NOT include any decorative CSS — `.decorative-zone` stays empty in the archetype skeleton.
+Archetypes must NOT include any decorative CSS — both layers stay empty in the archetype skeleton. All content elements use `z-index: 2`, placing them between the two layers.
 
 ### Content Element Rules
 
@@ -294,7 +316,7 @@ At generation time, the pipeline executes this sequence for archetypes:
 
 1. **Read** `archetypes/{slug}/index.html` as the structural skeleton
 2. **Read** `archetypes/{slug}/schema.json` for content field definitions
-3. **Inject** brand decorative elements into `.decorative-zone` in the HTML
+3. **Inject** brand decorative elements into `.background-layer` (textures, brushstrokes) and `.foreground-layer` (borders, frames) in the HTML
 4. **Apply** brand fonts, colors, and background styling to content elements
 5. **Merge** brand `brush` / `brushAdditional` fields into the final iteration SlotSchema (overriding the archetype's `null` value)
 6. **Write** final renderable HTML + final SlotSchema to the iteration record
@@ -373,7 +395,7 @@ Every archetype must pass all checks before being merged:
 - [ ] No brand asset URLs in `index.html` (no external image URLs, no `/fluid-assets/` paths)
 - [ ] No inline styles in `index.html` (all styling in `<style>` block)
 - [ ] All content elements have placeholder text (not empty)
-- [ ] `.decorative-zone` div present at top of `<body>`
+- [ ] `.background-layer` div present at top of `<body>` and `.foreground-layer` div present at bottom of `<body>`
 - [ ] Placeholder images use base64 or SVG data URIs — no external URLs
 
 ### Quick collectTransformTargets Verification
@@ -426,12 +448,18 @@ These are patterns found in existing templates that MUST NOT appear in archetype
 .texture-overlay { ... }
 .background-gradient { ... }
 
-/* CORRECT — .decorative-zone stays unstyled in archetypes */
-.decorative-zone {
+/* CORRECT — layers stay unstyled in archetypes */
+.background-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
+}
+.foreground-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
 }
 ```
 

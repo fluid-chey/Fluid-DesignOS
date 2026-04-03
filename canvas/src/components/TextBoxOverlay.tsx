@@ -10,6 +10,7 @@ import { collectTransformTargets } from '../lib/slot-schema';
 import {
   elementLayoutRectInIframe,
   elementRectToWrapOverlay,
+  elementRotatedOverlayInfo,
 } from '../lib/iframe-overlay-geometry';
 import {
   collectSnapEdgeLinesX,
@@ -67,6 +68,15 @@ export function TextBoxOverlay({ iframeEl, wrapRef }: TextBoxOverlayProps) {
 
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
+  /** Rotation-aware overlay info: center + un-rotated dims + angle */
+  const [rotBox, setRotBox] = useState<{
+    cx: number;
+    cy: number;
+    w: number;
+    h: number;
+    rotDeg: number;
+  } | null>(null);
+
   const readEl = useCallback((): HTMLElement | null => {
     if (!iframeEl?.contentDocument || !sel) return null;
     return iframeEl.contentDocument.querySelector(sel) as HTMLElement | null;
@@ -77,14 +87,17 @@ export function TextBoxOverlay({ iframeEl, wrapRef }: TextBoxOverlayProps) {
     const el = readEl();
     if (!wrap || !el || !iframeEl) {
       setBox(null);
+      setRotBox(null);
       return;
     }
     setBox(elementRectToWrapOverlay(iframeEl, wrap, el));
+    setRotBox(elementRotatedOverlayInfo(iframeEl, wrap, el as HTMLElement));
   }, [readEl, wrapRef, iframeEl]);
 
   useEffect(() => {
     if (!sel) {
       setBox(null);
+      setRotBox(null);
       return;
     }
     syncBox();
@@ -338,8 +351,17 @@ export function TextBoxOverlay({ iframeEl, wrapRef }: TextBoxOverlayProps) {
 
   if (!sel || !box || box.w < 4 || box.h < 4) return null;
 
-  const yMid = box.y + box.h / 2;
-  const xMid = box.x + box.w / 2;
+  /* Use rotation-aware geometry when available; fall back to AABB. */
+  const useRotated = rotBox != null && rotBox.w > 2 && rotBox.h > 2;
+  const bCx = useRotated ? rotBox.cx : box.x + box.w / 2;
+  const bCy = useRotated ? rotBox.cy : box.y + box.h / 2;
+  const bW = useRotated ? rotBox.w : box.w;
+  const bH = useRotated ? rotBox.h : box.h;
+  const bRot = useRotated ? rotBox.rotDeg : 0;
+  const bX = bCx - bW / 2;
+  const bY = bCy - bH / 2;
+  const yMid = bCy;
+  const xMid = bCx;
 
   const wrapEl = wrapRef.current;
   let guideVOverlay: number | null = null;
@@ -384,65 +406,67 @@ export function TextBoxOverlay({ iframeEl, wrapRef }: TextBoxOverlayProps) {
             style={{ pointerEvents: 'none' }}
           />
         )}
-        <rect
-          x={box.x}
-          y={box.y}
-          width={box.w}
-          height={box.h}
-          fill="rgba(68,178,255,0.06)"
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          strokeDasharray="5 4"
-          style={{ pointerEvents: 'none' }}
-        />
-        {/* East */}
-        <rect
-          x={box.x + box.w - HANDLE / 2}
-          y={yMid - HANDLE / 2}
-          width={HANDLE}
-          height={HANDLE}
-          fill="#fff"
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          style={{ pointerEvents: 'all', cursor: 'ew-resize' }}
-          data-edge="e"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
-        {/* West */}
-        <rect
-          x={box.x - HANDLE / 2}
-          y={yMid - HANDLE / 2}
-          width={HANDLE}
-          height={HANDLE}
-          fill="#fff"
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          style={{ pointerEvents: 'all', cursor: 'ew-resize' }}
-          data-edge="w"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
-        {/* South */}
-        <rect
-          x={xMid - HANDLE / 2}
-          y={box.y + box.h - HANDLE / 2}
-          width={HANDLE}
-          height={HANDLE}
-          fill="#fff"
-          stroke="#44B2FF"
-          strokeWidth={1.5}
-          style={{ pointerEvents: 'all', cursor: 'ns-resize' }}
-          data-edge="s"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
+        <g transform={`rotate(${bRot}, ${bCx}, ${bCy})`}>
+          <rect
+            x={bX}
+            y={bY}
+            width={bW}
+            height={bH}
+            fill="rgba(68,178,255,0.06)"
+            stroke="#44B2FF"
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
+            style={{ pointerEvents: 'none' }}
+          />
+          {/* East */}
+          <rect
+            x={bX + bW - HANDLE / 2}
+            y={yMid - HANDLE / 2}
+            width={HANDLE}
+            height={HANDLE}
+            fill="#fff"
+            stroke="#44B2FF"
+            strokeWidth={1.5}
+            style={{ pointerEvents: 'all', cursor: 'ew-resize' }}
+            data-edge="e"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          />
+          {/* West */}
+          <rect
+            x={bX - HANDLE / 2}
+            y={yMid - HANDLE / 2}
+            width={HANDLE}
+            height={HANDLE}
+            fill="#fff"
+            stroke="#44B2FF"
+            strokeWidth={1.5}
+            style={{ pointerEvents: 'all', cursor: 'ew-resize' }}
+            data-edge="w"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          />
+          {/* South */}
+          <rect
+            x={xMid - HANDLE / 2}
+            y={bY + bH - HANDLE / 2}
+            width={HANDLE}
+            height={HANDLE}
+            fill="#fff"
+            stroke="#44B2FF"
+            strokeWidth={1.5}
+            style={{ pointerEvents: 'all', cursor: 'ns-resize' }}
+            data-edge="s"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          />
+        </g>
       </svg>
     </div>
   );
