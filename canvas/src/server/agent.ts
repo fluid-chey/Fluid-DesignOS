@@ -394,7 +394,7 @@ function loadHistory(chatId: string): Anthropic.MessageParam[] {
     } else if (row.role === 'assistant') {
       const blocks: Anthropic.ContentBlock[] = [];
       if (row.content) {
-        blocks.push({ type: 'text', text: row.content });
+        blocks.push({ type: 'text', text: row.content } as Anthropic.ContentBlock);
       }
       if (row.tool_calls) {
         const calls = JSON.parse(row.tool_calls) as any[];
@@ -404,7 +404,7 @@ function loadHistory(chatId: string): Anthropic.MessageParam[] {
             id: call.id,
             name: call.name,
             input: call.input,
-          });
+          } as Anthropic.ContentBlock);
         }
       }
       if (blocks.length > 0) {
