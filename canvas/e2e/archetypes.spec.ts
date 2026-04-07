@@ -299,8 +299,9 @@ test.describe('Phase 19: archetype index.html content checks', () => {
         }
       }
 
-      // Must have a .decorative-zone placeholder per archetype spec
-      expect(html, `${slug}: decorative-zone div required`).toContain('decorative-zone');
+      // Must have background/foreground layers per archetype spec
+      expect(html, `${slug}: background-layer div required`).toContain('background-layer');
+      expect(html, `${slug}: foreground-layer div required`).toContain('foreground-layer');
     });
   }
 });

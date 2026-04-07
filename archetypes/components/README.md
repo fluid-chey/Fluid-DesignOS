@@ -20,19 +20,25 @@ A design component is a mid-level functional block — a meaningful content unit
 
 ## Component Index
 
-| Component | Used by archetypes |
-|-----------|-------------------|
-| stat-card | hero-stat, data-dashboard |
-| image-block | photo-bg-overlay, split-photo-text, quote-testimonial |
-| quote-block | quote-testimonial |
-| headline-block | hero-stat, photo-bg-overlay, split-photo-text, minimal-statement, data-dashboard |
-| subtext-block | hero-stat, photo-bg-overlay, minimal-statement |
-| body-copy-block | split-photo-text |
-| attribution-block | quote-testimonial, split-photo-text |
-| portrait-block | quote-testimonial |
-| footnote-block | data-dashboard |
-| decorative-zone | All archetypes |
-| divider | data-dashboard |
+Components with a directory in `archetypes/components/` have a `pattern.html` and `README.md`. Components marked *(inline only)* are documented in this file but have no standalone directory.
+
+| Component | Directory | Used by archetypes |
+|-----------|-----------|-------------------|
+| stat-card | `stat-card/` | hero-stat, hero-stat-split, data-dashboard, stat-hero-single |
+| image-block | `image-block/` | photo-bg-overlay, split-photo-text, split-photo-quote, hero-stat-split, minimal-photo-top |
+| quote-block | `quote-block/` | quote-testimonial, split-photo-quote |
+| eyebrow-headline | `eyebrow-headline/` | hero-stat, hero-stat-split, data-dashboard-li |
+| body-text | `body-text/` | hero-stat, split-photo-text, hero-stat-split, stat-hero-single |
+| avatar-attribution | `avatar-attribution/` | quote-testimonial-li |
+| cta-pill | `cta-pill/` | *(not yet used — available for future archetypes)* |
+| metric-row | `metric-row/` | *(not yet used — available for future archetypes)* |
+| headline-block | *(inline only)* | most archetypes (`.headline` class) |
+| subtext-block | *(inline only)* | photo-bg-overlay, minimal-statement, minimal-photo-top |
+| portrait-block | *(inline only)* | quote-testimonial, split-photo-quote |
+| attribution-block | *(inline only)* | quote-testimonial, split-photo-quote |
+| footnote-block | *(inline only)* | data-dashboard |
+| divider | *(inline only)* | data-dashboard |
+| background-layer / foreground-layer | *(inline only)* | All archetypes |
 
 ---
 
@@ -186,11 +192,11 @@ A design component is a mid-level functional block — a meaningful content unit
 
 ---
 
-## 4. headline-block
+## 4. eyebrow-headline
 
-**Purpose:** Primary headline text. The dominant typographic element in non-stat layouts.
+**Purpose:** A small category label above a large headline — the standard opening structure for posts with a strong main statement. See `eyebrow-headline/` directory for the standalone pattern.
 
-**Used by:** hero-stat, photo-bg-overlay, split-photo-text, minimal-statement, data-dashboard
+**Used by:** hero-stat, hero-stat-split, data-dashboard-li
 
 **HTML:**
 
@@ -223,11 +229,11 @@ A design component is a mid-level functional block — a meaningful content unit
 
 ---
 
-## 5. subtext-block
+## 5. headline-block
 
-**Purpose:** Supporting copy below a stat or headline. Short explanatory sentences.
+**Purpose:** Primary headline text. The dominant typographic element in non-stat layouts. Nearly every archetype uses a `.headline` class.
 
-**Used by:** hero-stat, photo-bg-overlay, minimal-statement
+**Used by:** most archetypes
 
 **HTML:**
 
@@ -260,11 +266,11 @@ A design component is a mid-level functional block — a meaningful content unit
 
 ---
 
-## 6. body-copy-block
+## 6. body-text
 
-**Purpose:** Longer body text for split layouts where the text column has more room.
+**Purpose:** Body copy block for 1-3 sentences of supporting explanation. See `body-text/` directory for the standalone pattern.
 
-**Used by:** split-photo-text
+**Used by:** hero-stat, split-photo-text, hero-stat-split, stat-hero-single
 
 **HTML:**
 
@@ -297,11 +303,11 @@ A design component is a mid-level functional block — a meaningful content unit
 
 ---
 
-## 7. attribution-block
+## 7. subtext-block
 
-**Purpose:** Name and title/role for testimonials and split layouts.
+**Purpose:** Supporting copy below a stat or headline. Short explanatory sentences.
 
-**Used by:** quote-testimonial, split-photo-text
+**Used by:** photo-bg-overlay, minimal-statement, minimal-photo-top
 
 **HTML:**
 
@@ -335,11 +341,72 @@ Head of Engineering</div>
 
 ---
 
-## 8. portrait-block
+## 8. avatar-attribution
+
+**Purpose:** Small photo paired with name, title, and optional handle — the attribution block for posts featuring a real person. See `avatar-attribution/` directory for the standalone pattern.
+
+**Used by:** quote-testimonial-li
+
+**HTML:**
+
+```html
+<!-- SLOT: avatar -->
+<div class="avatar">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="">
+</div>
+<!-- SLOT: avatar-name -->
+<div class="avatar-name">Michael Torres</div>
+<!-- SLOT: avatar-title -->
+<div class="avatar-title">VP of Marketing, Acme Corp</div>
+```
+
+**CSS:**
+
+```css
+.avatar {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-name {
+  position: absolute;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.avatar-title {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+}
+```
+
+**SlotSchema fields:**
+
+```json
+{ "type": "image", "sel": ".avatar img",    "label": "Photo",  "dims": "64 x 64px" },
+{ "type": "text",  "sel": ".avatar-name",   "label": "Name",   "mode": "text", "rows": 1 },
+{ "type": "text",  "sel": ".avatar-title",  "label": "Title",  "mode": "text", "rows": 1 }
+```
+
+---
+
+## 9. portrait-block
 
 **Purpose:** Circular portrait image. Used in testimonial and quote layouts.
 
-**Used by:** quote-testimonial
+**Used by:** quote-testimonial, split-photo-quote
 
 **HTML:**
 
@@ -380,7 +447,45 @@ Head of Engineering</div>
 
 ---
 
-## 9. footnote-block
+## 10. attribution-block
+
+**Purpose:** Name and title/role for testimonials and split layouts.
+
+**Used by:** quote-testimonial, split-photo-quote
+
+**HTML:**
+
+```html
+<!-- SLOT: attribution -->
+<div class="attribution">Jane Smith
+Head of Engineering</div>
+```
+
+**CSS:**
+
+```css
+.attribution {
+  position: absolute;
+  top: 820px;
+  left: 68px;
+  font-family: sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: pre-line;
+}
+```
+
+**SlotSchema field:**
+
+```json
+{ "type": "text", "sel": ".attribution", "label": "Attribution", "mode": "pre", "rows": 2 }
+```
+
+---
+
+## 11. footnote-block
 
 **Purpose:** Small context or source attribution at the bottom of data-heavy layouts.
 
@@ -417,34 +522,147 @@ Head of Engineering</div>
 
 ---
 
-## 10. decorative-zone
+## 12. cta-pill
 
-**Purpose:** Empty container for brand decorative injection. Present in ALL archetypes. The pipeline injects brushstrokes, textures, and circle elements into this div at generation time.
+**Purpose:** Call-to-action or tagline element — a pill-shaped container with primary action text and optional subtext. See `cta-pill/` directory for the standalone pattern.
 
-**Used by:** All archetypes
+**Used by:** *(not yet used — available for future archetypes)*
 
-**HTML (always the first element inside `<body>`):**
+**HTML:**
 
 ```html
-<div class="decorative-zone"></div>
+<!-- SLOT: cta-text -->
+<div class="cta-text">Learn more</div>
+<!-- SLOT: cta-sub -->
+<div class="cta-sub">Available now</div>
 ```
 
 **CSS:**
 
 ```css
-.decorative-zone {
+.cta-text {
+  position: absolute;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 40px;
+  padding: 12px 32px;
+}
+
+.cta-sub {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+}
+```
+
+**SlotSchema fields:**
+
+```json
+{ "type": "text", "sel": ".cta-text", "label": "CTA Text",    "mode": "text", "rows": 1 },
+{ "type": "text", "sel": ".cta-sub",  "label": "CTA Subtext", "mode": "text", "rows": 1 }
+```
+
+---
+
+## 13. metric-row
+
+**Purpose:** Horizontal row with label, value, and optional descriptor — the building block for posts presenting multiple metrics in a structured list. See `metric-row/` directory for the standalone pattern.
+
+**Used by:** *(not yet used — available for future archetypes)*
+
+**HTML:**
+
+```html
+<!-- SLOT: metric-label -->
+<div class="metric-label">Response time</div>
+<!-- SLOT: metric-value -->
+<div class="metric-value">47ms</div>
+<!-- SLOT: metric-desc -->
+<div class="metric-desc">P99 across all endpoints</div>
+```
+
+**CSS:**
+
+```css
+.metric-label {
+  font-size: 18px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.metric-value {
+  font-size: 48px;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.metric-desc {
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+}
+```
+
+**SlotSchema fields:**
+
+```json
+{ "type": "text", "sel": ".metric-label", "label": "Label",       "mode": "text", "rows": 1 },
+{ "type": "text", "sel": ".metric-value", "label": "Value",       "mode": "text", "rows": 1 },
+{ "type": "text", "sel": ".metric-desc",  "label": "Description", "mode": "text", "rows": 1 }
+```
+
+---
+
+## 14. background-layer / foreground-layer
+
+**Purpose:** Two empty containers that bracket content for brand decorative injection. Present in ALL archetypes. The pipeline injects brand elements into these layers at generation time.
+
+**Used by:** All archetypes
+
+- `.background-layer` — first element in `<body>` (`z-index: 0`). Receives textures, brushstrokes, gradient washes, background imagery.
+- `.foreground-layer` — last element in `<body>` (`z-index: 10`). Receives borders, frames, header/footer bars, watermarks.
+
+Content elements sit between them at `z-index: 2`.
+
+**HTML:**
+
+```html
+<body>
+  <!-- BACKGROUND LAYER: brand fills with textures, brushstrokes -->
+  <div class="background-layer"></div>
+
+  <!-- ... content elements ... -->
+
+  <!-- FOREGROUND LAYER: brand fills with borders (footer, header, etc.) -->
+  <div class="foreground-layer"></div>
+</body>
+```
+
+**CSS:**
+
+```css
+.background-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
 }
+.foreground-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
 ```
 
-**No SlotSchema field.** This zone is filled by the pipeline, not by the editor.
+**No SlotSchema field.** These layers are filled by the pipeline, not by the editor.
 
 ---
 
-## 11. divider
+## 15. divider
 
 **Purpose:** Visual separator between data rows in multi-stat layouts.
 
@@ -478,13 +696,11 @@ Head of Engineering</div>
 
 ## Future Components
 
-The following components from the roadmap are not used by any of the 6 Phase 19 Instagram archetypes. They are listed here for Phase 21+ implementation reference.
+The following components are not yet implemented. Listed for future reference.
 
 | Component | Description |
 |-----------|-------------|
 | chart-bar | Horizontal bar chart for comparison layouts |
-| metric-row | Compact stat + label row for dense dashboards |
-| cta-pill | Pill-shaped call-to-action button element |
 | event-details | Date + time + location block for event posts |
 | badge | Icon + label badge (e.g., "Award Winner") |
 | logo-lockup | Company logo + name treatment |
@@ -500,4 +716,4 @@ The following components from the roadmap are not used by any of the 6 Phase 19 
 - `font-family: sans-serif` — brand font applied at generation time
 - Numeric font weights only (`700`, `900`) — no named weights like `bold`
 - Placeholder images use base64 data URIs — no external URLs
-- `.decorative-zone` is always the first element in `<body>`, always unstyled beyond `position: absolute; inset: 0`
+- `.background-layer` is always the first element in `<body>`, `.foreground-layer` is always the last — both unstyled beyond `position: absolute; inset: 0`

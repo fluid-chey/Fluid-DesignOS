@@ -242,7 +242,7 @@ export function UnifiedCreationView({ onIframeRef }: UnifiedCreationViewProps) {
               width: dims.width * scale,
               height: dims.height * scale,
               position: 'relative',
-              overflow: 'hidden',
+              overflow: 'visible',
               borderRadius: 4,
               boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
             }}

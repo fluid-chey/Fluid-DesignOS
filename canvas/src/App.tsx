@@ -15,7 +15,7 @@ import { useFileWatcher } from './hooks/useFileWatcher';
 import { useRouteSync } from './hooks/useRouteSync';
 import type { Creation, Slide, Iteration } from './lib/campaign-types';
 import { TEMPLATE_METADATA, getTemplateSchema, type TemplateMetadata } from './lib/template-configs';
-import { PREVIEW_CHROME_PADDING_PX, buildCreationPreview, buildSlidePreview } from './lib/preview-utils';
+import { PREVIEW_CHROME_PADDING_PX, buildCreationPreview, buildSlidePreview, getCreationDimensions } from './lib/preview-utils';
 // Note: iteration previews always try the API — the server handles path resolution with multiple fallback strategies
 import { StatusBadge } from './components/StatusBadge';
 
@@ -29,8 +29,11 @@ function StandaloneCreationsView() {
   const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
   const createViewportTab = useCampaignStore((s) => s.createViewportTab);
   const [standaloneCreations, setStandaloneCreations] = useState<Creation[]>([]);
+  const [standaloneCampaignId, setStandaloneCampaignId] = useState<string | null>(null);
   const [standaloneLoading, setStandaloneLoading] = useState(true);
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [filterChannel, setFilterChannel] = useState('all');
+  const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
   // Refetch when Creations tab is shown so new assets appear after create/save
   useEffect(() => {
@@ -45,6 +48,7 @@ function StandaloneCreationsView() {
         const campaigns = await campaignsRes.json();
         const standalone = campaigns.find((c: { title: string }) => c.title === '__standalone__');
         if (!standalone || cancelled) { setStandaloneLoading(false); return; }
+        setStandaloneCampaignId(standalone.id);
 
         // Fetch its creations
         const crRes = await fetch(`/api/campaigns/${standalone.id}/creations`);
@@ -114,77 +118,129 @@ function StandaloneCreationsView() {
     );
   }
 
+  const channels = Array.from(new Set(standaloneCreations.map((c) => c.creationType).filter(Boolean)));
+
+  const filtered = filterChannel === 'all'
+    ? standaloneCreations
+    : standaloneCreations.filter((c) => c.creationType === filterChannel);
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortKey === 'title') return a.title.localeCompare(b.title);
+    return ((b as any)[sortKey] ?? 0) - ((a as any)[sortKey] ?? 0);
+  });
+
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-      gap: '1rem',
-      padding: '1rem',
-      overflowY: 'auto',
-    }}>
-      {standaloneCreations.map((cr) => (
-        <div
-          key={cr.id}
-          onClick={() => navigateToCreation(cr.id)}
-          style={{
-            backgroundColor: '#1a1a1e',
-            borderRadius: 8,
-            overflow: 'hidden',
-            cursor: 'pointer',
-            border: '1px solid #2a2a2e',
-            transition: 'border-color 0.15s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#44B2FF')}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2a2e')}
-        >
-          <div style={{
-            aspectRatio: '1',
-            backgroundColor: '#111',
-            position: 'relative',
-            overflow: 'hidden',
-            padding: PREVIEW_CHROME_PADDING_PX,
-            boxSizing: 'border-box',
-          }}>
-            {previews[cr.id] ? (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  borderRadius: 4,
-                }}
-              >
-                <iframe
-                  src={`/api/iterations/${previews[cr.id]}/html`}
-                  style={{
-                    transform: 'scale(0.2)',
-                    transformOrigin: 'top left',
-                    width: '500%',
-                    height: '500%',
-                    pointerEvents: 'none',
-                    border: 'none',
-                  }}
-                  sandbox="allow-same-origin"
-                  title={cr.title}
-                />
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ padding: '1rem 1rem 0.5rem', flexShrink: 0 }}>
+        <FilterSortBar
+          filterChannel={filterChannel}
+          onFilterChannel={setFilterChannel}
+          sortKey={sortKey}
+          onSort={setSortKey}
+          channels={channels}
+        />
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 1rem 1rem' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '1rem',
+        }}>
+          {sorted.map((cr) => (
+            <div
+              key={cr.id}
+              onClick={() => {
+                // Set the standalone campaign as active so breadcrumb/back button
+                // correctly identify this as a standalone creation
+                if (standaloneCampaignId) {
+                  useCampaignStore.setState({ activeCampaignId: standaloneCampaignId });
+                }
+                navigateToCreation(cr.id);
+              }}
+              style={{
+                backgroundColor: '#1a1a1e',
+                borderRadius: 8,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                border: '1px solid #2a2a2e',
+                transition: 'border-color 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#44B2FF')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2a2e')}
+            >
+              <div style={{
+                aspectRatio: '1',
+                backgroundColor: '#111',
+                position: 'relative',
+                overflow: 'hidden',
+                padding: PREVIEW_CHROME_PADDING_PX,
+                boxSizing: 'border-box',
+              }}>
+                {previews[cr.id] ? (() => {
+                  const dims = getCreationDimensions(cr.creationType);
+                  // Scale the native creation size to fit inside the preview box.
+                  // The inner container is the card width minus padding on each side.
+                  // Grid columns are minmax(320px, 1fr); aspect-ratio:1 makes the box square.
+                  // With 24px padding per side, inner area ≈ 272px.
+                  // We scale both dimensions proportionally to fit.
+                  const containerSize = 272;
+                  const scale = Math.min(containerSize / dims.width, containerSize / dims.height);
+                  const scaledW = dims.width * scale;
+                  const scaledH = dims.height * scale;
+                  return (
+                    <div style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      borderRadius: 4,
+                    }}>
+                      <div style={{
+                        width: scaledW,
+                        height: scaledH,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}>
+                        <iframe
+                          src={`/api/iterations/${previews[cr.id]}/html`}
+                          style={{
+                            width: dims.width,
+                            height: dims.height,
+                            border: 'none',
+                            pointerEvents: 'none',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            transformOrigin: 'top left',
+                            transform: `scale(${scale})`,
+                          }}
+                          sandbox="allow-same-origin"
+                          title={cr.title}
+                        />
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#444', fontSize: '0.75rem' }}>
+                    No preview
+                  </div>
+                )}
               </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#444', fontSize: '0.75rem' }}>
-                No preview
+              <div style={{ padding: '0.5rem 0.65rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {cr.title}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#666', marginTop: '0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {cr.creationType}
+                </div>
               </div>
-            )}
-          </div>
-          <div style={{ padding: '0.5rem 0.65rem' }}>
-            <div style={{ fontSize: '0.78rem', color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {cr.title}
             </div>
-            <div style={{ fontSize: '0.68rem', color: '#666', marginTop: '0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {cr.creationType}
-            </div>
-          </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 }

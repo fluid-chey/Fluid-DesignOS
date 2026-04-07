@@ -11,7 +11,8 @@ import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
-import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog, updateIterationSlotSchema, getAgentTemplates } from './db-api';
+import { getVoiceGuideDocs, getVoiceGuideDoc, getBrandPatterns, getBrandPatternBySlug, getBrandAssets, getDesignDnaForPipeline, getTemplates, getTemplate, getDesignRulesByArchetype, loadContextMap, insertContextLog, updateIterationSlotSchema, getAgentTemplates, getBrandStyleByScope } from './db-api';
+import { mergeCssLayers, extractStyleBlock, inlineResolvedCss, type MergeLayer } from './css-merge';
 import { getTemplateSchema } from '../lib/template-configs';
 
 // ESM-safe __dirname (works in both Vite middleware and tsx/node ESM)
@@ -1077,6 +1078,75 @@ function buildAssetManifest(): string {
 }
 
 // ---------------------------------------------------------------------------
+// CSS Layer Merge — deterministic pre-styling before the LLM styling agent
+// ---------------------------------------------------------------------------
+
+/**
+ * Read system CSS files from disk, brand overrides from DB, and the archetype's
+ * own <style> block. Merge them in layer order and return pre-styled HTML.
+ */
+async function buildPreStyledHtml(
+  archetypeHtml: string,
+  creationType: string,
+): Promise<string> {
+  const stylesDir = path.join(PROJECT_ROOT, 'styles');
+
+  // Build merge layers in order
+  const layers: MergeLayer[] = [];
+
+  // Layer 1: Global system defaults
+  try {
+    const globalCss = await fs.readFile(path.join(stylesDir, 'global.css'), 'utf-8');
+    layers.push({ label: 'global', css: globalCss });
+  } catch {
+    console.warn('[css-merge] global.css not found');
+  }
+
+  // Layer 2: Platform-specific system defaults
+  const platformMap: Record<string, string> = {
+    instagram: 'instagram.css',
+    linkedin: 'linkedin.css',
+    'one-pager': 'one-pager.css',
+  };
+  const platformFile = platformMap[creationType];
+  if (!platformFile) {
+    console.warn(`[css-merge] No platform CSS for creationType "${creationType}" — using global defaults only`);
+  }
+  if (platformFile) {
+    try {
+      const platformCss = await fs.readFile(path.join(stylesDir, 'platforms', platformFile), 'utf-8');
+      layers.push({ label: creationType, css: platformCss });
+    } catch {
+      console.warn(`[css-merge] Platform CSS not found: ${platformFile}`);
+    }
+  }
+
+  // Layer 3: Archetype's own <style> block
+  const archetypeCss = extractStyleBlock(archetypeHtml);
+  if (archetypeCss) {
+    layers.push({ label: 'archetype', css: archetypeCss });
+  }
+
+  // Layer 4: Brand global overrides (from DB)
+  const brandGlobal = getBrandStyleByScope('global');
+  if (brandGlobal && brandGlobal.cssContent.trim()) {
+    layers.push({ label: 'brand-global', css: brandGlobal.cssContent });
+  }
+
+  // Layer 5: Brand platform-specific overrides (from DB)
+  const brandPlatform = getBrandStyleByScope(creationType);
+  if (brandPlatform && brandPlatform.cssContent.trim()) {
+    layers.push({ label: `brand-${creationType}`, css: brandPlatform.cssContent });
+  }
+
+  // Merge all layers
+  const resolvedCss = mergeCssLayers(layers);
+
+  // Inline the resolved CSS into the archetype HTML
+  return inlineResolvedCss(archetypeHtml, resolvedCss);
+}
+
+// ---------------------------------------------------------------------------
 // SSE emission helpers (match NDJSON format stream-parser.ts handles)
 // ---------------------------------------------------------------------------
 
@@ -1371,13 +1441,18 @@ export function buildStylingPrompt(
 ): string {
   return [
     ...(isArchetypeBased ? [
-      `Apply brand styling and polish to the archetype-based layout.`,
+      `Apply creative polish to the pre-styled archetype layout.`,
       `Read layout from ${ctx.workingDir}/layout.html using the read_file tool.`,
-      `The layout already has structural CSS from the archetype. Your job is to ENHANCE it with:`,
-      `- Brand fonts (discover via list_brand_assets(category="fonts") and inject @font-face + font-family)`,
-      `- Decorative brand assets (brushstrokes, textures — discover via list_brand_assets) into the .background-layer div`,
-      `- Brand color enforcement (background MUST be #000000, accent colors per copy.md)`,
-      `- Visual polish (opacity, letter-spacing, subtle animations if appropriate)`,
+      `The layout is ALREADY PRE-STYLED: brand fonts, colors, typography sizes, and CSS variables are resolved.`,
+      `Do NOT re-declare @font-face, do NOT change font-family, font-size, or color values unless you have a specific creative reason.`,
+      ``,
+      `Your job is CREATIVE ENHANCEMENT ONLY:`,
+      `1. Inject decorative assets (brushstrokes into .background-layer, circles/underlines on keywords)`,
+      `2. Place photos/images into photo slots`,
+      `3. Fine-tune composition (ensure nothing overlaps, canvas is filled)`,
+      `4. Add the DECORATIONS comment`,
+      ``,
+      `The CSS variables and brand values are already correct — focus on visual richness and decoration.`,
       `Do NOT remove or restructure existing HTML elements or CSS positioning. ADD brand layers on top.`,
     ] : [
       `Apply brand styling to create a complete HTML output.`,
@@ -1430,7 +1505,7 @@ export function buildStylingPrompt(
     `- DECORATIVE ELEMENTS: Decorative/background image assets (brushstrokes, textures, circles) MUST use <div> elements with background-image + background-size: contain + background-repeat: no-repeat. NEVER use <img> tags for decorative elements.`,
     `- CIRCLE EMPHASIS: The ::before pseudo-element on circle-target elements must use percentage sizing relative to the target text. Use width: 110%; height: 130%; left: -5%; top: -15% instead of fixed pixel values. This prevents mask bounding box clipping on varying text widths.`,
     `- FONT FALLBACKS: Never use Georgia, Times New Roman, Times, serif, or cursive as font-family values or fallbacks. Always use sans-serif as the generic fallback.`,
-    `- DECORATIVE MINIMUM: Every social post MUST contain at least 2 brushstroke/texture elements in the .decorative-zone (or .background-layer) AND at least 1 circle or underline emphasis on a keyword. A post with zero decorative elements is a BRAND FAILURE. Brushstrokes: use list_brand_assets(category="brushstrokes") to discover assets like brush-texture-01 through brush-texture-10. Place as <div> elements with background-image + mix-blend-mode: screen + opacity 0.10-0.25. Circles/underlines: use list_brand_assets(category="circles") to discover circle-1 through circle-6 and underline-1 through underline-3. Use as CSS mask-image on a colored div positioned behind a keyword.`,
+    `- DECORATIVE MINIMUM: Every social post MUST contain at least 2 brushstroke/texture elements in the .background-layer AND at least 1 circle or underline emphasis on a keyword. A post with zero decorative elements is a BRAND FAILURE. Brushstrokes: use list_brand_assets(category="brushstrokes") to discover assets like brush-texture-01 through brush-texture-10. Place as <div> elements with background-image + mix-blend-mode: screen + opacity 0.10-0.25. Circles/underlines: use list_brand_assets(category="circles") to discover circle-1 through circle-6 and underline-1 through underline-3. Use as CSS mask-image on a colored div positioned behind a keyword.`,
     `- TEXT OVERFLOW: All text containers MUST have overflow: hidden or word-break: break-word. No text may extend beyond the canvas edge. If a word might exceed its container, reduce font-size or add word-break.`,
     `- CANVAS FILL (social posts only): Content must command the canvas. At minimum 60% of the area should contain visual elements (text, images, decoratives). Headline at least 72px on Instagram, 52px on LinkedIn. FLFont tagline at LEAST 36px on Instagram. Archetype font sizes are MINIMUMS for social — scale UP to fill the frame. This rule does NOT apply to one-pagers.`,
     `- PHOTO SIZING: If the archetype has image slots, photos MUST fill their container (object-fit: cover). In split layouts, the photo panel must be at least 45% of canvas width. Never leave a photo slot empty if brand images are available via list_brand_assets(category="images").`,
@@ -1889,6 +1964,16 @@ export async function runApiPipeline(
         archetypeHtml = await fs.readFile(archetypeMeta.htmlPath, 'utf-8');
       } catch {
         console.warn(`[api-pipeline] Failed to read archetype HTML: ${archetypeMeta.htmlPath}`);
+      }
+    }
+
+    // Pre-style: merge CSS layers (global + platform + archetype + brand)
+    if (archetypeHtml) {
+      try {
+        archetypeHtml = await buildPreStyledHtml(archetypeHtml, ctx.creationType);
+        console.log(`[api-pipeline] Pre-styled archetype HTML with CSS merge layers`);
+      } catch (err) {
+        console.warn(`[api-pipeline] CSS merge failed, using raw archetype:`, err);
       }
     }
 

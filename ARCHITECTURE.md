@@ -226,7 +226,7 @@ Archetypes enforce a strict separation:
 - **Content (archetype-defined):** text blocks, image zones, layout structure, positioning
 - **Decorative (brand-defined, injected at generation):** brushstrokes, textures, circles, gradients, logos
 
-Each archetype includes a `.decorative-zone` div where the pipeline injects brand decorative elements. The archetype `schema.json` sets `brush: null` — the brand layer provides all decorative transform targets.
+Each archetype includes two injection layers: `.background-layer` (z-index 0, for textures and brushstrokes) and `.foreground-layer` (z-index 10, for borders and frames). Content sits between them at z-index 2. The archetype `schema.json` sets `brush: null` — the brand layer provides all decorative transform targets.
 
 ### Brand Neutrality Rules
 
@@ -285,5 +285,5 @@ beforeAll(() => {
 | Parallel subagents per asset | Each asset gets fresh context; no cross-contamination between assets |
 | Archetypes on filesystem, not DB | Structural patterns are code artifacts; version-controlled, not user-editable data |
 | `archetypeId` not `templateId` | Avoids collision with `TEMPLATE_SCHEMAS` lookup in `resolveSlotSchemaForIteration()` |
-| Content/decorative split | Archetypes define layout only; `.decorative-zone` + `brush: null` defers all brand decoration to pipeline |
+| Background/content/foreground split | Archetypes define layout only; `.background-layer` + `.foreground-layer` + `brush: null` defers all brand decoration to pipeline |
 | Components as patterns | No runtime include/partial system; components are reference HTML for copy-paste composition |

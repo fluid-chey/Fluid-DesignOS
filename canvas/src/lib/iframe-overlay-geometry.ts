@@ -77,6 +77,67 @@ export function elementRectToWrapOverlay(
   };
 }
 
+/**
+ * Rotation-aware overlay geometry for an element inside the iframe.
+ * Returns the element's un-rotated width/height, visual center in overlay coords,
+ * and the rotation angle in degrees.  Used by TransformOverlay to draw a bounding
+ * box that rotates with the element instead of an axis-aligned rectangle.
+ */
+export function elementRotatedOverlayInfo(
+  iframe: HTMLIFrameElement,
+  wrap: HTMLElement,
+  el: HTMLElement
+): { cx: number; cy: number; w: number; h: number; rotDeg: number } | null {
+  const ir = iframe.getBoundingClientRect();
+  const wr = wrap.getBoundingClientRect();
+  const sX = ir.width / (iframe.offsetWidth || 1);
+  const sY = ir.height / (iframe.offsetHeight || 1);
+
+  /* Un-rotated natural dimensions — offsetWidth/Height are NOT affected by CSS transforms */
+  const nW = el.offsetWidth;
+  const nH = el.offsetHeight;
+  if (!nW || !nH) return null;
+
+  /* Decompose rotation from the current CSS transform */
+  let rotDeg = 0;
+  try {
+    const win = iframe.contentWindow;
+    if (win) {
+      const cs = win.getComputedStyle(el);
+      const t = cs.transform;
+      if (t && t !== 'none') {
+        const MatrixRO = (win as unknown as { DOMMatrixReadOnly?: typeof DOMMatrixReadOnly }).DOMMatrixReadOnly;
+        if (typeof MatrixRO === 'function') {
+          const m = new MatrixRO(t);
+          rotDeg = (Math.atan2(m.b, m.a) * 180) / Math.PI;
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  /* Visual center: getBoundingClientRect gives the AABB of the rotated element.
+     The center of the AABB equals the center of the rotated element. */
+  const er = el.getBoundingClientRect();
+  const mode = getIframeClientRectMode(iframe);
+  let cx: number;
+  let cy: number;
+  if (mode === 'embedder') {
+    cx = er.left + er.width / 2 - wr.left;
+    cy = er.top + er.height / 2 - wr.top;
+  } else {
+    cx = ir.left + (er.left + er.width / 2) * sX - wr.left;
+    cy = ir.top + (er.top + er.height / 2) * sY - wr.top;
+  }
+
+  /* Scale the un-rotated dimensions from iframe layout px → overlay px */
+  const w = mode === 'embedder' ? nW : nW * sX;
+  const h = mode === 'embedder' ? nH : nH * sY;
+
+  return { cx, cy, w, h, rotDeg };
+}
+
 /** Element bbox in iframe **layout** / template CSS pixels (for snapping, move math). */
 export function elementLayoutRectInIframe(
   iframe: HTMLIFrameElement,
