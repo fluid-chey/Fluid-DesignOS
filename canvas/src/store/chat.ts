@@ -1,4 +1,20 @@
 import { create } from 'zustand';
+import { useCampaignStore } from './campaign';
+
+const ACTIVE_CHAT_KEY = 'fluid.activeChatId';
+
+function readActiveChatId(): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  try { return localStorage.getItem(ACTIVE_CHAT_KEY); } catch { return null; }
+}
+
+function writeActiveChatId(id: string | null): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (id) localStorage.setItem(ACTIVE_CHAT_KEY, id);
+    else localStorage.removeItem(ACTIVE_CHAT_KEY);
+  } catch {}
+}
 
 export interface ChatMessageUI {
   id: string;
@@ -48,7 +64,7 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
-  activeChatId: null,
+  activeChatId: readActiveChatId(),
   messages: [],
   isStreaming: false,
   abortController: null,
@@ -57,17 +73,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const res = await fetch('/api/chats');
     const chats = await res.json();
     set({ chats });
+    // If we have a persisted activeChatId but no messages loaded yet, hydrate it.
+    const { activeChatId, messages } = get();
+    if (activeChatId && messages.length === 0 && chats.some((c: ChatSummary) => c.id === activeChatId)) {
+      get().openChat(activeChatId).catch(() => {
+        // Stale pointer — clear it so we don't keep retrying.
+        writeActiveChatId(null);
+        set({ activeChatId: null });
+      });
+    }
   },
 
   createChat: async () => {
     const res = await fetch('/api/chats', { method: 'POST' });
     const chat = await res.json();
+    writeActiveChatId(chat.id);
     set(s => ({ chats: [chat, ...s.chats], activeChatId: chat.id, messages: [] }));
     return chat.id;
   },
 
   openChat: async (chatId: string) => {
     const res = await fetch(`/api/chats/${chatId}`);
+    if (!res.ok) throw new Error(`Failed to open chat ${chatId}`);
     const data = await res.json();
 
     const messages: ChatMessageUI[] = (data.messages ?? [])
@@ -82,16 +109,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         createdAt: m.createdAt,
       }));
 
+    writeActiveChatId(chatId);
     set({ activeChatId: chatId, messages });
   },
 
   deleteChat: async (chatId: string) => {
     await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
-    set(s => ({
-      chats: s.chats.filter(c => c.id !== chatId),
-      activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
-      messages: s.activeChatId === chatId ? [] : s.messages,
-    }));
+    set(s => {
+      const clearing = s.activeChatId === chatId;
+      if (clearing) writeActiveChatId(null);
+      return {
+        chats: s.chats.filter(c => c.id !== chatId),
+        activeChatId: clearing ? null : s.activeChatId,
+        messages: clearing ? [] : s.messages,
+      };
+    });
   },
 
   sendMessage: async (content: string, uiContext?: any) => {
@@ -154,7 +186,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           if (line.startsWith('event: ')) {
             eventType = line.slice(7).trim();
           } else if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
+            let data: any;
+            try {
+              data = JSON.parse(line.slice(6));
+            } catch {
+              // Drop malformed SSE payloads rather than killing the stream reader.
+              continue;
+            }
             const store = get();
 
             if (eventType === 'text') {
@@ -163,6 +201,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
               store._addToolCall({ id: data.toolUseId ?? data.id, tool: data.name ?? data.tool, input: data.input, status: 'pending' });
             } else if (eventType === 'tool_result') {
               store._updateToolResult(data.toolUseId ?? data.id, typeof data.result === 'object' ? JSON.stringify(data.result) : (data.result ?? data.summary ?? ''), data.hasImage, data.error);
+            } else if (eventType === 'creation_ready') {
+              // Creation saved — refresh campaign data so the canvas picks it up
+              // immediately instead of waiting on file-watcher latency.
+              //
+              // Only refetch creations if the save happened inside the campaign
+              // the user is currently viewing — otherwise we'd overwrite their
+              // visible creations list with a different campaign's creations.
+              const campaignStore = useCampaignStore.getState();
+              campaignStore.fetchCampaigns();
+              if (data.campaignId && data.campaignId === campaignStore.activeCampaignId) {
+                campaignStore.fetchCreations(data.campaignId);
+              }
+            } else if (eventType === 'validation_result') {
+              // Append validation result as info in the chat
+              if (data.result) {
+                store._appendTextDelta(`\n\n📋 ${data.result}`);
+              }
             } else if (eventType === 'done') {
               store._finishStreaming();
             } else if (eventType === 'error') {

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { nanoid } from 'nanoid';
 import { FluidDAMModal } from './DAMPicker';
 import { IdeasGetStarted, type IdeaAction } from './IdeasGetStarted';
+import { useChatStore } from '../store/chat';
 import { useCampaignStore } from '../store/campaign';
 
 /** Saved asset from /api/assets (same shape as IdeasGetStarted.SelectedAsset). */
@@ -211,8 +212,8 @@ function usePillsOverflow() {
 
 export function BuildHero() {
   const [inputValue, setInputValue] = useState('');
-  const isGenerating = false; // old pipeline removed — generation now handled by ChatSidebar
-  const borderDuration = 10;
+  const isGenerating = useChatStore((s) => s.isStreaming);
+  const borderDuration = isGenerating ? 1.2 : 10;
   const [creationTypeId, setCreationTypeId] = useState<string>('');
   const [creationDropdownOpen, setCreationDropdownOpen] = useState(false);
   const [socialPostFormatId, setSocialPostFormatId] = useState<string>(SOCIAL_POST_FORMATS[0].id);
@@ -234,10 +235,33 @@ export function BuildHero() {
   const videoDimensionDropdownRef = useRef<HTMLDivElement>(null);
   const { scrollRef, showLeft, showRight, scrollLeft, scrollRight } = usePillsOverflow();
 
+  // Generation via agent chat
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const toggleChatSidebar = useCampaignStore((s) => s.toggleChatSidebar);
+  const chatSidebarOpen = useCampaignStore((s) => s.chatSidebarOpen);
+  const currentView = useCampaignStore((s) => s.currentView);
+  const activeCampaignId = useCampaignStore((s) => s.activeCampaignId);
+  const activeCreationId = useCampaignStore((s) => s.activeCreationId);
+  const activeIterationId = useCampaignStore((s) => s.activeIterationId);
   const handleBuild = () => {
     const text = inputValue.trim();
     if (!text || isGenerating) return;
-    // TODO: wire up to new sandbox pipeline via ChatSidebar
+
+    // Build a prefix from the selected creation type so the agent knows what to generate
+    const creationType = CREATION_TYPES.find((t) => t.id === creationTypeId);
+    const prefix = creationType ? `[${creationType.label}] ` : '';
+
+    // Open chat sidebar if closed, then send message to agent with full UI context
+    // so the agent can resolve references like "this creation" / "the campaign".
+    if (!chatSidebarOpen) {
+      toggleChatSidebar();
+    }
+    sendMessage(`${prefix}${text}`, {
+      currentView,
+      activeCampaignId,
+      activeCreationId,
+      activeIterationId,
+    });
     setInputValue('');
   };
 

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useCampaignStore } from '../store/campaign';
 import { useChatStore } from '../store/chat';
 import { ChatMessage } from './ChatMessage';
@@ -14,18 +14,24 @@ export function ChatSidebar() {
 
   const {
     messages, activeChatId, isStreaming,
-    sendMessage, cancelGeneration,
+    sendMessage, cancelGeneration, loadChats,
   } = useChatStore();
 
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load chat list once on mount so the header + history panel don't start empty.
+  useEffect(() => { loadChats(); }, [loadChats]);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Guard: jsdom doesn't implement scrollIntoView
+    if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
     sendMessage(input.trim(), {
@@ -37,7 +43,7 @@ export function ChatSidebar() {
     setInput('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);

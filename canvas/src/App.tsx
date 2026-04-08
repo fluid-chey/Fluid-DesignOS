@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { AppShell } from './components/AppShell';
-// ChatSidebar (self-contained in AppShell) handles all generation
 import { ContentEditor } from './components/ContentEditor';
 import { CampaignDashboard, FilterSortBar, type SortKey } from './components/CampaignDashboard';
 import { DrillDownGrid, type DrillDownItem, type PreviewDescriptor } from './components/DrillDownGrid';

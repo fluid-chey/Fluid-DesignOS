@@ -1,4 +1,5 @@
 import type { Plugin, ViteDevServer } from 'vite';
+import { handleChatRoutes } from './chat-routes';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -17,7 +18,6 @@ import {
   getIterations,
   updateIterationStatus,
   updateIterationUserState,
-  updateIterationGenerationStatus,
   updateCreation,
   createAnnotation,
   getAnnotations,
@@ -60,7 +60,6 @@ import { getDb } from '../lib/db';
 import { scanAndSeedBrandAssets } from './asset-scanner';
 import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty, migratePatternsToMarkdown, splitPatternEntries, seedGlobalVisualStyleIfEmpty, seedFontEnforcementIfEmpty, seedDesignRulesIfEmpty, seedTemplatesIfEmpty, seedContextMapIfEmpty, importSeedDataIfFresh } from './brand-seeder';
 import { runDamSync } from './dam-sync';
-import { handleChatRoutes } from './chat-routes';
 import { collectTransformTargets, type TransformTarget } from '../lib/slot-schema';
 import { resolveSlotSchemaForIteration } from '../lib/template-configs';
 import { injectArtboardMarginGuide, PREVIEW_CHROME_PADDING_PX } from '../lib/preview-utils';
@@ -773,6 +772,27 @@ export function fluidWatcherPlugin(): Plugin {
 </html>`;
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(previewHtml);
+      });
+
+      // ─── Chat routes (SSE streaming for agent) ───────────────────────────
+      srv.middlewares.use(async (req, res, next) => {
+        const chatUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+        if (chatUrl.pathname.startsWith('/api/chat')) {
+          try {
+            const handled = await handleChatRoutes(req, res, chatUrl);
+            if (handled) return;
+          } catch (err: any) {
+            console.error('[chat-routes] unhandled error:', err);
+            if (!res.headersSent) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err?.message ?? 'Internal error' }));
+            } else if (!res.writableEnded) {
+              res.end();
+            }
+            return;
+          }
+        }
+        next();
       });
 
       // ─── Campaign hierarchy API middleware ────────────────────────────────
@@ -2095,12 +2115,24 @@ export function fluidWatcherPlugin(): Plugin {
 }
 
 /**
- * Read the full request body as a string.
+ * Read the full request body as a string, with a hard size cap so a runaway
+ * client can't OOM the dev server.
  */
+const MAX_API_BODY_BYTES = 10_000_000; // 10 MB — campaign JSON payloads can be large
+
 function readBody(req: import('http').IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    let size = 0;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_API_BODY_BYTES) {
+        reject(new Error(`Request body exceeded ${MAX_API_BODY_BYTES} bytes`));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     req.on('error', reject);
   });

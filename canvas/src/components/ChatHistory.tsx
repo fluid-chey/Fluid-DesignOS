@@ -1,10 +1,10 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { useChatStore } from '../store/chat';
 
 export function ChatHistory() {
   const { chats, activeChatId, openChat, createChat, deleteChat, loadChats } = useChatStore();
 
-  React.useEffect(() => { loadChats(); }, []);
+  useEffect(() => { loadChats(); }, [loadChats]);
 
   return (
     <div className="chat-history">

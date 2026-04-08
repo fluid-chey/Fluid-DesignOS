@@ -7,7 +7,7 @@ import { useCampaignStore } from '../store/campaign';
  * Debounced to avoid excessive re-renders.
  *
  * Campaign refresh: refetches the current view's data so new iterations
- * pushed by MCP tools appear without a manual reload.
+ * pushed by MCP tools (or agent save_creation) appear without a manual reload.
  */
 export function useFileWatcher() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
