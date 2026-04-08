@@ -214,6 +214,25 @@ function initSchema(db: Database.Database): void {
       css_content TEXT NOT NULL DEFAULT '',
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS chats (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT,
+      tool_calls TEXT,
+      tool_results TEXT,
+      ui_context TEXT,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+    );
   `);
 
   // Migration: add generation_status to existing databases that predate this column.

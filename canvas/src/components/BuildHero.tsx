@@ -2,8 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { nanoid } from 'nanoid';
 import { FluidDAMModal } from './DAMPicker';
 import { IdeasGetStarted, type IdeaAction } from './IdeasGetStarted';
-import { useGenerationStream } from '../hooks/useGenerationStream';
-import { useGenerationStore } from '../store/generation';
+import { useChatStore } from '../store/chat';
 import { useCampaignStore } from '../store/campaign';
 
 /** Saved asset from /api/assets (same shape as IdeasGetStarted.SelectedAsset). */
@@ -213,8 +212,7 @@ function usePillsOverflow() {
 
 export function BuildHero() {
   const [inputValue, setInputValue] = useState('');
-  const generationStatus = useGenerationStore((s) => s.status);
-  const isGenerating = generationStatus === 'generating';
+  const isGenerating = useChatStore((s) => s.isStreaming);
   const borderDuration = isGenerating ? 1.2 : 10;
   const [creationTypeId, setCreationTypeId] = useState<string>('');
   const [creationDropdownOpen, setCreationDropdownOpen] = useState(false);
@@ -237,36 +235,33 @@ export function BuildHero() {
   const videoDimensionDropdownRef = useRef<HTMLDivElement>(null);
   const { scrollRef, showLeft, showRight, scrollLeft, scrollRight } = usePillsOverflow();
 
-  // Generation pipeline — same hook as PromptSidebar
-  const { generate } = useGenerationStream();
-  const activeCampaignId = useGenerationStore((s) => s.activeCampaignId);
-  const isSingleCreation = useGenerationStore((s) => s.isSingleCreation);
-  const creationIds = useGenerationStore((s) => s.creationIds);
-  const navigateToCampaign = useCampaignStore((s) => s.navigateToCampaign);
-  const navigateToCreation = useCampaignStore((s) => s.navigateToCreation);
-
-  // Navigate to result when generation completes (mirrors PromptSidebar behavior)
-  const prevGenStatusRef = useRef(generationStatus);
-  useEffect(() => {
-    if (prevGenStatusRef.current === 'generating' && generationStatus === 'complete' && activeCampaignId) {
-      if (isSingleCreation && creationIds.length === 1) {
-        navigateToCreation(creationIds[0]);
-      } else {
-        navigateToCampaign(activeCampaignId);
-      }
-    }
-    prevGenStatusRef.current = generationStatus;
-  }, [generationStatus, activeCampaignId, isSingleCreation, creationIds, navigateToCampaign, navigateToCreation]);
-
+  // Generation via agent chat
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const toggleChatSidebar = useCampaignStore((s) => s.toggleChatSidebar);
+  const chatSidebarOpen = useCampaignStore((s) => s.chatSidebarOpen);
+  const currentView = useCampaignStore((s) => s.currentView);
+  const activeCampaignId = useCampaignStore((s) => s.activeCampaignId);
+  const activeCreationId = useCampaignStore((s) => s.activeCreationId);
+  const activeIterationId = useCampaignStore((s) => s.activeIterationId);
   const handleBuild = () => {
     const text = inputValue.trim();
     if (!text || isGenerating) return;
 
-    // Build a prefix from the selected creation type so the pipeline knows what to generate
+    // Build a prefix from the selected creation type so the agent knows what to generate
     const creationType = CREATION_TYPES.find((t) => t.id === creationTypeId);
     const prefix = creationType ? `[${creationType.label}] ` : '';
 
-    generate(`${prefix}${text}`, { skillType: 'social' });
+    // Open chat sidebar if closed, then send message to agent with full UI context
+    // so the agent can resolve references like "this creation" / "the campaign".
+    if (!chatSidebarOpen) {
+      toggleChatSidebar();
+    }
+    sendMessage(`${prefix}${text}`, {
+      currentView,
+      activeCampaignId,
+      activeCreationId,
+      activeIterationId,
+    });
     setInputValue('');
   };
 

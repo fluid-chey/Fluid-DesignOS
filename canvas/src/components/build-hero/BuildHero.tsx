@@ -1,10 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { IdeasGetStarted, type IdeaAction } from '../IdeasGetStarted';
-import { GenerationStreamView } from '../GenerationStreamView';
 import { BG_PRIMARY, TEXT_PRIMARY } from '../tokens';
 import { useAssets } from '../../hooks/useAssets';
-import { useGenerationStream } from '../../hooks/useGenerationStream';
-import { useGenerationStore } from '../../store/generation';
+import { useChatStore } from '../../store/chat';
+import { useCampaignStore } from '../../store/campaign';
 import { SparklesIcon } from './Icons';
 import { PromptInput } from './PromptInput';
 import { SuggestionPills } from './SuggestionPills';
@@ -20,11 +19,15 @@ export function BuildHero() {
   const [videoDimensionId, setVideoDimensionId] = useState<string>(VIDEO_DIMENSIONS[0].id);
   const [selectedDamAssets, setSelectedDamAssets] = useState<SelectedDamAsset[]>([]);
   const [_selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [submittedPrompt, setSubmittedPrompt] = useState('');
 
-  const { generate, status: genStatus } = useGenerationStream();
-  const isGenerating = genStatus === 'generating';
-  const generationStatus = useGenerationStore((s) => s.status);
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const isGenerating = useChatStore((s) => s.isStreaming);
+  const toggleChatSidebar = useCampaignStore((s) => s.toggleChatSidebar);
+  const chatSidebarOpen = useCampaignStore((s) => s.chatSidebarOpen);
+  const currentView = useCampaignStore((s) => s.currentView);
+  const activeCampaignId = useCampaignStore((s) => s.activeCampaignId);
+  const activeCreationId = useCampaignStore((s) => s.activeCreationId);
+  const activeIterationId = useCampaignStore((s) => s.activeIterationId);
 
   const { assets: savedAssetsRaw } = useAssets();
 
@@ -44,10 +47,18 @@ export function BuildHero() {
     const creationType = CREATION_TYPES.find((t) => t.id === creationTypeId);
     const prefix = creationType ? `[${creationType.label}] ` : '';
     const fullPrompt = `${prefix}${text}`;
-    setSubmittedPrompt(fullPrompt);
-    generate(fullPrompt, { skillType: 'social', source: 'hero' });
+    if (!chatSidebarOpen) toggleChatSidebar();
+    sendMessage(fullPrompt, {
+      currentView,
+      activeCampaignId,
+      activeCreationId,
+      activeIterationId,
+    });
     setInputValue('');
-  }, [inputValue, isGenerating, creationTypeId, generate]);
+  }, [
+    inputValue, isGenerating, creationTypeId, sendMessage, chatSidebarOpen, toggleChatSidebar,
+    currentView, activeCampaignId, activeCreationId, activeIterationId,
+  ]);
 
   const handleApplyIdea = useCallback((idea: IdeaAction) => {
     if (idea.creationType) setCreationTypeId(idea.creationType);
@@ -58,13 +69,6 @@ export function BuildHero() {
     if (idea.videoDimensionId) setVideoDimensionId(idea.videoDimensionId);
     if (idea.templateId != null) setSelectedTemplateId(idea.templateId);
   }, []);
-
-  // Show full-viewport stream view while generating or after completion
-  const showStreamView = submittedPrompt && (generationStatus === 'generating' || generationStatus === 'complete' || generationStatus === 'error');
-
-  if (showStreamView) {
-    return <GenerationStreamView prompt={submittedPrompt} onReset={() => setSubmittedPrompt('')} />;
-  }
 
   return (
     <div
