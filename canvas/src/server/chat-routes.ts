@@ -13,6 +13,8 @@ function json(res: ServerResponse, data: any, status = 200): void {
 // server by buffering unbounded chunks.
 const MAX_BODY_BYTES = 1_000_000;
 
+const INVALID_JSON = Symbol('invalid_json');
+
 async function readBody(req: IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -27,8 +29,12 @@ async function readBody(req: IncomingMessage): Promise<any> {
       body += chunk;
     });
     req.on('end', () => {
+      if (body.length === 0) { resolve({}); return; }
       try { resolve(JSON.parse(body)); }
-      catch { resolve({}); }
+      // Return a sentinel instead of masking invalid JSON as an empty body —
+      // the handler can then distinguish "client sent nothing" from "client
+      // sent garbage" and return the appropriate status.
+      catch { resolve(INVALID_JSON); }
     });
     req.on('error', reject);
   });
@@ -62,32 +68,31 @@ export async function handleChatRoutes(
     return true;
   }
 
-  // GET /api/chats/:id — get chat with messages
-  const chatGetMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
-  if (method === 'GET' && chatGetMatch) {
+  // GET|DELETE /api/chats/:id
+  const chatIdMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
+  if (chatIdMatch && (method === 'GET' || method === 'DELETE')) {
     const db = getDb();
-    const chatId = chatGetMatch[1];
-    const chat = db.prepare(`SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM chats WHERE id = ?`).get(chatId);
-    if (!chat) { json(res, { error: 'Chat not found' }, 404); return true; }
+    const chatId = chatIdMatch[1];
 
-    const messages = db.prepare(
-      `SELECT id, role, content, tool_calls as toolCalls, tool_results as toolResults, ui_context as uiContext, created_at as createdAt
-       FROM chat_messages WHERE chat_id = ? ORDER BY created_at ASC, rowid ASC`
-    ).all(chatId);
+    if (method === 'GET') {
+      const chat = db.prepare(`SELECT id, title, created_at as createdAt, updated_at as updatedAt FROM chats WHERE id = ?`).get(chatId);
+      if (!chat) { json(res, { error: 'Chat not found' }, 404); return true; }
 
-    json(res, { ...(chat as any), messages });
-    return true;
-  }
+      const messages = db.prepare(
+        `SELECT id, role, content, tool_calls as toolCalls, tool_results as toolResults, ui_context as uiContext, created_at as createdAt
+         FROM chat_messages WHERE chat_id = ? ORDER BY created_at ASC, rowid ASC`
+      ).all(chatId);
 
-  // DELETE /api/chats/:id — delete a chat
-  // FK ON DELETE CASCADE on chat_messages handles the child rows, so we only
-  // need to delete the chat itself. Also cancel any in-flight agent sessions
-  // so they don't keep writing to a chat that's about to disappear.
-  const chatDeleteMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
-  if (method === 'DELETE' && chatDeleteMatch) {
-    const db = getDb();
-    const chatId = chatDeleteMatch[1];
+      json(res, { ...(chat as any), messages });
+      return true;
+    }
+
+    // DELETE — FK ON DELETE CASCADE handles chat_messages child rows. Cancel
+    // any in-flight agent sessions first and give them a short grace period to
+    // unwind before we drop the parent row, otherwise mid-loop persistMessage
+    // calls hit a FK error as the chat vanishes underneath them.
     cancelChat(chatId);
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const result = db.prepare(`DELETE FROM chats WHERE id = ?`).run(chatId);
     if (result.changes === 0) {
       json(res, { error: 'Chat not found' }, 404);
@@ -111,6 +116,10 @@ export async function handleChatRoutes(
       body = await readBody(req);
     } catch (err: any) {
       json(res, { error: err?.message ?? 'Failed to read body' }, 413);
+      return true;
+    }
+    if (body === INVALID_JSON) {
+      json(res, { error: 'Invalid JSON body' }, 400);
       return true;
     }
     const { content, uiContext } = body;
