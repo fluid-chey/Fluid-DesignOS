@@ -391,7 +391,10 @@ async function executeTool(
       return JSON.stringify(getCampaign(input.campaignId));
 
     default:
-      return JSON.stringify({ error: `Unknown tool: ${name}` });
+      // Throw so the outer catch classifies this as `tool_error` in the event
+      // log, instead of silently returning an error payload the agent might
+      // mistake for valid tool output.
+      throw new Error(`Unknown tool: ${name}`);
   }
 }
 
@@ -493,7 +496,10 @@ async function autoTitle(client: Anthropic, chatId: string, userMessage: string)
     });
     const title = response.content[0]?.type === 'text' ? response.content[0].text.trim() : 'New Chat';
     const db = getDb();
-    db.prepare('UPDATE chats SET title = ?, updated_at = ? WHERE id = ?').run(title, Date.now(), chatId);
+    // Only set the title if the user hasn't manually renamed the chat in the
+    // ~500ms between the POST and the Haiku call returning. Without this guard,
+    // the fire-and-forget auto-title clobbers user renames.
+    db.prepare('UPDATE chats SET title = ?, updated_at = ? WHERE id = ? AND title IS NULL').run(title, Date.now(), chatId);
   } catch {
     // Non-critical — leave title as null
   }
@@ -533,8 +539,13 @@ async function createMessageWithRetry(
       const delay = 500 * Math.pow(2, attempt - 1);
       logChatEvent('api_retry', { attempt, status: status ?? null, delay_ms: delay });
       // Exponential backoff: 500ms, 1000ms (third attempt doesn't wait because
-      // we break out after the throw above).
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // we break out after the throw above). Poll cancellation every 100ms so
+      // the user pressing Stop during a backoff doesn't have to wait the full
+      // delay before the abort lands.
+      for (let waited = 0; waited < delay; waited += 100) {
+        if (session.cancelled) throw new Error('Chat cancelled');
+        await new Promise((resolve) => setTimeout(resolve, Math.min(100, delay - waited)));
+      }
     }
   }
   throw lastErr;
@@ -559,6 +570,20 @@ async function runAgentImpl(
   uiContext: Record<string, any> | null,
   res: ServerResponse,
 ): Promise<void> {
+  // Refuse to start a second concurrent run on the same chatId. Two parallel
+  // runAgent calls race on chat_messages inserts: both read loadHistory before
+  // either persists, then interleave their tool_use / tool_result rows, which
+  // can land in an order the Anthropic API rejects on the next turn.
+  // Tracking cancel handles as a Set was not enough — we also need to serialize.
+  const existing = activeSessions.get(chatId);
+  if (existing && existing.size > 0) {
+    logChatEvent('tool_error', { phase: 'concurrent_session_blocked' });
+    sendSSE(res, 'error', {
+      message: 'A previous message is still being processed for this chat. Please wait for it to finish or cancel it first.',
+    });
+    return;
+  }
+
   const session = { cancelled: false };
   let sessionSet = activeSessions.get(chatId);
   if (!sessionSet) {
@@ -620,6 +645,8 @@ async function runAgentImpl(
     // on the chats row and check them here.
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
+    let totalCacheCreationTokens = 0;
     let renderCount = 0;
     // Max tokens a single user message's tool loop can consume before we stop
     // and tell the user to start fresh.
@@ -662,6 +689,8 @@ async function runAgentImpl(
       if (response.usage) {
         totalInputTokens += response.usage.input_tokens;
         totalOutputTokens += response.usage.output_tokens;
+        totalCacheReadTokens += (response.usage as any).cache_read_input_tokens ?? 0;
+        totalCacheCreationTokens += (response.usage as any).cache_creation_input_tokens ?? 0;
       }
 
       // Context window guard — if THIS request already crossed the limit, the
@@ -706,23 +735,27 @@ async function runAgentImpl(
         }
       }
 
-      // Persist assistant message
-      persistMessage(
-        chatId,
-        'assistant',
-        textContent || null,
-        toolCalls.length > 0 ? toolCalls : null,
-        null,
-        null,
-      );
-
-      // If no tool calls, we're done
+      // If no tool calls, persist assistant message and we're done.
       if (response.stop_reason === 'end_turn' || toolCalls.length === 0) {
+        persistMessage(
+          chatId,
+          'assistant',
+          textContent || null,
+          toolCalls.length > 0 ? toolCalls : null,
+          null,
+          null,
+        );
         break;
       }
 
-      // Execute tools and collect results
+      // Execute tools and collect results. The assistant row (which contains
+      // tool_use blocks) and the paired tool_results row MUST both land or
+      // neither — otherwise the next loadHistory produces a malformed
+      // conversation the Anthropic API rejects. We defer the assistant-row
+      // insert until after the try/finally, so it only persists alongside a
+      // guaranteed matching tool_results row.
       const toolResults: { tool_use_id: string; content: any }[] = [];
+      try {
       for (const call of toolCalls) {
         if (session.cancelled) break;
 
@@ -823,40 +856,51 @@ async function runAgentImpl(
         }
       }
 
-      // If we broke out of the tool loop early (cancellation, unexpected error),
-      // the assistant row we already persisted contains tool_use blocks whose IDs
-      // have no matching tool_result. The next loadHistory would produce a
-      // malformed conversation that the Anthropic API rejects. Synthesize an
-      // error result for every unrun tool_use so history stays well-formed.
-      const completedIds = new Set(toolResults.map((r) => r.tool_use_id));
-      for (const call of toolCalls) {
-        if (!completedIds.has(call.id)) {
-          toolResults.push({
-            tool_use_id: call.id,
-            content: JSON.stringify({ error: 'Tool call did not complete (cancelled or aborted)' }),
-          });
+      } finally {
+        // Guarantee every tool_use has a matching tool_result, even if the
+        // loop threw partway through or was cancelled. Then persist both the
+        // assistant row (with tool_use blocks) and the tool_results row in
+        // sequence so loadHistory always sees a well-formed pair.
+        const completedIds = new Set(toolResults.map((r) => r.tool_use_id));
+        for (const call of toolCalls) {
+          if (!completedIds.has(call.id)) {
+            toolResults.push({
+              tool_use_id: call.id,
+              content: JSON.stringify({ error: 'Tool call did not complete (cancelled or aborted)' }),
+            });
+          }
         }
-      }
 
-      // Persist tool results as a user message.
-      // Strip base64 image payloads from persisted copy: they're only needed for the
-      // current turn, not for conversation history — otherwise the DB and the reloaded
-      // context explode on every subsequent message.
-      const persistableResults = toolResults.map((r) => {
-        if (Array.isArray(r.content)) {
-          return {
-            tool_use_id: r.tool_use_id,
-            content: r.content.map((b: any) => {
-              if (b?.type === 'image') {
-                return { type: 'text', text: '[image omitted from history]' };
-              }
-              return b;
-            }),
-          };
-        }
-        return r;
-      });
-      persistMessage(chatId, 'user', null, null, persistableResults, null);
+        // Persist assistant row (with tool_use blocks) first.
+        persistMessage(
+          chatId,
+          'assistant',
+          textContent || null,
+          toolCalls.length > 0 ? toolCalls : null,
+          null,
+          null,
+        );
+
+        // Persist tool results as a user message.
+        // Strip base64 image payloads from persisted copy: they're only needed
+        // for the current turn, not for conversation history — otherwise the
+        // DB and the reloaded context explode on every subsequent message.
+        const persistableResults = toolResults.map((r) => {
+          if (Array.isArray(r.content)) {
+            return {
+              tool_use_id: r.tool_use_id,
+              content: r.content.map((b: any) => {
+                if (b?.type === 'image') {
+                  return { type: 'text', text: '[image omitted from history]' };
+                }
+                return b;
+              }),
+            };
+          }
+          return r;
+        });
+        persistMessage(chatId, 'user', null, null, persistableResults, null);
+      }
 
       // Build next messages array: previous + assistant response + tool results
       currentMessages = [
@@ -887,6 +931,8 @@ async function runAgentImpl(
       loop_count: loopCount,
       input_tokens: totalInputTokens,
       output_tokens: totalOutputTokens,
+      cache_read_tokens: totalCacheReadTokens,
+      cache_creation_tokens: totalCacheCreationTokens,
       render_count: renderCount,
     });
 
@@ -896,7 +942,7 @@ async function runAgentImpl(
     });
   } catch (err: any) {
     const message = err?.message ?? 'Agent error';
-    logChatEvent('tool_error', { phase: 'run_agent_outer', error: message });
+    logChatEvent('agent_run_failed', { error: message });
     sendSSE(res, 'error', { message });
   } finally {
     sessionSet.delete(session);

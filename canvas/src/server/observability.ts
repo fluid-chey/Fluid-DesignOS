@@ -58,6 +58,8 @@ export type ChatEventType =
   | 'path_traversal_blocked'    // readArchetype rejected an unsafe slug
   | 'platform_rejected'         // save_creation unknown platform
   | 'css_merge_failed'          // mergeCssLayersForHtml returned input unchanged
+  | 'agent_run_failed'          // outer catch in runAgentImpl — unexpected throw
+  | 'creation_edited'           // edit_creation tool completed
   | 'agent_run_complete';       // end-of-turn summary with usage totals
 
 // ─── Brand audit log ─────────────────────────────────────────────────────
