@@ -984,7 +984,7 @@ export function seedTemplateRoutingMetadata(): void {
   }
 }
 
-/** Return lightweight template summaries for copy-agent routing decisions. */
+/** Return lightweight template summaries for agent routing decisions. */
 export function getAgentTemplates(platform?: string): AgentTemplateSummary[] {
   const db = getDb();
   const query = platform
