@@ -13,6 +13,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const pc = require('picocolors');
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
 
 const DB_PATH = process.env.FLUID_DB_PATH || path.resolve(__dirname, '../canvas/.fluid/fluid.db');
 
@@ -527,46 +529,22 @@ function checkBodyCopyColor(lines, rules, context) {
 }
 
 // --- Main ---
-if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  process.stderr.write(`brand-compliance.cjs (CLI-02) — Validate HTML/CSS against brand tokens
+const argv = yargs(hideBin(process.argv))
+  .scriptName('brand-compliance')
+  .usage('brand-compliance.cjs (CLI-02) — Validate HTML/CSS against brand tokens\n\nUsage: $0 <file> [options]')
+  .command('$0 <file>', 'Validate HTML/CSS against brand tokens', (y) =>
+    y.positional('file', { describe: 'Path to .html/.liquid file', type: 'string' })
+  )
+  .option('context', {
+    describe: 'Scope rules to social or website context (auto-detected if not specified)',
+    choices: ['social', 'website', 'all'],
+    type: 'string',
+  })
+  .strict()
+  .help()
+  .parseSync();
 
-Usage: node tools/brand-compliance.cjs <file> [--context social|website]
-
-Options:
-  --context social|website  Scope rules to social or website context
-                            (auto-detected from file content if not specified)
-  --help, -h               Show this help message
-
-Output:
-  stdout: JSON array of violations
-  stderr: Human-readable summary
-
-Exit codes:
-  0  No errors (may have warnings/info)
-  1  Errors found (weight >= 81)
-  2  Tool error (missing file)
-
-Brand rules are loaded from SQLite DB at:
-  ${DB_PATH}
-  (override with FLUID_DB_PATH env var)
-`);
-  process.exit(0);
-}
-
-const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
-const flags = process.argv.slice(2);
-const contextIdx = flags.indexOf('--context');
-let contextOverride = null;
-if (contextIdx !== -1 && flags[contextIdx + 1]) {
-  contextOverride = flags[contextIdx + 1];
-}
-
-if (args.length === 0) {
-  process.stderr.write('Error: No file path provided.\nUsage: node tools/brand-compliance.cjs <file> [--context social|website]\n');
-  process.exit(2);
-}
-
-const filePath = path.resolve(args[0]);
+const filePath = path.resolve(argv.file);
 if (!fs.existsSync(filePath)) {
   process.stderr.write(`Error: File not found: ${filePath}\n`);
   process.exit(2);
@@ -575,7 +553,7 @@ if (!fs.existsSync(filePath)) {
 const rules = loadRulesFromDb();
 const content = fs.readFileSync(filePath, 'utf-8');
 const lines = content.split('\n');
-const context = contextOverride || detectContext(content);
+const context = argv.context || detectContext(content);
 
 const violations = [
   ...checkHexColors(lines, rules, context),

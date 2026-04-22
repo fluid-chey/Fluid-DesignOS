@@ -15,6 +15,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const pc = require('picocolors');
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
 
 // Known target dimensions — authoritative values from brand specs
 const KNOWN_DIMENSIONS = {
@@ -134,50 +136,21 @@ function parseCustomTarget(targetStr) {
 }
 
 // --- Main ---
-if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  process.stderr.write(`dimension-check.cjs (CLI-03) — Validate HTML asset dimensions
+const argv = yargs(hideBin(process.argv))
+  .scriptName('dimension-check')
+  .usage('dimension-check.cjs (CLI-03) — Validate HTML asset dimensions\n\nUsage: $0 <file> [options]')
+  .command('$0 <file>', 'Validate HTML asset dimensions', (y) =>
+    y.positional('file', { describe: 'Path to .html file', type: 'string' })
+  )
+  .option('target', {
+    describe: 'Target dimensions: instagram, linkedin_landscape, linkedin_tall, or WxH (e.g. 800x600). Auto-detected if not specified.',
+    type: 'string',
+  })
+  .strict()
+  .help()
+  .parseSync();
 
-Usage: node tools/dimension-check.cjs <file.html> [--target <target>]
-
-Targets:
-  instagram           1080x1080
-  linkedin_landscape  1200x627
-  linkedin_tall       1340x630
-  WIDTHxHEIGHT        Custom dimensions (e.g., 800x600)
-  (auto)              Auto-detect from file content
-
-Extracts dimensions from:
-  - HTML comments: <!-- target: 1080x1080 -->
-  - Body/container inline styles
-  - CSS style blocks
-  - Meta viewport
-
-Output:
-  stdout: JSON results
-  stderr: Human-readable summary
-
-Exit codes:
-  0  Dimensions match target
-  1  Dimension mismatch
-  2  Tool error (no dimensions found, missing file)
-`);
-  process.exit(0);
-}
-
-const allArgs = process.argv.slice(2);
-const args = allArgs.filter(a => !a.startsWith('--'));
-const targetIdx = allArgs.indexOf('--target');
-let targetOverride = null;
-if (targetIdx !== -1 && allArgs[targetIdx + 1]) {
-  targetOverride = allArgs[targetIdx + 1];
-}
-
-if (args.length === 0) {
-  process.stderr.write('Error: No file path provided.\nUsage: node tools/dimension-check.cjs <file.html> [--target instagram|WxH]\n');
-  process.exit(2);
-}
-
-const filePath = path.resolve(args[0]);
+const filePath = path.resolve(argv.file);
 if (!fs.existsSync(filePath)) {
   process.stderr.write(`Error: File not found: ${filePath}\n`);
   process.exit(2);
@@ -190,13 +163,13 @@ const dimensions = extractDimensions(content);
 let targetName = null;
 let target = null;
 
-if (targetOverride) {
-  if (rules.dimensions[targetOverride]) {
-    targetName = targetOverride;
-    target = rules.dimensions[targetOverride];
+if (argv.target) {
+  if (rules.dimensions[argv.target]) {
+    targetName = argv.target;
+    target = rules.dimensions[argv.target];
   } else {
-    target = parseCustomTarget(targetOverride);
-    targetName = targetOverride;
+    target = parseCustomTarget(argv.target);
+    targetName = argv.target;
   }
 } else {
   targetName = autoDetectTarget(content, dimensions, rules);
