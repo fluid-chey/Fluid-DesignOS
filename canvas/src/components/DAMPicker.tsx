@@ -33,7 +33,8 @@ export interface DAMPickerProps {
 }
 
 // ---- Fluid DAM token (Fluid API token — see https://docs.fluid.app/docs/guides/dam-picker-sdk-guide) ----
-const DAM_TOKEN: string = (import.meta.env as Record<string, string | undefined>).VITE_FLUID_DAM_TOKEN ?? '';
+const DAM_TOKEN: string =
+  (import.meta.env as Record<string, string | undefined>).VITE_FLUID_DAM_TOKEN ?? '';
 
 /** Asset shape passed to onSelect (from SDK SelectedAsset). */
 export interface SelectedDAMAsset {
@@ -51,7 +52,9 @@ export interface FluidDAMModalProps {
 }
 
 export function FluidDAMModal({ isOpen, onSelect, onCancel, onError }: FluidDAMModalProps) {
-  const pickerRef = useRef<InstanceType<typeof import('@fluid-commerce/dam-picker').DamPicker> | null>(null);
+  const pickerRef = useRef<InstanceType<
+    typeof import('@fluid-commerce/dam-picker').DamPicker
+  > | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const onSelectRef = useRef(onSelect);
@@ -154,7 +157,8 @@ export function FluidDAMModal({ isOpen, onSelect, onCancel, onError }: FluidDAMM
           onClick={(e) => e.stopPropagation()}
         >
           <p style={{ margin: 0, color: '#e0e0e0', fontSize: 14 }}>
-            Add your Fluid API token as VITE_FLUID_DAM_TOKEN in .env to connect to Fluid DAM. See the{' '}
+            Add your Fluid API token as VITE_FLUID_DAM_TOKEN in .env to connect to Fluid DAM. See
+            the{' '}
             <a
               href="https://docs.fluid.app/docs/guides/dam-picker-sdk-guide"
               target="_blank"
@@ -199,7 +203,10 @@ export function FluidDAMModal({ isOpen, onSelect, onCancel, onError }: FluidDAMM
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        onClick={() => { setLoadError(null); onCancel(); }}
+        onClick={() => {
+          setLoadError(null);
+          onCancel();
+        }}
       >
         <div
           style={{
@@ -214,7 +221,10 @@ export function FluidDAMModal({ isOpen, onSelect, onCancel, onError }: FluidDAMM
           <p style={{ margin: 0, color: '#e0e0e0', fontSize: 14 }}>{loadError}</p>
           <button
             type="button"
-            onClick={() => { setLoadError(null); onCancel(); }}
+            onClick={() => {
+              setLoadError(null);
+              onCancel();
+            }}
             style={{
               marginTop: 16,
               padding: '8px 16px',
@@ -275,7 +285,7 @@ export function DAMPicker({ sel: _sel, currentSrc, onSelect, label, dims }: DAMP
       };
       reader.readAsDataURL(file);
     },
-    [onSelect]
+    [onSelect],
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -301,7 +311,9 @@ export function DAMPicker({ sel: _sel, currentSrc, onSelect, label, dims }: DAMP
   // ---- Browse Assets via Fluid DAM ----
   const handleBrowseAssets = async () => {
     if (!DAM_TOKEN) {
-      setDamMessage('Add VITE_FLUID_DAM_TOKEN (Fluid API token) in .env to connect Fluid DAM. Using local file picker.');
+      setDamMessage(
+        'Add VITE_FLUID_DAM_TOKEN (Fluid API token) in .env to connect Fluid DAM. Using local file picker.',
+      );
       setTimeout(() => setDamMessage(null), 3000);
       fileInputRef.current?.click();
       return;
@@ -355,12 +367,25 @@ export function DAMPicker({ sel: _sel, currentSrc, onSelect, label, dims }: DAMP
           <img
             src={currentSrc}
             alt={label ?? 'Selected image'}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 4 }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+              borderRadius: 4,
+            }}
           />
         ) : (
           <div style={styles.dropZoneEmpty}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                 stroke="#444" strokeWidth="1.5" strokeLinecap="round">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#444"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <circle cx="8.5" cy="8.5" r="1.5" />
               <polyline points="21 15 16 10 5 21" />
@@ -398,8 +423,15 @@ export function DAMPicker({ sel: _sel, currentSrc, onSelect, label, dims }: DAMP
             (e.currentTarget as HTMLButtonElement).style.color = '#888';
           }}
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
@@ -420,9 +452,7 @@ export function DAMPicker({ sel: _sel, currentSrc, onSelect, label, dims }: DAMP
       </div>
 
       {/* DAM connection hint message */}
-      {damMessage && (
-        <div style={styles.hint}>{damMessage}</div>
-      )}
+      {damMessage && <div style={styles.hint}>{damMessage}</div>}
 
       {/* Fluid DAM Modal (only rendered when token is configured and browse is clicked) */}
       {showDamModal && DAM_TOKEN && (
@@ -486,7 +516,10 @@ function DamModalWrapper({ token, onSelect, onCancel, onError }: DamModalWrapper
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        onClick={() => { setLoadError(null); onCancel(); }}
+        onClick={() => {
+          setLoadError(null);
+          onCancel();
+        }}
       >
         <div
           style={{
@@ -501,7 +534,10 @@ function DamModalWrapper({ token, onSelect, onCancel, onError }: DamModalWrapper
           <p style={{ margin: 0, color: '#e0e0e0', fontSize: 14 }}>{loadError}</p>
           <button
             type="button"
-            onClick={() => { setLoadError(null); onCancel(); }}
+            onClick={() => {
+              setLoadError(null);
+              onCancel();
+            }}
             style={{
               marginTop: 16,
               padding: '8px 16px',

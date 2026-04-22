@@ -16,10 +16,12 @@ const envPaths = [
 ];
 for (const envPath of envPaths) {
   try {
-    // @ts-ignore — process.loadEnvFile is Node 22.9+
+    // @ts-expect-error — process.loadEnvFile is Node 22.9+
     (process as any).loadEnvFile(envPath);
     break;
-  } catch {}
+  } catch {
+    // env file not present at this path — try the next candidate
+  }
 }
 import { buildSystemPrompt } from './agent-system-prompt';
 import { buildBrandBrief } from './brand-brief';
@@ -69,7 +71,8 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
   {
     name: 'list_patterns',
-    description: 'List brand patterns, optionally filtered by category (logos, colors, typography, images, decorations, archetypes).',
+    description:
+      'List brand patterns, optionally filtered by category (logos, colors, typography, images, decorations, archetypes).',
     input_schema: {
       type: 'object' as const,
       properties: { category: { type: 'string', description: 'Optional category filter' } },
@@ -87,7 +90,8 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
   {
     name: 'list_assets',
-    description: 'List brand assets (fonts, images, logos, decorations). Optionally filter by category.',
+    description:
+      'List brand assets (fonts, images, logos, decorations). Optionally filter by category.',
     input_schema: {
       type: 'object' as const,
       properties: { category: { type: 'string', description: 'Optional category filter' } },
@@ -199,13 +203,20 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
   {
     name: 'save_creation',
-    description: 'Save HTML as a new creation in a campaign. Returns IDs for the campaign, creation, slide, and iteration.',
+    description:
+      'Save HTML as a new creation in a campaign. Returns IDs for the campaign, creation, slide, and iteration.',
     input_schema: {
       type: 'object' as const,
       properties: {
         html: { type: 'string', description: 'Self-contained HTML' },
-        slotSchema: { type: 'object', description: 'Slot schema mapping slot names to their configuration' },
-        platform: { type: 'string', description: 'Platform/creation type (e.g. instagram, linkedin, one-pager)' },
+        slotSchema: {
+          type: 'object',
+          description: 'Slot schema mapping slot names to their configuration',
+        },
+        platform: {
+          type: 'string',
+          description: 'Platform/creation type (e.g. instagram, linkedin, one-pager)',
+        },
         campaignId: { type: 'string', description: 'Optional existing campaign ID to add to' },
       },
       required: ['html', 'platform'],
@@ -241,7 +252,8 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   // Context
   {
     name: 'get_ui_context',
-    description: 'Get the current UI context passed from the frontend (active page, selected creation, etc.).',
+    description:
+      'Get the current UI context passed from the frontend (active page, selected creation, etc.).',
     input_schema: { type: 'object' as const, properties: {}, required: [] },
   },
   {
@@ -333,15 +345,27 @@ async function executeTool(
 
     // Brand Editing
     case 'update_pattern':
-      return JSON.stringify(updatePattern(requireString(input, 'slug'), requireString(input, 'content')));
+      return JSON.stringify(
+        updatePattern(requireString(input, 'slug'), requireString(input, 'content')),
+      );
     case 'create_pattern':
-      return JSON.stringify(createPattern(requireString(input, 'category'), requireString(input, 'name'), requireString(input, 'content')));
+      return JSON.stringify(
+        createPattern(
+          requireString(input, 'category'),
+          requireString(input, 'name'),
+          requireString(input, 'content'),
+        ),
+      );
     case 'delete_pattern':
       return JSON.stringify(deletePattern(requireString(input, 'slug')));
     case 'update_voice_guide':
-      return JSON.stringify(updateVoiceGuide(requireString(input, 'slug'), requireString(input, 'content')));
+      return JSON.stringify(
+        updateVoiceGuide(requireString(input, 'slug'), requireString(input, 'content')),
+      );
     case 'create_voice_guide':
-      return JSON.stringify(createVoiceGuide(requireString(input, 'title'), requireString(input, 'content')));
+      return JSON.stringify(
+        createVoiceGuide(requireString(input, 'title'), requireString(input, 'content')),
+      );
 
     // Visual
     case 'render_preview': {
@@ -363,24 +387,30 @@ async function executeTool(
       ];
     }
     case 'save_creation':
-      return JSON.stringify(saveCreation(
-        requireString(input, 'html'),
-        input.slotSchema ?? null,
-        requireString(input, 'platform'),
-        typeof input.campaignId === 'string' ? input.campaignId : undefined,
-      ));
+      return JSON.stringify(
+        saveCreation(
+          requireString(input, 'html'),
+          input.slotSchema ?? null,
+          requireString(input, 'platform'),
+          typeof input.campaignId === 'string' ? input.campaignId : undefined,
+        ),
+      );
     case 'edit_creation':
-      return JSON.stringify(editCreation(
-        requireString(input, 'iterationId'),
-        requireString(input, 'html'),
-        input.slotSchema,
-      ));
+      return JSON.stringify(
+        editCreation(
+          requireString(input, 'iterationId'),
+          requireString(input, 'html'),
+          input.slotSchema,
+        ),
+      );
     case 'save_as_template':
-      return JSON.stringify(saveAsTemplate(
-        requireString(input, 'iterationId'),
-        requireString(input, 'name'),
-        requireString(input, 'category'),
-      ));
+      return JSON.stringify(
+        saveAsTemplate(
+          requireString(input, 'iterationId'),
+          requireString(input, 'name'),
+          requireString(input, 'category'),
+        ),
+      );
 
     // Context
     case 'get_ui_context':
@@ -412,7 +442,7 @@ function persistMessage(
   const id = nanoid();
   db.prepare(
     `INSERT INTO chat_messages (id, chat_id, role, content, tool_calls, tool_results, ui_context, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     chatId,
@@ -431,9 +461,16 @@ function loadHistory(chatId: string): Anthropic.MessageParam[] {
   // ORDER BY created_at ASC, rowid ASC: same-millisecond inserts (common in the
   // tool loop) must fall back to SQLite's monotonic insertion order, otherwise
   // tool_use/tool_result pairs can swap and the API rejects the conversation.
-  const rows = db.prepare(
-    `SELECT role, content, tool_calls, tool_results FROM chat_messages WHERE chat_id = ? ORDER BY created_at ASC, rowid ASC`
-  ).all(chatId) as { role: string; content: string | null; tool_calls: string | null; tool_results: string | null }[];
+  const rows = db
+    .prepare(
+      `SELECT role, content, tool_calls, tool_results FROM chat_messages WHERE chat_id = ? ORDER BY created_at ASC, rowid ASC`,
+    )
+    .all(chatId) as {
+    role: string;
+    content: string | null;
+    tool_calls: string | null;
+    tool_results: string | null;
+  }[];
 
   const messages: Anthropic.MessageParam[] = [];
 
@@ -494,12 +531,17 @@ async function autoTitle(client: Anthropic, chatId: string, userMessage: string)
         },
       ],
     });
-    const title = response.content[0]?.type === 'text' ? response.content[0].text.trim() : 'New Chat';
+    const title =
+      response.content[0]?.type === 'text' ? response.content[0].text.trim() : 'New Chat';
     const db = getDb();
     // Only set the title if the user hasn't manually renamed the chat in the
     // ~500ms between the POST and the Haiku call returning. Without this guard,
     // the fire-and-forget auto-title clobbers user renames.
-    db.prepare('UPDATE chats SET title = ?, updated_at = ? WHERE id = ? AND title IS NULL').run(title, Date.now(), chatId);
+    db.prepare('UPDATE chats SET title = ?, updated_at = ? WHERE id = ? AND title IS NULL').run(
+      title,
+      Date.now(),
+      chatId,
+    );
   } catch {
     // Non-critical — leave title as null
   }
@@ -579,7 +621,8 @@ async function runAgentImpl(
   if (existing && existing.size > 0) {
     logChatEvent('tool_error', { phase: 'concurrent_session_blocked' });
     sendSSE(res, 'error', {
-      message: 'A previous message is still being processed for this chat. Please wait for it to finish or cancel it first.',
+      message:
+        'A previous message is still being processed for this chat. Please wait for it to finish or cancel it first.',
     });
     return;
   }
@@ -626,7 +669,9 @@ async function runAgentImpl(
   try {
     // Check if this is the first message (for auto-title)
     const db = getDb();
-    const msgCount = (db.prepare('SELECT COUNT(*) as c FROM chat_messages WHERE chat_id = ?').get(chatId) as any)?.c ?? 0;
+    const msgCount =
+      (db.prepare('SELECT COUNT(*) as c FROM chat_messages WHERE chat_id = ?').get(chatId) as any)
+        ?.c ?? 0;
     const isFirstMessage = msgCount === 0;
 
     // Persist user message
@@ -756,106 +801,108 @@ async function runAgentImpl(
       // guaranteed matching tool_results row.
       const toolResults: { tool_use_id: string; content: any }[] = [];
       try {
-      for (const call of toolCalls) {
-        if (session.cancelled) break;
+        for (const call of toolCalls) {
+          if (session.cancelled) break;
 
-        // Render budget enforcement
-        if (call.name === 'render_preview') {
-          renderCount++;
-          if (renderCount > MAX_RENDERS_PER_PASS) {
-            logChatEvent('budget_trip_render', {
-              render_count: renderCount,
-              budget: MAX_RENDERS_PER_PASS,
+          // Render budget enforcement
+          if (call.name === 'render_preview') {
+            renderCount++;
+            if (renderCount > MAX_RENDERS_PER_PASS) {
+              logChatEvent('budget_trip_render', {
+                render_count: renderCount,
+                budget: MAX_RENDERS_PER_PASS,
+              });
+              toolResults.push({
+                tool_use_id: call.id,
+                content: JSON.stringify({
+                  error: `Render budget exceeded (max ${MAX_RENDERS_PER_PASS} per creation). Save the creation and the system will validate it.`,
+                }),
+              });
+              sendSSE(res, 'tool_result', {
+                toolUseId: call.id,
+                name: call.name,
+                hasImage: false,
+                error: 'Render budget exceeded',
+              });
+              continue;
+            }
+          }
+
+          const toolStart = Date.now();
+          try {
+            const result = await executeTool(call.name, call.input, uiContext);
+
+            toolResults.push({ tool_use_id: call.id, content: result });
+            logChatEvent('tool_exec_metric', {
+              tool: call.name,
+              duration_ms: Date.now() - toolStart,
+              ok: true,
+            });
+
+            // Send SSE summary (skip image data to avoid bloating the stream)
+            if (Array.isArray(result)) {
+              const hasImage = result.some((b: any) => b.type === 'image');
+              const textParts = result
+                .filter((b: any) => b.type === 'text')
+                .map((b: any) => b.text);
+              sendSSE(res, 'tool_result', {
+                toolUseId: call.id,
+                name: call.name,
+                hasImage,
+                summary: textParts.join(' '),
+              });
+            } else {
+              // result is a JSON string
+              const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+              sendSSE(res, 'tool_result', {
+                toolUseId: call.id,
+                name: call.name,
+                hasImage: false,
+                result: parsed,
+              });
+
+              // Emit creation_ready and validation_result SSE events
+              if (call.name === 'save_creation' || call.name === 'edit_creation') {
+                if (parsed.iterationId || parsed.creationId) {
+                  sendSSE(res, 'creation_ready', {
+                    campaignId: parsed.campaignId,
+                    creationId: parsed.creationId,
+                    iterationId: parsed.iterationId,
+                    htmlPath: parsed.htmlPath,
+                  });
+                }
+                if (parsed.validation) {
+                  sendSSE(res, 'validation_result', {
+                    iterationId: parsed.iterationId,
+                    result: parsed.validation,
+                  });
+                }
+              }
+            }
+          } catch (err: any) {
+            const errorMsg = err?.message ?? 'Tool execution failed';
+            // Classify input-shape errors separately so they can be filtered
+            // from real tool crashes during post-mortem analysis.
+            const isInputError =
+              /^Tool input '[^']+' must be/.test(errorMsg) ||
+              /^Tool '[^']+' called with invalid input/.test(errorMsg);
+            logChatEvent(isInputError ? 'tool_input_rejected' : 'tool_error', {
+              tool: call.name,
+              duration_ms: Date.now() - toolStart,
+              error: errorMsg,
             });
             toolResults.push({
               tool_use_id: call.id,
-              content: JSON.stringify({
-                error: `Render budget exceeded (max ${MAX_RENDERS_PER_PASS} per creation). Save the creation and the system will validate it.`,
-              }),
+              content: JSON.stringify({ error: errorMsg }),
             });
             sendSSE(res, 'tool_result', {
               toolUseId: call.id,
               name: call.name,
               hasImage: false,
-              error: 'Render budget exceeded',
+              error: errorMsg,
             });
-            continue;
           }
         }
-
-        const toolStart = Date.now();
-        try {
-          const result = await executeTool(call.name, call.input, uiContext);
-
-          toolResults.push({ tool_use_id: call.id, content: result });
-          logChatEvent('tool_exec_metric', {
-            tool: call.name,
-            duration_ms: Date.now() - toolStart,
-            ok: true,
-          });
-
-          // Send SSE summary (skip image data to avoid bloating the stream)
-          if (Array.isArray(result)) {
-            const hasImage = result.some((b: any) => b.type === 'image');
-            const textParts = result.filter((b: any) => b.type === 'text').map((b: any) => b.text);
-            sendSSE(res, 'tool_result', {
-              toolUseId: call.id,
-              name: call.name,
-              hasImage,
-              summary: textParts.join(' '),
-            });
-          } else {
-            // result is a JSON string
-            const parsed = typeof result === 'string' ? JSON.parse(result) : result;
-            sendSSE(res, 'tool_result', {
-              toolUseId: call.id,
-              name: call.name,
-              hasImage: false,
-              result: parsed,
-            });
-
-            // Emit creation_ready and validation_result SSE events
-            if (call.name === 'save_creation' || call.name === 'edit_creation') {
-              if (parsed.iterationId || parsed.creationId) {
-                sendSSE(res, 'creation_ready', {
-                  campaignId: parsed.campaignId,
-                  creationId: parsed.creationId,
-                  iterationId: parsed.iterationId,
-                  htmlPath: parsed.htmlPath,
-                });
-              }
-              if (parsed.validation) {
-                sendSSE(res, 'validation_result', {
-                  iterationId: parsed.iterationId,
-                  result: parsed.validation,
-                });
-              }
-            }
-          }
-        } catch (err: any) {
-          const errorMsg = err?.message ?? 'Tool execution failed';
-          // Classify input-shape errors separately so they can be filtered
-          // from real tool crashes during post-mortem analysis.
-          const isInputError = /^Tool input '[^']+' must be/.test(errorMsg) ||
-            /^Tool '[^']+' called with invalid input/.test(errorMsg);
-          logChatEvent(isInputError ? 'tool_input_rejected' : 'tool_error', {
-            tool: call.name,
-            duration_ms: Date.now() - toolStart,
-            error: errorMsg,
-          });
-          toolResults.push({
-            tool_use_id: call.id,
-            content: JSON.stringify({ error: errorMsg }),
-          });
-          sendSSE(res, 'tool_result', {
-            toolUseId: call.id,
-            name: call.name,
-            hasImage: false,
-            error: errorMsg,
-          });
-        }
-      }
-
       } finally {
         // Guarantee every tool_use has a matching tool_result, even if the
         // loop threw partway through or was cancelled. Then persist both the
@@ -866,7 +913,9 @@ async function runAgentImpl(
           if (!completedIds.has(call.id)) {
             toolResults.push({
               tool_use_id: call.id,
-              content: JSON.stringify({ error: 'Tool call did not complete (cancelled or aborted)' }),
+              content: JSON.stringify({
+                error: 'Tool call did not complete (cancelled or aborted)',
+              }),
             });
           }
         }

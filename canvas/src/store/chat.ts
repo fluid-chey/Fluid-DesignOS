@@ -5,7 +5,11 @@ const ACTIVE_CHAT_KEY = 'fluid.activeChatId';
 
 function readActiveChatId(): string | null {
   if (typeof localStorage === 'undefined') return null;
-  try { return localStorage.getItem(ACTIVE_CHAT_KEY); } catch { return null; }
+  try {
+    return localStorage.getItem(ACTIVE_CHAT_KEY);
+  } catch {
+    return null;
+  }
 }
 
 function writeActiveChatId(id: string | null): void {
@@ -13,7 +17,9 @@ function writeActiveChatId(id: string | null): void {
   try {
     if (id) localStorage.setItem(ACTIVE_CHAT_KEY, id);
     else localStorage.removeItem(ACTIVE_CHAT_KEY);
-  } catch {}
+  } catch {
+    // localStorage unavailable (private mode / quota) — state is best-effort
+  }
 }
 
 export interface ChatMessageUI {
@@ -75,12 +81,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ chats });
     // If we have a persisted activeChatId but no messages loaded yet, hydrate it.
     const { activeChatId, messages } = get();
-    if (activeChatId && messages.length === 0 && chats.some((c: ChatSummary) => c.id === activeChatId)) {
-      get().openChat(activeChatId).catch(() => {
-        // Stale pointer — clear it so we don't keep retrying.
-        writeActiveChatId(null);
-        set({ activeChatId: null });
-      });
+    if (
+      activeChatId &&
+      messages.length === 0 &&
+      chats.some((c: ChatSummary) => c.id === activeChatId)
+    ) {
+      get()
+        .openChat(activeChatId)
+        .catch(() => {
+          // Stale pointer — clear it so we don't keep retrying.
+          writeActiveChatId(null);
+          set({ activeChatId: null });
+        });
     }
   },
 
@@ -88,7 +100,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const res = await fetch('/api/chats', { method: 'POST' });
     const chat = await res.json();
     writeActiveChatId(chat.id);
-    set(s => ({ chats: [chat, ...s.chats], activeChatId: chat.id, messages: [] }));
+    set((s) => ({ chats: [chat, ...s.chats], activeChatId: chat.id, messages: [] }));
     return chat.id;
   },
 
@@ -103,9 +115,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         id: m.id,
         role: m.role,
         content: m.content,
-        toolCalls: m.toolCalls ? JSON.parse(m.toolCalls).map((tc: any) => ({
-          id: tc.id, tool: tc.name, input: tc.input, status: 'complete' as const,
-        })) : [],
+        toolCalls: m.toolCalls
+          ? JSON.parse(m.toolCalls).map((tc: any) => ({
+              id: tc.id,
+              tool: tc.name,
+              input: tc.input,
+              status: 'complete' as const,
+            }))
+          : [],
         createdAt: m.createdAt,
       }));
 
@@ -115,11 +132,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   deleteChat: async (chatId: string) => {
     await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
-    set(s => {
+    set((s) => {
       const clearing = s.activeChatId === chatId;
       if (clearing) writeActiveChatId(null);
       return {
-        chats: s.chats.filter(c => c.id !== chatId),
+        chats: s.chats.filter((c) => c.id !== chatId),
         activeChatId: clearing ? null : s.activeChatId,
         messages: clearing ? [] : s.messages,
       };
@@ -141,7 +158,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       toolCalls: [],
       createdAt: Date.now(),
     };
-    set(s => ({ messages: [...s.messages, userMsg] }));
+    set((s) => ({ messages: [...s.messages, userMsg] }));
 
     const assistantMsg: ChatMessageUI = {
       id: `streaming_${Date.now()}`,
@@ -151,7 +168,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isStreaming: true,
       createdAt: Date.now(),
     };
-    set(s => ({ messages: [...s.messages, assistantMsg], isStreaming: true }));
+    set((s) => ({ messages: [...s.messages, assistantMsg], isStreaming: true }));
 
     const abortController = new AbortController();
     set({ abortController });
@@ -198,9 +215,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (eventType === 'text') {
               store._appendTextDelta(data.text ?? data.delta);
             } else if (eventType === 'tool_start') {
-              store._addToolCall({ id: data.toolUseId ?? data.id, tool: data.name ?? data.tool, input: data.input, status: 'pending' });
+              store._addToolCall({
+                id: data.toolUseId ?? data.id,
+                tool: data.name ?? data.tool,
+                input: data.input,
+                status: 'pending',
+              });
             } else if (eventType === 'tool_result') {
-              store._updateToolResult(data.toolUseId ?? data.id, typeof data.result === 'object' ? JSON.stringify(data.result) : (data.result ?? data.summary ?? ''), data.hasImage, data.error);
+              store._updateToolResult(
+                data.toolUseId ?? data.id,
+                typeof data.result === 'object'
+                  ? JSON.stringify(data.result)
+                  : (data.result ?? data.summary ?? ''),
+                data.hasImage,
+                data.error,
+              );
             } else if (eventType === 'creation_ready') {
               // Creation saved — refresh campaign data so the canvas picks it up
               // immediately instead of waiting on file-watcher latency.
@@ -251,7 +280,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   _appendTextDelta: (delta: string) => {
-    set(s => {
+    set((s) => {
       const msgs = [...s.messages];
       const last = msgs[msgs.length - 1];
       if (last?.role === 'assistant' && last.isStreaming) {
@@ -262,7 +291,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   _addToolCall: (tc: ToolCallUI) => {
-    set(s => {
+    set((s) => {
       const msgs = [...s.messages];
       const last = msgs[msgs.length - 1];
       if (last?.role === 'assistant' && last.isStreaming) {
@@ -273,12 +302,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   _updateToolResult: (id: string, result: string, hasImage?: boolean, error?: string) => {
-    set(s => {
+    set((s) => {
       const msgs = [...s.messages];
       const last = msgs[msgs.length - 1];
       if (last?.role === 'assistant' && last.isStreaming) {
-        const toolCalls = last.toolCalls.map(tc =>
-          tc.id === id ? { ...tc, result, hasImage, error, status: error ? 'error' as const : 'complete' as const } : tc
+        const toolCalls = last.toolCalls.map((tc) =>
+          tc.id === id
+            ? {
+                ...tc,
+                result,
+                hasImage,
+                error,
+                status: error ? ('error' as const) : ('complete' as const),
+              }
+            : tc,
         );
         msgs[msgs.length - 1] = { ...last, toolCalls };
       }
@@ -287,10 +324,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   _finishStreaming: () => {
-    set(s => {
-      const msgs = s.messages.map(m =>
-        m.isStreaming ? { ...m, isStreaming: false } : m
-      );
+    set((s) => {
+      const msgs = s.messages.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m));
       return { messages: msgs, isStreaming: false, abortController: null };
     });
   },

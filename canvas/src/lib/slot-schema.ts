@@ -12,10 +12,10 @@ export type FieldMode = 'text' | 'pre' | 'br';
 /** An editable text field in the template. */
 export interface TextField {
   type: 'text';
-  sel: string;         // CSS selector in template HTML
+  sel: string; // CSS selector in template HTML
   label: string;
   mode: FieldMode;
-  rows?: number;       // textarea rows hint
+  rows?: number; // textarea rows hint
 }
 
 /** An editable image field in the template. */
@@ -24,7 +24,7 @@ export interface ImageField {
   /** CSS selector for the `<img>` (src updates, imgStyle, Reposition). */
   sel: string;
   label: string;
-  dims?: string;       // display hint e.g. '353 x 439px'
+  dims?: string; // display hint e.g. '353 x 439px'
   /**
    * Click-to-move / CSS transform target (e.g. `.photo` wrapper). If omitted, derived from `sel`:
    * selectors ending with ` img` use the parent token (`.photo img` → `.photo`) so the whole frame moves.
@@ -49,16 +49,16 @@ export function imageLayoutSel(field: ImageField): string {
 /** A visual separator between groups of fields (e.g. carousel slide boundaries). */
 export interface DividerField {
   type: 'divider';
-  label: string;       // e.g. 'Slide 01 - Cover'
+  label: string; // e.g. 'Slide 01 - Cover'
 }
 
 /** A group of related fields (e.g. stat card, quote block) rendered as a collapsible unit. */
 export interface GroupField {
   type: 'group';
-  id: string;          // unique group identifier
-  label: string;       // "Stat Card", "Quote Block"
-  sel: string;         // CSS selector of the group container div
-  fields: (TextField | ImageField)[];  // nested fields (non-recursive)
+  id: string; // unique group identifier
+  label: string; // "Stat Card", "Quote Block"
+  sel: string; // CSS selector of the group container div
+  fields: (TextField | ImageField)[]; // nested fields (non-recursive)
 }
 
 /** Union of all field types in a slot schema. */
@@ -70,17 +70,17 @@ export type SlotField = TextField | ImageField | DividerField | GroupField;
  * Applies to both template-based and AI-generated assets.
  */
 export interface SlotSchema {
-  templateId?: string;          // set for template-based assets
-  archetypeId?: string;         // set for archetype-based assets (added Phase 20)
-  platform?: 'instagram-square' | 'linkedin-landscape' | 'one-pager';  // added Phase 21
-  width: number;                // asset width in pixels
-  height: number;               // asset height in pixels
-  fields: SlotField[];          // ordered list of editable fields
-  brush?: string | null;        // CSS selector for movable element (one per template)
-  brushLabel?: string;          // label for the brush/transform element
+  templateId?: string; // set for template-based assets
+  archetypeId?: string; // set for archetype-based assets (added Phase 20)
+  platform?: 'instagram-square' | 'linkedin-landscape' | 'one-pager'; // added Phase 21
+  width: number; // asset width in pixels
+  height: number; // asset height in pixels
+  fields: SlotField[]; // ordered list of editable fields
+  brush?: string | null; // CSS selector for movable element (one per template)
+  brushLabel?: string; // label for the brush/transform element
   /** Extra pickable/transform elements (e.g. carousel arrow) with their own persisted transform keys */
   brushAdditional?: ReadonlyArray<{ sel: string; label: string }>;
-  carouselCount?: number;       // number of slides (undefined for single-frame assets)
+  carouselCount?: number; // number of slides (undefined for single-frame assets)
 }
 
 /** How layout is adjusted in the preview for a picked element */
@@ -109,7 +109,7 @@ export function collectTransformTargets(schema: SlotSchema): TransformTarget[] {
           seen.add(f.sel);
           out.push({ sel: f.sel, label: f.label, kind: 'group' });
         }
-        walkFields(f.fields);  // also collect children for field editing
+        walkFields(f.fields); // also collect children for field editing
         continue;
       }
       if (f.type === 'text') {
@@ -144,7 +144,9 @@ export function collectTransformTargets(schema: SlotSchema): TransformTarget[] {
     seen.add(extra.sel);
     out.push({
       sel: extra.sel,
-      label: extra.label ? extra.label.charAt(0).toUpperCase() + extra.label.slice(1) : 'Decorative element',
+      label: extra.label
+        ? extra.label.charAt(0).toUpperCase() + extra.label.slice(1)
+        : 'Decorative element',
       kind: 'brush',
     });
   }
@@ -163,7 +165,7 @@ export interface LayoutPickRef {
  */
 export function slotFieldSelFromLayoutPick(
   schema: SlotSchema | null,
-  picked: LayoutPickRef | null
+  picked: LayoutPickRef | null,
 ): string | null {
   if (!schema || !picked) return null;
 

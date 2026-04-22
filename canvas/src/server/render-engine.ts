@@ -24,7 +24,9 @@ function registerShutdownHooksOnce(): void {
   };
   process.once('SIGINT', handler);
   process.once('SIGTERM', handler);
-  process.once('beforeExit', () => { void shutdownBrowser(); });
+  process.once('beforeExit', () => {
+    void shutdownBrowser();
+  });
 }
 
 export async function ensureBrowser(): Promise<BrowserContext> {
@@ -37,18 +39,20 @@ export async function ensureBrowser(): Promise<BrowserContext> {
 
 export async function shutdownBrowser(): Promise<void> {
   try {
-    if (context) { await context.close(); context = null; }
-    if (browser) { await browser.close(); browser = null; }
+    if (context) {
+      await context.close();
+      context = null;
+    }
+    if (browser) {
+      await browser.close();
+      browser = null;
+    }
   } catch {
     // Best-effort shutdown — swallow errors so we never block process exit.
   }
 }
 
-export async function renderPreview(
-  html: string,
-  width: number,
-  height: number
-): Promise<string> {
+export async function renderPreview(html: string, width: number, height: number): Promise<string> {
   const ctx = await ensureBrowser();
   const page = await ctx.newPage();
 
@@ -57,10 +61,7 @@ export async function renderPreview(
 
     // Rewrite /fluid-assets/ URLs to absolute file paths
     const assetsDir = path.join(PROJECT_ROOT, 'assets');
-    let resolvedHtml = html.replace(
-      /\/fluid-assets\//g,
-      `file://${assetsDir}/`
-    );
+    let resolvedHtml = html.replace(/\/fluid-assets\//g, `file://${assetsDir}/`);
 
     // Resolve /api/brand-assets/serve/{name} → file:// by looking up the DB.
     // The name in the URL may not match the on-disk file_path, so we must query.
@@ -89,14 +90,14 @@ export async function renderPreview(
         }
         // Fallback: best-effort direct mapping
         return `file://${assetsDir}/${rawName}`;
-      }
+      },
     );
 
     // Write to temp file so file:// URLs resolve correctly. Include a random
     // suffix so parallel renders don't collide on Date.now().
     const tmpFile = path.join(
       os.tmpdir(),
-      `fluid-render-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`
+      `fluid-render-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`,
     );
     await fs.writeFile(tmpFile, resolvedHtml, 'utf-8');
 
@@ -115,7 +116,11 @@ export async function renderPreview(
       return screenshot.toString('base64');
     } finally {
       // Always clean up the temp file, even if rendering threw.
-      try { await fs.unlink(tmpFile); } catch {}
+      try {
+        await fs.unlink(tmpFile);
+      } catch {
+        // best-effort temp cleanup
+      }
     }
   } catch (err) {
     // Non-fatal — creation still saves, just without visual self-check
