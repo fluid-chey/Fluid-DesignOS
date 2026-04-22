@@ -13,7 +13,15 @@
 
 const path = require('path');
 const fs = require('fs');
-const Database = require(require.resolve('better-sqlite3', { paths: [path.resolve(__dirname, '../canvas')] }));
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
+
+// better-sqlite3 lives in canvas/node_modules — resolve lazily so --help
+// still works in environments where canvas deps aren't installed (e.g. the
+// CLI-tools CI job).
+function loadDatabase() {
+  return require(require.resolve('better-sqlite3', { paths: [path.resolve(__dirname, '../canvas')] }));
+}
 
 const DB_PATH = process.env.FLUID_DB_PATH || path.resolve(__dirname, '../canvas/fluid.db');
 const SEED_PATH = path.resolve(__dirname, '../canvas/seed-data.json');
@@ -33,8 +41,7 @@ const TABLES_ORDERED = [
   'annotations',
 ];
 
-function main() {
-  const force = process.argv.includes('--force');
+function main({ force = false } = {}) {
 
   if (!fs.existsSync(SEED_PATH)) {
     console.error(`Seed file not found at ${SEED_PATH}`);
@@ -51,6 +58,7 @@ function main() {
     process.exit(1);
   }
 
+  const Database = loadDatabase();
   const db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
@@ -129,4 +137,21 @@ function main() {
   console.log(`\nDone (${mode}): ${totalImported} imported, ${totalSkipped} already existed`);
 }
 
-main();
+const argv = yargs(hideBin(process.argv))
+  .scriptName('db-import')
+  .usage('db-import.cjs — Import seed-data.json into the SQLite database\n\nUsage: $0 [options]')
+  .option('force', {
+    describe: 'Clear all tables and re-import everything (destructive)',
+    type: 'boolean',
+    default: false,
+  })
+  .option('merge', {
+    describe: 'Add new rows by ID without touching existing data (default mode)',
+    type: 'boolean',
+    default: true,
+  })
+  .strict()
+  .help()
+  .parseSync();
+
+main({ force: argv.force });

@@ -7,18 +7,25 @@ import { useCampaignStore } from '../../store/campaign';
 import { SparklesIcon } from './Icons';
 import { PromptInput } from './PromptInput';
 import { SuggestionPills } from './SuggestionPills';
-import { CREATION_TYPES, SOCIAL_POST_FORMATS, SOCIAL_POST_DIMENSIONS, VIDEO_FORMATS, VIDEO_DIMENSIONS } from './constants';
+import {
+  CREATION_TYPES,
+  SOCIAL_POST_FORMATS,
+  SOCIAL_POST_DIMENSIONS,
+  VIDEO_FORMATS,
+  VIDEO_DIMENSIONS,
+} from './constants';
 import type { SelectedDamAsset } from './SelectedAssetsList';
 
 export function BuildHero() {
   const [inputValue, setInputValue] = useState('');
   const [creationTypeId, setCreationTypeId] = useState<string>('');
   const [socialPostFormatId, setSocialPostFormatId] = useState<string>(SOCIAL_POST_FORMATS[0].id);
-  const [socialPostDimensionId, setSocialPostDimensionId] = useState<string>(SOCIAL_POST_DIMENSIONS[0].id);
+  const [socialPostDimensionId, setSocialPostDimensionId] = useState<string>(
+    SOCIAL_POST_DIMENSIONS[0].id,
+  );
   const [videoFormatId, setVideoFormatId] = useState<string>(VIDEO_FORMATS[0].id);
   const [videoDimensionId, setVideoDimensionId] = useState<string>(VIDEO_DIMENSIONS[0].id);
   const [selectedDamAssets, setSelectedDamAssets] = useState<SelectedDamAsset[]>([]);
-  const [_selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   const sendMessage = useChatStore((s) => s.sendMessage);
   const isGenerating = useChatStore((s) => s.isStreaming);
@@ -56,8 +63,16 @@ export function BuildHero() {
     });
     setInputValue('');
   }, [
-    inputValue, isGenerating, creationTypeId, sendMessage, chatSidebarOpen, toggleChatSidebar,
-    currentView, activeCampaignId, activeCreationId, activeIterationId,
+    inputValue,
+    isGenerating,
+    creationTypeId,
+    sendMessage,
+    chatSidebarOpen,
+    toggleChatSidebar,
+    currentView,
+    activeCampaignId,
+    activeCreationId,
+    activeIterationId,
   ]);
 
   const handleApplyIdea = useCallback((idea: IdeaAction) => {
@@ -67,7 +82,6 @@ export function BuildHero() {
     if (idea.socialPostDimensionId) setSocialPostDimensionId(idea.socialPostDimensionId);
     if (idea.videoFormatId) setVideoFormatId(idea.videoFormatId);
     if (idea.videoDimensionId) setVideoDimensionId(idea.videoDimensionId);
-    if (idea.templateId != null) setSelectedTemplateId(idea.templateId);
   }, []);
 
   return (
@@ -100,7 +114,9 @@ export function BuildHero() {
         }}
       >
         {/* Header */}
-        <div style={{ marginBottom: '3rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div
+          style={{ marginBottom: '3rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+        >
           <h1
             style={{
               margin: 0,
@@ -142,7 +158,9 @@ export function BuildHero() {
         <SuggestionPills />
 
         {/* Discover and remix ideas */}
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+        <div
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '2rem' }}
+        >
           <IdeasGetStarted selectedAssets={ideasAssets} onApplyIdea={handleApplyIdea} />
         </div>
       </div>

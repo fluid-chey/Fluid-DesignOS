@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { nanoid } from 'nanoid';
 import type { Iteration } from '../lib/campaign-types';
 
 interface ExportActionsProps {
@@ -68,7 +69,7 @@ export function ExportActions({ iteration, iframeEl }: ExportActionsProps) {
     setLoading(fmt);
     setError(null);
 
-    const id = `cap_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const id = `cap_${nanoid(10)}`;
 
     try {
       const result = await new Promise<{ dataUrl?: string; error?: string }>((resolve) => {
@@ -81,7 +82,7 @@ export function ExportActions({ iteration, iframeEl }: ExportActionsProps) {
 
         iframeEl.contentWindow!.postMessage(
           { type: 'capture', id, fmt, scale: 1, h2c: h2cUrl.current },
-          '*'
+          '*',
         );
       });
 
@@ -132,11 +133,7 @@ export function ExportActions({ iteration, iframeEl }: ExportActionsProps) {
           isLoading={loading === 'webp'}
           onClick={() => exportImage('webp')}
         />
-        <ExportButton
-          label="ZIP"
-          isLoading={loading === 'html'}
-          onClick={exportHtml}
-        />
+        <ExportButton label="ZIP" isLoading={loading === 'html'} onClick={exportHtml} />
       </div>
       {error && <div style={styles.error}>{error}</div>}
     </div>

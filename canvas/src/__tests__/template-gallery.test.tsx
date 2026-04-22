@@ -63,7 +63,7 @@ describe('TemplateCustomizer', () => {
         campaignId="cmp_test"
         onBack={vi.fn()}
         onCreated={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText('Client Testimonial / Quote')).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('TemplateCustomizer', () => {
         campaignId="cmp_test"
         onBack={vi.fn()}
         onCreated={vi.fn()}
-      />
+      />,
     );
 
     const titleInput = screen.getByLabelText(/creation title/i);
@@ -93,7 +93,7 @@ describe('TemplateCustomizer', () => {
         campaignId="cmp_test"
         onBack={onBack}
         onCreated={vi.fn()}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByText(/back to templates/i));
@@ -115,13 +115,13 @@ describe('TemplateCustomizer', () => {
         campaignId="cmp_test"
         onBack={vi.fn()}
         onCreated={onCreated}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /create creation/i }));
 
     await waitFor(() => {
-      expect(onCreated).toHaveBeenCalledWith('cmp_test');
+      expect(onCreated).toHaveBeenCalledWith('cmp_test', 'crt_1', 'itr_1');
     });
 
     // Should have made 3 API calls
@@ -143,7 +143,7 @@ describe('TemplateCustomizer', () => {
         campaignId="cmp_test"
         onBack={vi.fn()}
         onCreated={vi.fn()}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /create creation/i }));

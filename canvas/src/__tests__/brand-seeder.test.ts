@@ -7,7 +7,12 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { closeDb, getDb } from '../lib/db';
-import { getVoiceGuideDocs, getVoiceGuideDoc, updateVoiceGuideDoc, getBrandPatterns } from '../server/db-api';
+import {
+  getVoiceGuideDocs,
+  getVoiceGuideDoc,
+  updateVoiceGuideDoc,
+  getBrandPatterns,
+} from '../server/db-api';
 import { seedVoiceGuideIfEmpty, seedBrandPatternsIfEmpty } from '../server/brand-seeder';
 import path from 'node:path';
 import os from 'node:os';
@@ -88,7 +93,7 @@ describe('seedBrandPatternsIfEmpty', () => {
   it('seeds rows from pattern-seeds markdown files', async () => {
     const count = await seedBrandPatternsIfEmpty(PATTERN_SEEDS_DIR);
     expect(count).toBeGreaterThan(0);
-    expect(count).toBe(12); // 12 pattern-seeds .md files
+    expect(count).toBe(14); // pattern-seeds .md files present on disk
   });
 
   it('is idempotent — second call returns existing count without re-inserting', async () => {
@@ -96,32 +101,37 @@ describe('seedBrandPatternsIfEmpty', () => {
     const returned = await seedBrandPatternsIfEmpty(PATTERN_SEEDS_DIR);
     const countAfter = getBrandPatterns().length;
     expect(countAfter).toBe(countBefore);
-    expect(returned).toBe(12); // returns pre-existing count
+    expect(returned).toBe(14); // returns pre-existing count
   });
 
-  it('getBrandPatterns with design-tokens category returns only design-token rows', () => {
-    const tokens = getBrandPatterns('design-tokens');
-    expect(tokens.length).toBeGreaterThan(0);
-    for (const pattern of tokens) {
-      expect(pattern.category).toBe('design-tokens');
+  it('getBrandPatterns with colors category returns only color rows', () => {
+    const colors = getBrandPatterns('colors');
+    expect(colors.length).toBeGreaterThan(0);
+    for (const pattern of colors) {
+      expect(pattern.category).toBe('colors');
     }
-    // color-palette, typography, opacity-patterns should all be in design-tokens
-    const slugs = tokens.map(t => t.slug);
+    const slugs = colors.map((t) => t.slug);
     expect(slugs).toContain('color-palette');
-    expect(slugs).toContain('typography');
     expect(slugs).toContain('opacity-patterns');
   });
 
-  it('getBrandPatterns with layout-archetype category returns layout-archetype rows', () => {
-    const layouts = getBrandPatterns('layout-archetype');
+  it('getBrandPatterns with typography category returns typography rows', () => {
+    const typography = getBrandPatterns('typography');
+    expect(typography.length).toBeGreaterThan(0);
+    const slugs = typography.map((t) => t.slug);
+    expect(slugs).toContain('typography');
+  });
+
+  it('getBrandPatterns with archetypes category returns archetype rows', () => {
+    const layouts = getBrandPatterns('archetypes');
     expect(layouts.length).toBeGreaterThan(0);
-    const slugs = layouts.map(l => l.slug);
+    const slugs = layouts.map((l) => l.slug);
     expect(slugs).toContain('layout-archetypes');
   });
 
   it('getBrandPatterns without filter returns all rows', () => {
     const all = getBrandPatterns();
-    expect(all.length).toBe(12);
+    expect(all.length).toBe(14);
   });
 
   it('each pattern has required fields with non-empty content', () => {
