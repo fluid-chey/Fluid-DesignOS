@@ -1,8 +1,8 @@
-import type { VariationStatus } from '../lib/types';
+import type { VersionStatus } from '../lib/types';
 
 export type GenerationStatus = 'pending' | 'generating' | 'complete';
 
-const STATUS_STYLES: Record<VariationStatus, { bg: string; color: string; label: string }> = {
+const STATUS_STYLES: Record<VersionStatus, { bg: string; color: string; label: string }> = {
   winner: { bg: '#22c55e22', color: '#22c55e', label: 'Winner' },
   rejected: { bg: '#ef444422', color: '#ef4444', label: 'Rejected' },
   final: { bg: '#eab30822', color: '#eab308', label: 'Final' },
@@ -18,14 +18,14 @@ const GENERATION_STYLES: Record<GenerationStatus, { bg: string; color: string; l
 const GENERATION_KEYS = new Set<string>(['pending', 'generating', 'complete']);
 
 interface StatusBadgeProps {
-  status: VariationStatus | GenerationStatus;
+  status: VersionStatus | GenerationStatus;
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const isGenerationStatus = GENERATION_KEYS.has(status);
   const style = isGenerationStatus
     ? (GENERATION_STYLES[status as GenerationStatus] ?? GENERATION_STYLES.pending)
-    : (STATUS_STYLES[status as VariationStatus] ?? STATUS_STYLES.unmarked);
+    : (STATUS_STYLES[status as VersionStatus] ?? STATUS_STYLES.unmarked);
 
   const pulse = isGenerationStatus && (GENERATION_STYLES[status as GenerationStatus]?.pulse ?? false);
 
@@ -47,7 +47,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
         fontWeight: 600,
         backgroundColor: style.bg,
         color: style.color,
-        textDecoration: (status as VariationStatus) === 'rejected' ? 'line-through' : 'none',
+        textDecoration: (status as VersionStatus) === 'rejected' ? 'line-through' : 'none',
         animation: pulse ? 'statusPulse 1.5s ease-in-out infinite' : 'none',
       }}>
         {style.label}
