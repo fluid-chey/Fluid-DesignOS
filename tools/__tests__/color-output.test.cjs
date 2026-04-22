@@ -84,7 +84,7 @@ test('brand-compliance: NO_COLOR=1 suppresses ANSI escapes in stderr', () => {
 
 test('brand-compliance: no TTY env → no ANSI escapes in stderr (baseline)', () => {
   const r = runCli('brand-compliance.cjs', [SOCIAL_POST, '--context', 'social'], {
-    env: { FORCE_COLOR: '', NO_COLOR: '' },
+    env: { FORCE_COLOR: '', NO_COLOR: '', CI: '' },
   });
   assert.ok(
     !hasAnsi(r.stderr),
@@ -118,7 +118,7 @@ test('dimension-check: NO_COLOR=1 suppresses ANSI escapes in stderr', () => {
 
 test('dimension-check: no TTY env → no ANSI escapes in stderr (baseline)', () => {
   const r = runCli('dimension-check.cjs', [SOCIAL_POST], {
-    env: { FORCE_COLOR: '', NO_COLOR: '' },
+    env: { FORCE_COLOR: '', NO_COLOR: '', CI: '' },
   });
   assert.ok(
     !hasAnsi(r.stderr),
@@ -155,7 +155,7 @@ test('schema-validation: NO_COLOR=1 suppresses ANSI escapes in stderr', () => {
 test('schema-validation: no TTY env → no ANSI escapes in stderr (baseline)', () => {
   const liq = getTmpLiquid();
   const r = runCli('schema-validation.cjs', [liq], {
-    env: { FORCE_COLOR: '', NO_COLOR: '' },
+    env: { FORCE_COLOR: '', NO_COLOR: '', CI: '' },
   });
   assert.ok(
     !hasAnsi(r.stderr),
