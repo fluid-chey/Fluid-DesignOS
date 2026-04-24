@@ -1510,3 +1510,180 @@ export function deleteBrandStyle(scope: string): boolean {
     .run(Date.now(), scope);
   return result.changes > 0;
 }
+
+// ─── Phase 24: Generated assets + tool audit helpers ──────────────────────────
+
+/**
+ * Insert a Gemini-generated image as a brand asset with source='generated'.
+ * metadata JSON captures prompt, model, aspect_ratio, idempotency_key, etc.
+ */
+export function insertGeneratedAsset(params: {
+  id: string;
+  name: string;
+  filePath: string;
+  mimeType: string;
+  sizeBytes: number;
+  metadata: Record<string, unknown>;
+}): BrandAsset {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO brand_assets (id, name, category, file_path, mime_type, size_bytes, tags, description, source, dam_deleted, metadata)
+     VALUES (?, ?, 'images', ?, ?, ?, '[]', NULL, 'generated', 0, ?)`,
+  ).run(
+    params.id,
+    params.name,
+    params.filePath,
+    params.mimeType,
+    params.sizeBytes,
+    JSON.stringify(params.metadata),
+  );
+
+  return {
+    id: params.id,
+    name: params.name,
+    category: 'images',
+    url: `/api/brand-assets/serve/${encodeURIComponent(params.name)}`,
+    mimeType: params.mimeType,
+    sizeBytes: params.sizeBytes,
+    tags: [],
+    source: 'generated',
+    damDeleted: false,
+    description: null,
+  };
+}
+
+export interface BrandAssetSearchResult {
+  id: string;
+  name: string;
+  category: string;
+  filePath: string;
+  mimeType: string;
+  description: string | null;
+  score: number;
+  url: string;
+}
+
+/**
+ * Text-score search over brand_assets name, description, and tags.
+ * Scoring per query token:
+ *   +3 if token matches name (case-insensitive)
+ *   +2 if token matches description
+ *   +1 if token matches tags JSON string
+ *   +1 if category matches category filter
+ * Returns score-sorted descending, capped at limit (default 10, max 25).
+ */
+export function searchBrandAssets(
+  query: string,
+  category?: string,
+  limit: number = 10,
+): BrandAssetSearchResult[] {
+  const db = getDb();
+  const effectiveLimit = Math.min(limit, 25);
+  const tokens = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+
+  if (tokens.length === 0) return [];
+
+  // Fetch candidate rows (filtered by category when provided, excluding deleted)
+  const rows = (
+    category
+      ? (db
+          .prepare(
+            'SELECT id, name, category, file_path, mime_type, description, tags FROM brand_assets WHERE category = ? AND (dam_deleted = 0 OR dam_deleted IS NULL)',
+          )
+          .all(category) as Record<string, unknown>[])
+      : (db
+          .prepare(
+            'SELECT id, name, category, file_path, mime_type, description, tags FROM brand_assets WHERE (dam_deleted = 0 OR dam_deleted IS NULL)',
+          )
+          .all() as Record<string, unknown>[])
+  );
+
+  const scored: BrandAssetSearchResult[] = [];
+
+  for (const row of rows) {
+    const nameLower = (row.name as string).toLowerCase();
+    const descLower = ((row.description as string | null) ?? '').toLowerCase();
+    const tagsLower = (row.tags as string).toLowerCase();
+    const catLower = (row.category as string).toLowerCase();
+
+    let score = 0;
+    for (const token of tokens) {
+      if (nameLower.includes(token)) score += 3;
+      if (descLower.includes(token)) score += 2;
+      if (tagsLower.includes(token)) score += 1;
+    }
+    if (category && catLower === category.toLowerCase()) score += 1;
+
+    if (score > 0) {
+      scored.push({
+        id: row.id as string,
+        name: row.name as string,
+        category: row.category as string,
+        filePath: row.file_path as string,
+        mimeType: row.mime_type as string,
+        description: (row.description as string | null) ?? null,
+        score,
+        url: `/api/brand-assets/serve/${encodeURIComponent(row.name as string)}`,
+      });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, effectiveLimit);
+}
+
+export interface ToolAuditLogEntry {
+  sessionId: string | null;
+  tool: string;
+  argsHash: string;
+  tier: string;
+  decision: string;
+  costUsdEst?: number;
+  outcome?: string;
+  detailJson?: string;
+}
+
+/**
+ * Insert a row into tool_audit_log. Used by the tool-dispatch wrapper (Phase 24+).
+ * id is auto-generated via nanoid, timestamp is Date.now().
+ */
+export function writeToolAuditLog(entry: ToolAuditLogEntry): void {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO tool_audit_log (id, session_id, tool, args_hash, tier, decision, cost_usd_est, outcome, timestamp, detail_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    nanoid(),
+    entry.sessionId,
+    entry.tool,
+    entry.argsHash,
+    entry.tier,
+    entry.decision,
+    entry.costUsdEst ?? 0,
+    entry.outcome ?? null,
+    Date.now(),
+    entry.detailJson ?? null,
+  );
+}
+
+/**
+ * Sum cost_usd_est from tool_audit_log for the current UTC day (midnight to now).
+ * Pass sinceTs (Unix ms) to override the start timestamp.
+ * Used by later dispatches to enforce daily spend caps.
+ */
+export function dailySpendUsd(sinceTs?: number): number {
+  const db = getDb();
+  const startOfDay = sinceTs ?? (() => {
+    const now = new Date();
+    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  })();
+  const result = db
+    .prepare(
+      'SELECT COALESCE(SUM(cost_usd_est), 0) as total FROM tool_audit_log WHERE timestamp >= ?',
+    )
+    .get(startOfDay) as { total: number };
+  return result.total;
+}
