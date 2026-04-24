@@ -464,6 +464,15 @@ function initSchema(db: Database.Database): void {
     // idempotent migration: ignore "column/index already exists" errors
   }
 
+  // Migration (Phase 25): add sdk_session_id to chats.
+  // Maps our chatId to the Claude Agent SDK session UUID used by query(resume).
+  // Null until the first query() call for that chat; set on first turn.
+  try {
+    db.exec('ALTER TABLE chats ADD COLUMN sdk_session_id TEXT');
+  } catch {
+    // idempotent migration: ignore "column/index already exists" errors
+  }
+
   // Phase 24: tool_audit_log — append-only audit trail for all tool invocations.
   // Survives chat deletion (session_id FK is intentionally nullable).
   db.exec(`

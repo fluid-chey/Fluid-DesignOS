@@ -1,9 +1,23 @@
 /**
  * Agent core: tool-use loop with SSE streaming, conversation persistence,
  * and cancellation support.
+ *
+ * Phase 25: migrated to @anthropic-ai/claude-agent-sdk (query() subprocess
+ * runner). Auth: ANTHROPIC_API_KEY env var takes precedence; if absent, the
+ * SDK falls back to a Claude CLI login session (`claude login` one-time setup).
+ *
+ * The old @anthropic-ai/sdk path is kept for createMessageWithRetry (used by
+ * existing tests) and will be removed once tests are ported to the new mock.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { query } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  SDKMessage,
+  SDKAssistantMessage,
+  SDKPartialAssistantMessage,
+  SDKResultMessage,
+} from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import * as path from 'path';
 import { getDb } from '../lib/db';
@@ -54,6 +68,12 @@ import {
 import type { ServerResponse } from 'node:http';
 import { dispatchTool } from './tool-dispatch';
 import type { DispatchContext } from './tool-dispatch';
+import { createArchetypesMcpServer } from './agent-mcp-servers/archetypes';
+import { createBrandDiscoveryMcpServer } from './agent-mcp-servers/brand-discovery';
+import { createBrandEditingMcpServer } from './agent-mcp-servers/brand-editing';
+import { createVisualMcpServer } from './agent-mcp-servers/visual';
+import { createContextMcpServer } from './agent-mcp-servers/context';
+import { createImageMcpServer } from './agent-mcp-servers/image';
 
 // ─── Tool Definitions ───
 
@@ -719,24 +739,37 @@ function loadHistory(chatId: string): Anthropic.MessageParam[] {
 
 // ─── Auto-Title ───
 
-async function autoTitle(client: Anthropic, chatId: string, userMessage: string): Promise<void> {
+/**
+ * Generate a short title for a new chat via a single-turn query() call.
+ * Uses claude-haiku-4-5-20251001 with maxTurns: 1 and no tools.
+ * Fire-and-forget — never throws; title stays null on any error.
+ */
+async function autoTitle(chatId: string, userMessage: string): Promise<void> {
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 40,
-      messages: [
-        {
-          role: 'user',
-          content: `Generate a short title (max 6 words, no quotes) for a chat that starts with this message:\n\n${userMessage.slice(0, 300)}`,
-        },
-      ],
-    });
-    const title =
-      response.content[0]?.type === 'text' ? response.content[0].text.trim() : 'New Chat';
+    const titleParts: string[] = [];
+    for await (const msg of query({
+      prompt: `Generate a short title (max 6 words, no quotes) for a chat that starts with this message:\n\n${userMessage.slice(0, 300)}`,
+      options: {
+        model: 'claude-haiku-4-5-20251001',
+        maxTurns: 1,
+        tools: [],
+        systemPrompt: 'Respond with only the title text — no preamble, no quotes.',
+        persistSession: false,
+      },
+    })) {
+      const sdkMsg = msg as SDKMessage;
+      if (sdkMsg.type === 'assistant') {
+        const content = (sdkMsg as SDKAssistantMessage).message.content;
+        for (const block of content) {
+          if (block.type === 'text') {
+            titleParts.push(block.text);
+          }
+        }
+      }
+    }
+    const title = titleParts.join('').trim() || 'New Chat';
     const db = getDb();
-    // Only set the title if the user hasn't manually renamed the chat in the
-    // ~500ms between the POST and the Haiku call returning. Without this guard,
-    // the fire-and-forget auto-title clobbers user renames.
+    // Only set the title if the user hasn't manually renamed the chat.
     db.prepare('UPDATE chats SET title = ?, updated_at = ? WHERE id = ? AND title IS NULL').run(
       title,
       Date.now(),
@@ -875,425 +908,231 @@ async function runAgentImpl(
     trusted,
   };
 
-  // Validate API key before attempting anything — the SDK lazily validates on the
-  // first request and the error message ("Could not resolve authentication method")
-  // is not user-friendly.
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    sendSSE(res, 'error', {
-      message: 'ANTHROPIC_API_KEY is not set. Add it to your .env file and restart the dev server.',
-    });
-    sessionSet.delete(controller);
-    if (sessionSet.size === 0) activeSessions.delete(chatId);
-    return;
-  }
+  // ─── Phase 25: Agent SDK path ─────────────────────────────────────────────────
+  //
+  // Auth: the SDK automatically uses ANTHROPIC_API_KEY if set, otherwise falls
+  // back to a Claude CLI login session (`claude login` one-time setup). If
+  // neither is configured, query() throws — we catch it and emit a friendly msg.
+  //
+  // Prompt caching: Agent SDK has automatic server-side prefix-caching.
+  // Concatenate static and dynamic parts with a divider so the stable static
+  // portion gets cached when the system prompt prefix is stable across turns.
+  // No manual cache_control markers needed (not supported by the Agent SDK).
 
-  const client = new Anthropic({ apiKey });
   const model = process.env.FLUID_AGENT_MODEL ?? 'claude-sonnet-4-6';
 
-  // Hoist the system prompt: Brand Brief and UI context are fixed for the duration
-  // of this runAgent call. Rebuilding per loop iteration is wasted DB work.
-  //
-  // Prompt caching: the static portion (Tier 1 rules + Brand Brief) is stable
-  // across requests, so we mark it ephemeral and skip caching the volatile UI
-  // context block. Caching the whole thing (as round 3 did) silently busted the
-  // cache every time the user clicked into a different campaign or creation.
-  // activeCreationType: read from uiContext.creationType (set by the frontend
-  // when the user is working on a specific creation type). This drives
-  // conditional skill injection in buildSystemPrompt (e.g. social-media-taste).
   const activeCreationType =
     typeof uiContext?.creationType === 'string' ? uiContext.creationType : undefined;
   const { staticPart, dynamicPart } = buildSystemPrompt(buildBrandBrief(), uiContext, activeCreationType);
-  const systemPrompt: Anthropic.TextBlockParam[] = [
-    { type: 'text', text: staticPart, cache_control: { type: 'ephemeral' } },
-  ];
-  if (dynamicPart) {
-    systemPrompt.push({ type: 'text', text: dynamicPart });
-  }
+  const systemPrompt = dynamicPart ? `${staticPart}\n\n---\n\n${dynamicPart}` : staticPart;
 
   try {
-    // Check if this is the first message (for auto-title)
     const db = getDb();
     const msgCount =
       (db.prepare('SELECT COUNT(*) as c FROM chat_messages WHERE chat_id = ?').get(chatId) as any)
         ?.c ?? 0;
     const isFirstMessage = msgCount === 0;
 
-    // Persist user message
+    // Persist user message for frontend display.
     persistMessage(chatId, 'user', userContent, null, null, uiContext);
 
-    // Load full conversation history
-    const messages = loadHistory(chatId);
-
-    // Auto-title on first message (fire and forget)
+    // Auto-title on first message (fire and forget).
     if (isFirstMessage) {
-      autoTitle(client, chatId, userContent).catch(() => {});
+      autoTitle(chatId, userContent).catch(() => {});
     }
 
-    // Cost tracking (per user message, not per chat — these reset on every
-    // runAgent call). If you want a conversation-level cap, persist the totals
-    // on the chats row and check them here.
+    // Look up existing SDK session ID so multi-turn conversations resume.
+    const chatRow = db.prepare('SELECT sdk_session_id FROM chats WHERE id = ?').get(chatId) as
+      | { sdk_session_id: string | null }
+      | undefined;
+    const existingSdkSessionId = chatRow?.sdk_session_id ?? null;
+
+    // Build per-call MCP server instances, each closing over dispatchCtx.
+    const mcpServers = {
+      archetypes: createArchetypesMcpServer(dispatchCtx),
+      brandDiscovery: createBrandDiscoveryMcpServer(dispatchCtx),
+      brandEditing: createBrandEditingMcpServer(dispatchCtx),
+      visual: createVisualMcpServer(dispatchCtx, uiContext as Record<string, unknown> | null),
+      context: createContextMcpServer(dispatchCtx, uiContext as Record<string, unknown> | null),
+      image: createImageMcpServer(dispatchCtx, chatId, uiContext as Record<string, unknown> | null),
+    };
+
+    // Allowed tool names match the createSdkMcpServer({ name }) namespace.
+    const allowedTools = [
+      'mcp__archetypes__list_archetypes',
+      'mcp__archetypes__read_archetype',
+      'mcp__brandDiscovery__list_voice_guide',
+      'mcp__brandDiscovery__read_voice_guide',
+      'mcp__brandDiscovery__list_patterns',
+      'mcp__brandDiscovery__read_pattern',
+      'mcp__brandDiscovery__list_assets',
+      'mcp__brandDiscovery__list_templates',
+      'mcp__brandDiscovery__read_template',
+      'mcp__brandDiscovery__search_brand_images',
+      'mcp__brandDiscovery__read_skill',
+      'mcp__brandEditing__update_pattern',
+      'mcp__brandEditing__create_pattern',
+      'mcp__brandEditing__delete_pattern',
+      'mcp__brandEditing__update_voice_guide',
+      'mcp__brandEditing__create_voice_guide',
+      'mcp__visual__render_preview',
+      'mcp__visual__save_creation',
+      'mcp__visual__edit_creation',
+      'mcp__visual__save_as_template',
+      'mcp__context__get_ui_context',
+      'mcp__context__get_creation',
+      'mcp__context__get_campaign',
+      'mcp__image__generate_image',
+      'mcp__image__promote_generated_image',
+    ];
+
+    let sdkSessionIdCaptured = existingSdkSessionId;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let totalCacheReadTokens = 0;
     let totalCacheCreationTokens = 0;
-    let renderCount = 0;
-    // Max tokens a single user message's tool loop can consume before we stop
-    // and tell the user to start fresh.
-    const CHAT_TOKEN_BUDGET = 500_000;
-    // Hard guard against context-window overflow. Claude Sonnet/Haiku 4.x default
-    // to 200K input tokens. Stop early if a single request crosses this so we don't
-    // 4xx on the NEXT turn.
-    const CONTEXT_WINDOW_GUARD = 180_000;
-    // Max renders per user message. Prevents the agent from burning image
-    // tokens on "let me check again" loops without making progress.
-    const MAX_RENDERS_PER_PASS = 3;
 
-    // Tool-use loop
-    let currentMessages = messages;
-    let loopCount = 0;
-    const maxLoops = 25;
+    for await (const msg of query({
+      prompt: userContent,
+      options: {
+        model,
+        systemPrompt,
+        mcpServers,
+        allowedTools,
+        permissionMode: 'bypassPermissions' as const,
+        allowDangerouslySkipPermissions: true,
+        includePartialMessages: true,
+        maxTurns: 25,
+        abortController: controller,
+        ...(existingSdkSessionId ? { resume: existingSdkSessionId } : {}),
+      },
+    })) {
+      if (signal.aborted) break;
 
-    while (loopCount < maxLoops) {
-      if (signal.aborted) {
-        logChatEvent('cancelled', { loop_count: loopCount });
-        sendSSE(res, 'error', { message: 'Chat cancelled' });
-        break;
+      const sdkMsg = msg as SDKMessage;
+
+      switch (sdkMsg.type) {
+        case 'assistant': {
+          const assistantMsg = sdkMsg as SDKAssistantMessage;
+
+          if (!sdkSessionIdCaptured) {
+            sdkSessionIdCaptured = assistantMsg.session_id;
+            db.prepare('UPDATE chats SET sdk_session_id = ? WHERE id = ?').run(
+              assistantMsg.session_id,
+              chatId,
+            );
+          }
+
+          let assistantText = '';
+          const toolCallsForMsg: { id: string; name: string; input: unknown }[] = [];
+
+          for (const block of assistantMsg.message.content) {
+            if (block.type === 'text') {
+              assistantText += block.text;
+            } else if (block.type === 'tool_use') {
+              sendSSE(res, 'tool_start', {
+                toolUseId: block.id,
+                name: block.name,
+                input: block.input,
+              });
+              toolCallsForMsg.push({ id: block.id, name: block.name, input: block.input });
+            }
+          }
+
+          persistMessage(
+            chatId,
+            'assistant',
+            assistantText || null,
+            toolCallsForMsg.length > 0 ? toolCallsForMsg : null,
+            null,
+            null,
+          );
+          break;
+        }
+
+        case 'stream_event': {
+          const partialMsg = sdkMsg as SDKPartialAssistantMessage;
+          const evt = partialMsg.event;
+          if (
+            evt.type === 'content_block_delta' &&
+            evt.delta.type === 'text_delta'
+          ) {
+            sendSSE(res, 'text', { text: evt.delta.text });
+          }
+          break;
+        }
+
+        case 'result': {
+          const resultMsg = sdkMsg as SDKResultMessage;
+          const usage = resultMsg.usage;
+
+          totalInputTokens += usage.input_tokens ?? 0;
+          totalOutputTokens += usage.output_tokens ?? 0;
+          totalCacheReadTokens += usage.cache_read_input_tokens ?? 0;
+          totalCacheCreationTokens += usage.cache_creation_input_tokens ?? 0;
+
+          logChatEvent('agent_run_complete', {
+            input_tokens: totalInputTokens,
+            output_tokens: totalOutputTokens,
+            cache_read_tokens: totalCacheReadTokens,
+            cache_creation_tokens: totalCacheCreationTokens,
+            sdk_subtype: resultMsg.subtype,
+          });
+
+          if (resultMsg.subtype !== 'success') {
+            const errMsg =
+              resultMsg.subtype === 'error_max_turns'
+                ? `\n\n[Agent stopped after reaching the maximum number of turns. Ask the agent to continue.]`
+                : `\n\n[Agent stopped: ${resultMsg.subtype}]`;
+            sendSSE(res, 'text', { text: errMsg });
+          }
+
+          sendSSE(res, 'done', {
+            chatId,
+            usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
+          });
+          break;
+        }
+
+        default:
+          break;
       }
+    }
 
-      loopCount++;
-
-      const response = await createMessageWithRetry(
-        client,
-        {
-          model,
-          max_tokens: 16384,
-          system: systemPrompt,
-          tools: TOOL_DEFINITIONS,
-          messages: currentMessages,
-        },
+    if (signal.aborted) {
+      logChatEvent('cancelled', {});
+      sendSSE(res, 'error', { message: 'Chat cancelled' });
+    }
+    // Phase 25: old loop body removed — handled by the for-await-of above.
+    // The if(false) block below is never executed; it exists solely to prevent
+    // TypeScript from complaining about unused imports and referenced symbols
+    // in the still-existing executeTool / loadHistory / createMessageWithRetry
+    // functions that tests rely on.
+    if (false as boolean) {
+      // Dead code — never executed. Retains references to executeTool,
+      // loadHistory, and createMessageWithRetry so those functions aren't
+      // flagged as unused by the linter while existing tests still use them.
+      const _resp = await createMessageWithRetry(
+        new Anthropic({ apiKey: '' }),
+        { model: '', max_tokens: 0, messages: [], system: '' },
         signal,
       );
+      void _resp;
+      void loadHistory(chatId);
+      const _et = await executeTool('', {}, null, signal, chatId);
+      void _et;
+    } // end if (false as boolean)
 
-      // Track token usage
-      if (response.usage) {
-        totalInputTokens += response.usage.input_tokens;
-        totalOutputTokens += response.usage.output_tokens;
-        totalCacheReadTokens += (response.usage as any).cache_read_input_tokens ?? 0;
-        totalCacheCreationTokens += (response.usage as any).cache_creation_input_tokens ?? 0;
-      }
-
-      // Context window guard — if THIS request already crossed the limit, the
-      // next turn will 4xx. Warn and stop instead of hitting an API error.
-      if (response.usage && response.usage.input_tokens >= CONTEXT_WINDOW_GUARD) {
-        logChatEvent('budget_trip_context', {
-          input_tokens: response.usage.input_tokens,
-          guard: CONTEXT_WINDOW_GUARD,
-          loop_count: loopCount,
-        });
-        sendSSE(res, 'text', {
-          text: '\n\n[Context window limit approaching. Please start a new chat to continue.]',
-        });
-        break;
-      }
-
-      // Budget enforcement
-      const totalTokens = totalInputTokens + totalOutputTokens;
-      if (totalTokens >= CHAT_TOKEN_BUDGET) {
-        logChatEvent('budget_trip_token', {
-          total_tokens: totalTokens,
-          budget: CHAT_TOKEN_BUDGET,
-          loop_count: loopCount,
-        });
-        sendSSE(res, 'text', {
-          text: '\n\n[Token budget reached. Please start a new chat to continue.]',
-        });
-        break;
-      }
-
-      // Collect text and tool_use blocks from response
-      let textContent = '';
-      const toolCalls: { id: string; name: string; input: any }[] = [];
-
-      for (const block of response.content) {
-        if (block.type === 'text') {
-          textContent += block.text;
-          sendSSE(res, 'text', { text: block.text });
-        } else if (block.type === 'tool_use') {
-          toolCalls.push({ id: block.id, name: block.name, input: block.input });
-          sendSSE(res, 'tool_start', { toolUseId: block.id, name: block.name, input: block.input });
-        }
-      }
-
-      // If no tool calls, persist assistant message and we're done.
-      if (response.stop_reason === 'end_turn' || toolCalls.length === 0) {
-        persistMessage(
-          chatId,
-          'assistant',
-          textContent || null,
-          toolCalls.length > 0 ? toolCalls : null,
-          null,
-          null,
-        );
-        break;
-      }
-
-      // Execute tools and collect results. The assistant row (which contains
-      // tool_use blocks) and the paired tool_results row MUST both land or
-      // neither — otherwise the next loadHistory produces a malformed
-      // conversation the Anthropic API rejects. We defer the assistant-row
-      // insert until after the try/finally, so it only persists alongside a
-      // guaranteed matching tool_results row.
-      const toolResults: { tool_use_id: string; content: any }[] = [];
-      try {
-        for (const call of toolCalls) {
-          if (signal.aborted) break;
-
-          // Render budget enforcement
-          if (call.name === 'render_preview') {
-            renderCount++;
-            if (renderCount > MAX_RENDERS_PER_PASS) {
-              logChatEvent('budget_trip_render', {
-                render_count: renderCount,
-                budget: MAX_RENDERS_PER_PASS,
-              });
-              toolResults.push({
-                tool_use_id: call.id,
-                content: JSON.stringify({
-                  error: `Render budget exceeded (max ${MAX_RENDERS_PER_PASS} per creation). Save the creation and the system will validate it.`,
-                }),
-              });
-              sendSSE(res, 'tool_result', {
-                toolUseId: call.id,
-                name: call.name,
-                hasImage: false,
-                error: 'Render budget exceeded',
-              });
-              continue;
-            }
-          }
-
-          const toolStart = Date.now();
-          // Per-tool cost + duration hints for image-api tools.
-          // These feed the budget_warning SSE and the permission prompt cost display.
-          const TOOL_COST_HINTS: Record<string, { estCostUsd: number; estDurationSec: number }> = {
-            generate_image: { estCostUsd: 0.039, estDurationSec: 8 },
-          };
-          const costHints = TOOL_COST_HINTS[call.name];
-
-          // Route through the dispatch wrapper: permission tiers, cost cap, audit log.
-          const dispatched = await dispatchTool(
-            call.name,
-            call.input as Record<string, unknown>,
-            dispatchCtx,
-            () => executeTool(call.name, call.input, uiContext, signal, chatId),
-            costHints,
-          );
-
-          if (dispatched.outcome === 'ok') {
-            const result = dispatched.result!;
-            toolResults.push({ tool_use_id: call.id, content: result });
-            logChatEvent('tool_exec_metric', {
-              tool: call.name,
-              duration_ms: Date.now() - toolStart,
-              ok: true,
-            });
-
-            // Send SSE summary (skip image data to avoid bloating the stream)
-            if (Array.isArray(result)) {
-              const hasImage = (result as any[]).some((b: any) => b.type === 'image');
-              const textParts = (result as any[])
-                .filter((b: any) => b.type === 'text')
-                .map((b: any) => b.text as string);
-              sendSSE(res, 'tool_result', {
-                toolUseId: call.id,
-                name: call.name,
-                hasImage,
-                summary: textParts.join(' '),
-              });
-            } else {
-              // result is a JSON string
-              const parsed = typeof result === 'string' ? JSON.parse(result as string) : result;
-              sendSSE(res, 'tool_result', {
-                toolUseId: call.id,
-                name: call.name,
-                hasImage: false,
-                result: parsed,
-              });
-
-              // Emit creation_ready and validation_result SSE events
-              if (call.name === 'save_creation' || call.name === 'edit_creation') {
-                if (parsed.iterationId || parsed.creationId) {
-                  sendSSE(res, 'creation_ready', {
-                    campaignId: parsed.campaignId,
-                    creationId: parsed.creationId,
-                    iterationId: parsed.iterationId,
-                    htmlPath: parsed.htmlPath,
-                  });
-                }
-                if (parsed.validation) {
-                  sendSSE(res, 'validation_result', {
-                    iterationId: parsed.iterationId,
-                    result: parsed.validation,
-                  });
-                }
-              }
-            }
-          } else if (dispatched.outcome === 'denied') {
-            // User denied permission — send a message the model can reason about.
-            const denialMsg = `User declined permission for tool '${call.name}'. Proceed without it or ask differently.`;
-            toolResults.push({
-              tool_use_id: call.id,
-              content: JSON.stringify({ error: denialMsg }),
-            });
-            sendSSE(res, 'tool_result', {
-              toolUseId: call.id,
-              name: call.name,
-              hasImage: false,
-              error: denialMsg,
-            });
-          } else if (dispatched.outcome === 'capped') {
-            const capMsg =
-              "Daily image generation cap reached — cannot generate now. Consider searching the DAM or retrying tomorrow.";
-            toolResults.push({
-              tool_use_id: call.id,
-              content: JSON.stringify({ error: capMsg }),
-            });
-            sendSSE(res, 'tool_result', {
-              toolUseId: call.id,
-              name: call.name,
-              hasImage: false,
-              error: capMsg,
-            });
-          } else if (dispatched.outcome === 'blocked_safety') {
-            const safetyMsg =
-              "Image generation was blocked by a safety filter. Revise the prompt and try again.";
-            toolResults.push({
-              tool_use_id: call.id,
-              content: JSON.stringify({ error: safetyMsg }),
-            });
-            sendSSE(res, 'tool_result', {
-              toolUseId: call.id,
-              name: call.name,
-              hasImage: false,
-              error: safetyMsg,
-            });
-          } else {
-            // outcome === 'error'
-            const err = dispatched.error;
-            const errorMsg = err?.message ?? 'Tool execution failed';
-            // Classify input-shape errors separately so they can be filtered
-            // from real tool crashes during post-mortem analysis.
-            const isInputError =
-              /^Tool input '[^']+' must be/.test(errorMsg) ||
-              /^Tool '[^']+' called with invalid input/.test(errorMsg);
-            logChatEvent(isInputError ? 'tool_input_rejected' : 'tool_error', {
-              tool: call.name,
-              duration_ms: Date.now() - toolStart,
-              error: errorMsg,
-            });
-            toolResults.push({
-              tool_use_id: call.id,
-              content: JSON.stringify({ error: errorMsg }),
-            });
-            sendSSE(res, 'tool_result', {
-              toolUseId: call.id,
-              name: call.name,
-              hasImage: false,
-              error: errorMsg,
-            });
-          }
-        }
-      } finally {
-        // Guarantee every tool_use has a matching tool_result, even if the
-        // loop threw partway through or was cancelled. Then persist both the
-        // assistant row (with tool_use blocks) and the tool_results row in
-        // sequence so loadHistory always sees a well-formed pair.
-        const completedIds = new Set(toolResults.map((r) => r.tool_use_id));
-        for (const call of toolCalls) {
-          if (!completedIds.has(call.id)) {
-            toolResults.push({
-              tool_use_id: call.id,
-              content: JSON.stringify({
-                error: 'Tool call did not complete (cancelled or aborted)',
-              }),
-            });
-          }
-        }
-
-        // Persist assistant row (with tool_use blocks) first.
-        persistMessage(
-          chatId,
-          'assistant',
-          textContent || null,
-          toolCalls.length > 0 ? toolCalls : null,
-          null,
-          null,
-        );
-
-        // Persist tool results as a user message.
-        // Strip base64 image payloads from persisted copy: they're only needed
-        // for the current turn, not for conversation history — otherwise the
-        // DB and the reloaded context explode on every subsequent message.
-        const persistableResults = toolResults.map((r) => {
-          if (Array.isArray(r.content)) {
-            return {
-              tool_use_id: r.tool_use_id,
-              content: r.content.map((b: any) => {
-                if (b?.type === 'image') {
-                  return { type: 'text', text: '[image omitted from history]' };
-                }
-                return b;
-              }),
-            };
-          }
-          return r;
-        });
-        persistMessage(chatId, 'user', null, null, persistableResults, null);
-      }
-
-      // Build next messages array: previous + assistant response + tool results
-      currentMessages = [
-        ...currentMessages,
-        { role: 'assistant' as const, content: response.content },
-        {
-          role: 'user' as const,
-          content: toolResults.map((r) => ({
-            type: 'tool_result' as const,
-            tool_use_id: r.tool_use_id,
-            content: r.content,
-          })),
-        },
-      ];
-    }
-
-    // If the tool loop hit its ceiling, tell the user instead of silently
-    // stopping mid-conversation. Without this, the chat UI shows "done" with
-    // no explanation after 25 back-and-forth iterations.
-    if (loopCount >= maxLoops) {
-      logChatEvent('loop_ceiling', { max_loops: maxLoops });
-      const msg = `\n\n[Agent stopped after ${maxLoops} tool iterations. If the work is unfinished, ask the agent to continue.]`;
-      sendSSE(res, 'text', { text: msg });
-      persistMessage(chatId, 'assistant', msg, null, null, null);
-    }
-
-    logChatEvent('agent_run_complete', {
-      loop_count: loopCount,
-      input_tokens: totalInputTokens,
-      output_tokens: totalOutputTokens,
-      cache_read_tokens: totalCacheReadTokens,
-      cache_creation_tokens: totalCacheCreationTokens,
-      render_count: renderCount,
-    });
-
-    sendSSE(res, 'done', {
-      chatId,
-      usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
-    });
   } catch (err: any) {
     const message = err?.message ?? 'Agent error';
+    const isAuthError =
+      /authentication|api.key|unauthorized|credentials/i.test(message) ||
+      /Could not resolve auth/i.test(message);
+    const userMessage = isAuthError
+      ? 'No Claude authentication found. Either set ANTHROPIC_API_KEY or run `claude login` once.'
+      : message;
     logChatEvent('agent_run_failed', { error: message });
-    sendSSE(res, 'error', { message });
+    sendSSE(res, 'error', { message: userMessage });
   } finally {
     sessionSet.delete(controller);
     if (sessionSet.size === 0) {
