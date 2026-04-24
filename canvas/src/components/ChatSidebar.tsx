@@ -69,13 +69,17 @@ export function ChatSidebar() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
+    // Always include every field (even as null) so the agent's system prompt
+    // renders a consistent "Active campaign: none" instead of silently omitting
+    // the line when nothing is selected. Keeps the model from guessing whether
+    // the field is "undefined" vs "intentionally unset".
     sendMessage(
       input.trim(),
       {
-        currentView,
-        activeCampaignId,
-        activeCreationId,
-        activeIterationId,
+        currentView: currentView ?? null,
+        activeCampaignId: activeCampaignId ?? null,
+        activeCreationId: activeCreationId ?? null,
+        activeIterationId: activeIterationId ?? null,
       },
       pendingUpload ? [pendingUpload.id] : undefined,
     );

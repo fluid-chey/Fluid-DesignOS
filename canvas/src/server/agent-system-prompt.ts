@@ -36,6 +36,10 @@ When creating an asset:
 - Only modify brand data (patterns, voice guide) when the user explicitly asks.
 - When iterating on a creation, preserve the user's direct edits (from the slot editor) unless they say otherwise.
 
+## Saving Creations
+
+When the user asks for a one-off creation ("create a post", "make a one-pager", etc.) without referencing a campaign, call \`save_creation\` WITHOUT \`campaignId\` — the result lands in the Creations tab as a standalone creation. Only include \`campaignId\` when "Active campaign" in the context below is a real campaign ID, meaning the user is viewing or working inside that campaign. Never ask the user which campaign to use — they can move creations later.
+
 ## Platform Dimensions
 
 Instagram Post: 1080x1350 (default — portrait 4:5)
@@ -93,11 +97,11 @@ const SOCIAL_CREATION_TYPES = new Set([
 export function buildSystemPrompt(
   brandBrief: string,
   uiContext?: {
-    currentView?: string;
-    activeCampaignId?: string;
-    activeCreationId?: string;
-    activeIterationId?: string;
-    creationType?: string;
+    currentView?: string | null;
+    activeCampaignId?: string | null;
+    activeCreationId?: string | null;
+    activeIterationId?: string | null;
+    creationType?: string | null;
   } | null,
   activeCreationType?: string,
 ): SystemPromptParts {
@@ -108,7 +112,10 @@ export function buildSystemPrompt(
   if (brandBrief) staticParts.push(brandBrief);
 
   // Conditionally inject social-media-taste skill for social creation types
-  if (effectiveCreationType && SOCIAL_CREATION_TYPES.has(effectiveCreationType)) {
+  if (
+    typeof effectiveCreationType === 'string' &&
+    SOCIAL_CREATION_TYPES.has(effectiveCreationType)
+  ) {
     if (cachedTasteSkill === null) {
       try {
         cachedTasteSkill = fs.readFileSync(

@@ -70,7 +70,7 @@ export function createVisualMcpServer(
 
       tool(
         'save_creation',
-        'Save HTML as a new creation in a campaign. Returns IDs for the campaign, creation, slide, and iteration.',
+        "Save HTML as a creation. Omit campaignId for a standalone creation (appears in the Creations tab). Only include campaignId when the UI context indicates an active campaign or the user asked to save into a specific campaign.",
         {
           html: z.string().describe('Self-contained HTML'),
           slotSchema: z
@@ -83,7 +83,9 @@ export function createVisualMcpServer(
           campaignId: z
             .string()
             .optional()
-            .describe('Optional existing campaign ID to add to'),
+            .describe(
+              "Existing campaign ID to save into. Omit for a standalone creation — it will be filed under the Creations tab. Only set when the UI's active campaign is a real campaign or the user explicitly named a campaign.",
+            ),
         },
         async (args) => {
           const result = await dispatchTool(

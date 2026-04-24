@@ -171,21 +171,6 @@ export function parseChannelHints(prompt: string): {
 }
 
 /**
- * Get or create the singleton "__standalone__" sentinel campaign.
- * Standalone creations (single-asset prompts) are filed under this campaign
- * to satisfy the NOT NULL FK constraint on creations.campaign_id.
- */
-function getOrCreateStandaloneCampaign(): string {
-  const db = getDb();
-  const row = db.prepare("SELECT id FROM campaigns WHERE title = '__standalone__'").get() as
-    | { id: string }
-    | undefined;
-  if (row) return row.id;
-  const campaign = createCampaign({ title: '__standalone__', channels: ['standalone'] });
-  return campaign.id;
-}
-
-/**
  * Builds a creation list from a channel count map.
  * e.g. { instagram: 3, linkedin: 3, 'one-pager': 1 } => 7 creation specs
  */

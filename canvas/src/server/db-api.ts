@@ -131,6 +131,37 @@ export function getCampaign(id: string): Campaign | undefined {
   return row ? rowToCampaign(row) : undefined;
 }
 
+/**
+ * Sentinel title for the singleton standalone campaign. Standalone creations
+ * (single-asset saves without an explicit campaign) are filed under this
+ * campaign so they satisfy the `creations.campaign_id` NOT NULL constraint
+ * while remaining grouped together for the Creations tab UI.
+ */
+export const STANDALONE_CAMPAIGN_TITLE = '__standalone__';
+
+/**
+ * Returns the ID of the singleton "__standalone__" sentinel campaign, creating
+ * it on first call. Idempotent — subsequent calls always return the same ID.
+ *
+ * Used by:
+ *   - agent-tools.saveCreation, to route campaignless saves to a single bucket
+ *     instead of spawning a fresh "Agent Campaign ..." row per save.
+ *   - watcher / UI flows that need to attach standalone creations to a known
+ *     campaign before the user has picked one.
+ */
+export function getOrCreateStandaloneCampaignId(): string {
+  const db = getDb();
+  const row = db.prepare('SELECT id FROM campaigns WHERE title = ?').get(
+    STANDALONE_CAMPAIGN_TITLE,
+  ) as { id: string } | undefined;
+  if (row) return row.id;
+  const campaign = createCampaign({
+    title: STANDALONE_CAMPAIGN_TITLE,
+    channels: ['standalone'],
+  });
+  return campaign.id;
+}
+
 // ─── Creation ───────────────────────────────────────────────────────────────
 
 export function createCreation(input: {

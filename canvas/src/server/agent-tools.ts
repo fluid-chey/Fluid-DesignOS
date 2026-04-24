@@ -4,7 +4,12 @@ import { slugify } from '../lib/slugify';
 import { renderPreview } from './render-engine';
 import { runValidation, mergeCssLayersForHtml, formatValidationMessage } from './validation-hooks';
 import { auditBrandWrite, logChatEvent } from './observability';
-import { searchBrandAssets, findAssetByIdempotencyKey, promoteAssetToLibrary } from './db-api';
+import {
+  searchBrandAssets,
+  findAssetByIdempotencyKey,
+  promoteAssetToLibrary,
+  getOrCreateStandaloneCampaignId,
+} from './db-api';
 import { generateGeminiImage, computeIdempotencyKey } from './gemini-image';
 import type { GeminiAspectRatio } from './gemini-image';
 import * as path from 'path';
@@ -468,8 +473,12 @@ export function saveCreation(
   const now = Date.now();
   const normalizedPlatform = normalizePlatform(platform);
 
-  // Decide IDs up front so we can build the on-disk path before the transaction.
-  const cId = campaignId ?? nanoid();
+  // Resolve the target campaign up front. When no campaignId is supplied we
+  // route the creation to the singleton "__standalone__" sentinel campaign
+  // (creating it on first save) instead of spawning a fresh "Agent Campaign
+  // {date}" row per save. This keeps the campaigns list clean and lets the
+  // Creations tab (which filters on the sentinel) find the result.
+  const cId = campaignId ?? getOrCreateStandaloneCampaignId();
   const creationId = nanoid();
   const slideId = nanoid();
   const iterationId = nanoid();
@@ -486,24 +495,14 @@ export function saveCreation(
     ? JSON.stringify(Object.fromEntries(Object.keys(slotSchema).map((k) => [k, null])))
     : null;
 
-  // All four INSERTs run in a single transaction so a mid-way failure can't
-  // leave an orphaned campaign/creation/slide without an iteration row.
+  // All three INSERTs run in a single transaction so a mid-way failure can't
+  // leave an orphaned creation/slide without an iteration row. The campaign
+  // row is resolved above (either the caller-supplied one or the sentinel),
+  // so no campaign INSERT happens here.
   // Note: the HTML file is written above the transaction. If the transaction
   // throws, we clean up the orphaned file in the catch below — otherwise
   // failed saves would litter .fluid/campaigns/ with dead files.
   const insertAll = db.transaction(() => {
-    if (!campaignId) {
-      db.prepare(
-        `INSERT INTO campaigns (id, title, channels, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      ).run(
-        cId,
-        `Agent Campaign ${new Date(now).toISOString().slice(0, 10)}`,
-        JSON.stringify([normalizedPlatform]),
-        now,
-        now,
-      );
-    }
-
     db.prepare(
       `INSERT INTO creations (id, campaign_id, title, creation_type, slide_count, created_at) VALUES (?, ?, ?, ?, 1, ?)`,
     ).run(creationId, cId, `${normalizedPlatform} creation`, normalizedPlatform, now);
