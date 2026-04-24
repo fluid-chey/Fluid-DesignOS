@@ -197,15 +197,32 @@ export const TOOL_POLICY: Record<string, ToolPolicy> = {
     sideEffect: 'read',
   },
 
-  // generate_image is registered here (dispatch 3 builds the executor).
-  // The policy is registered early so the cost-cap + permission wrapper can
-  // enforce spend limits before the tool is callable in production.
+  // generate_image: executor built in dispatch 3.
   generate_image: {
     name: 'generate_image',
     tier: 'ask-first',
     costProfile: 'image-api',
-    responsibility: 'Generate a new image via the Gemini image API.',
+    responsibility:
+      'Generate a new brand image via Gemini 2.5 Flash Image. Call search_brand_images first — only generate when no existing DAM asset matches.',
     sideEffect: 'spend-api',
+  },
+
+  promote_generated_image: {
+    name: 'promote_generated_image',
+    tier: 'ask-first',
+    costProfile: 'free',
+    responsibility:
+      'Promote a generated (or uploaded) image to the curated brand library by changing its source to local.',
+    sideEffect: 'write-db',
+  },
+
+  read_skill: {
+    name: 'read_skill',
+    tier: 'always-allow',
+    costProfile: 'free',
+    responsibility:
+      'Read a whitelisted agent skill markdown file (social-media-taste or gemini-social-image) to guide content or image generation.',
+    sideEffect: 'read',
   },
 };
 

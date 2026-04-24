@@ -71,6 +71,7 @@ export type ChatEventType =
   | 'image_gen_blocked_safety' // gemini SAFETY/IMAGE_SAFETY response
   | 'image_gen_idempotent_hit' // cached asset returned without new spend
   | 'dam_search' // search_brand_images invoked
+  | 'asset_promoted' // promote_generated_image promoted an asset to library
   | 'archetype_schema_parse_failed'; // SlotSchema JSON parse failed
 
 // ─── Brand audit log ─────────────────────────────────────────────────────

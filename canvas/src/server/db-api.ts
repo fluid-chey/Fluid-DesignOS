@@ -1552,6 +1552,45 @@ export function insertGeneratedAsset(params: {
   };
 }
 
+/**
+ * Look up a generated brand asset by idempotency key stored in its metadata JSON.
+ * Uses SQLite's native json_extract with a bound parameter (injection-safe).
+ * Returns a minimal shape sufficient for the idempotency hit-path in generateImageTool.
+ */
+export function findAssetByIdempotencyKey(
+  key: string,
+): { id: string; name: string; url: string; filePath: string; mimeType: string } | null {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT id, name, file_path, mime_type FROM brand_assets WHERE json_extract(metadata, '$.idempotency_key') = ? LIMIT 1",
+    )
+    .get(key) as { id: string; name: string; file_path: string; mime_type: string } | undefined;
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    url: `/api/brand-assets/serve/${encodeURIComponent(row.name)}`,
+    filePath: row.file_path,
+    mimeType: row.mime_type,
+  };
+}
+
+/**
+ * Promote a generated (or uploaded) asset to the curated brand library.
+ * Changes source from 'generated' or 'upload' to 'local' so it appears
+ * alongside DAM assets in searches.
+ *
+ * Preferred over modifying promoteUploadToLibrary — that function has
+ * explicit 'upload'-only semantics. This helper has the broader predicate.
+ */
+export function promoteAssetToLibrary(assetId: string): void {
+  const db = getDb();
+  db.prepare(
+    "UPDATE brand_assets SET source = 'local' WHERE id = ? AND source IN ('upload', 'generated')",
+  ).run(assetId);
+}
+
 export interface BrandAssetSearchResult {
   id: string;
   name: string;

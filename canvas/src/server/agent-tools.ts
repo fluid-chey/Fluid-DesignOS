@@ -4,7 +4,9 @@ import { slugify } from '../lib/slugify';
 import { renderPreview } from './render-engine';
 import { runValidation, mergeCssLayersForHtml, formatValidationMessage } from './validation-hooks';
 import { auditBrandWrite, logChatEvent } from './observability';
-import { searchBrandAssets } from './db-api';
+import { searchBrandAssets, findAssetByIdempotencyKey, promoteAssetToLibrary } from './db-api';
+import { generateGeminiImage, computeIdempotencyKey } from './gemini-image';
+import type { GeminiAspectRatio } from './gemini-image';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -805,4 +807,162 @@ export function searchBrandImages(opts: {
     description: r.description,
     score: r.score,
   }));
+}
+
+// ─── Phase 24 Dispatch 3: Image generation + skill reading ───────────────────
+
+/**
+ * Thrown when Gemini blocks a generation request due to safety filters.
+ * The dispatcher checks for this error type and returns outcome='blocked_safety'
+ * so the model receives a structured signal rather than a generic tool error.
+ *
+ * Design choice: We use a typed error class (rather than a union return type)
+ * so the dispatcher can inspect the error without every caller needing to
+ * check for a blocked branch. The dispatchTool catch block in tool-dispatch.ts
+ * already handles outcome='error' for all errors; we add a specific check for
+ * ImageGenerationBlockedError to emit outcome='blocked_safety' instead.
+ */
+export class ImageGenerationBlockedError extends Error {
+  public readonly reason: 'safety' | 'image_safety' | 'other' | 'no_inline_data';
+  constructor(reason: 'safety' | 'image_safety' | 'other' | 'no_inline_data') {
+    super(`Image generation blocked by safety filter: ${reason}`);
+    this.name = 'ImageGenerationBlockedError';
+    this.reason = reason;
+  }
+}
+
+export interface GenerateImageToolResult {
+  id: string;
+  name: string;
+  url: string;
+  promptUsed: string;
+  watermark: 'synthid';
+  costUsd: number;
+  cached?: boolean;
+}
+
+/**
+ * Generate a brand image via Gemini 2.5 Flash Image.
+ *
+ * Idempotency: if an asset with the same computed key already exists in
+ * brand_assets, the existing record is returned with costUsd=0 and cached=true.
+ *
+ * Safety blocks throw ImageGenerationBlockedError so the dispatcher can emit
+ * outcome='blocked_safety' (handled in agent.ts already) instead of 'error'.
+ */
+export async function generateImageTool(opts: {
+  prompt: string;
+  aspectRatio: GeminiAspectRatio;
+  referenceImages?: string[];
+  idempotencyKey?: string;
+  reason: 'no_dam_match' | 'user_explicit_request' | 'style_override';
+  sessionId?: string | null;
+  iterationId?: string | null;
+  searchedQueries?: string[];
+}): Promise<GenerateImageToolResult> {
+  // 1. Compute or accept idempotency key
+  const key =
+    opts.idempotencyKey ??
+    computeIdempotencyKey({
+      prompt: opts.prompt,
+      aspectRatio: opts.aspectRatio,
+      referenceImages: opts.referenceImages,
+    });
+
+  // 2. Check for existing asset with same idempotency key
+  const existing = findAssetByIdempotencyKey(key);
+  if (existing) {
+    logChatEvent('image_gen_idempotent_hit', {
+      idempotency_key: key,
+      asset_id: existing.id,
+    });
+    return {
+      id: existing.id,
+      name: existing.name,
+      url: existing.url,
+      promptUsed: opts.prompt,
+      watermark: 'synthid',
+      costUsd: 0,
+      cached: true,
+    };
+  }
+
+  // 3. Generate via Gemini
+  const result = await generateGeminiImage({
+    prompt: opts.prompt,
+    aspectRatio: opts.aspectRatio,
+    referenceImages: opts.referenceImages,
+    idempotencyKey: key,
+    reason: opts.reason,
+    sessionId: opts.sessionId,
+    iterationId: opts.iterationId,
+    searchedQueries: opts.searchedQueries,
+  });
+
+  // 4. Handle safety block — throw typed error so dispatcher can classify
+  if ('blocked' in result) {
+    logChatEvent('image_gen_blocked_safety', {
+      reason: result.reason,
+      finishReason: result.finishReason,
+    });
+    throw new ImageGenerationBlockedError(result.reason);
+  }
+
+  logChatEvent('image_generated', {
+    asset_id: result.id,
+    cost_usd: result.costUsd,
+  });
+
+  return {
+    id: result.id,
+    name: result.name,
+    url: `/api/brand-assets/serve/${encodeURIComponent(result.name)}`,
+    promptUsed: opts.prompt,
+    watermark: 'synthid',
+    costUsd: result.costUsd,
+  };
+}
+
+/**
+ * Promote a generated (or uploaded) asset to the curated brand library.
+ * Thin wrapper over promoteAssetToLibrary in db-api.ts.
+ */
+export function promoteGeneratedImageTool(assetId: string): { success: boolean } {
+  if (!assetId || typeof assetId !== 'string') {
+    throw new Error("promoteGeneratedImageTool: 'assetId' must be a non-empty string");
+  }
+  promoteAssetToLibrary(assetId);
+  logChatEvent('asset_promoted', { asset_id: assetId });
+  return { success: true };
+}
+
+// ─── Skill whitelist ──────────────────────────────────────────────────────────
+
+const SKILL_WHITELIST: Record<string, string> = {
+  'social-media-taste': 'social-media-taste-skill.md',
+  'gemini-social-image': 'gemini-social-image-skill.md',
+};
+
+const SKILLS_DIR = path.resolve(import.meta.dirname, 'skills');
+
+/**
+ * Read a skill markdown file by whitelisted name.
+ * Returns name, content, and linesCount.
+ * Throws if the name is not in the whitelist.
+ */
+export function readSkillTool(name: string): {
+  name: string;
+  content: string;
+  linesCount: number;
+} {
+  const fileName = SKILL_WHITELIST[name];
+  if (!fileName) {
+    throw new Error(
+      `readSkillTool: unknown skill '${name}'. Allowed: ${Object.keys(SKILL_WHITELIST).join(', ')}`,
+    );
+  }
+  const skillPath = path.join(SKILLS_DIR, fileName);
+  const content = fs.readFileSync(skillPath, 'utf-8');
+  const linesCount = content.split('\n').length;
+  return { name, content, linesCount };
 }

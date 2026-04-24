@@ -46,6 +46,9 @@ import {
   getCreation,
   getCampaign,
   searchBrandImages,
+  generateImageTool,
+  promoteGeneratedImageTool,
+  readSkillTool,
 } from './agent-tools';
 
 import type { ServerResponse } from 'node:http';
@@ -322,6 +325,72 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       required: ['query'],
     },
   },
+
+  // Phase 24 Dispatch 3: Image generation + skill reading
+  {
+    name: 'generate_image',
+    description:
+      'Generate a brand image via Gemini 2.5 Flash Image when no DAM asset fits. ALWAYS call search_brand_images first — only generate when no existing asset matches. Prompt architecture: use the gemini-social-image skill (see read_skill).\n\nPrompt components (4-of-6 required):\n- style signal (cinematic, editorial, product, fashion, lifestyle)\n- subject (specific: "a runner at dawn", not "a person")\n- setting (location, time of day)\n- light (directional, soft, backlit, golden-hour)\n- camera (aspect, lens feel, depth)\n- emotional brief (the feeling, not the action)\n\nCost: ~$0.039/image. Daily cap: FLUID_DAILY_COST_CAP_USD (default $10).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'Detailed image generation prompt' },
+        aspectRatio: {
+          type: 'string',
+          enum: ['1:1', '4:5', '9:16', '2:3', '16:9', '21:9'],
+          description: 'Image aspect ratio',
+        },
+        referenceImages: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional brand asset IDs or names to use as visual references',
+        },
+        idempotencyKey: {
+          type: 'string',
+          description: 'Optional idempotency key — same key returns cached result at $0',
+        },
+        reason: {
+          type: 'string',
+          enum: ['no_dam_match', 'user_explicit_request', 'style_override'],
+          description: 'Why generation was chosen over DAM assets',
+        },
+        searchedQueries: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'DAM search queries you tried before deciding to generate',
+        },
+      },
+      required: ['prompt', 'aspectRatio', 'reason'],
+    },
+  },
+  {
+    name: 'promote_generated_image',
+    description:
+      'Promote a generated (or uploaded) image to the curated brand library so it persists alongside DAM assets. Use after generating an image the user wants to keep.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        assetId: { type: 'string', description: 'Brand asset ID to promote' },
+      },
+      required: ['assetId'],
+    },
+  },
+  {
+    name: 'read_skill',
+    description:
+      'Read a whitelisted agent skill file to guide your work. Available skills:\n- "social-media-taste": platform psychology + taste rules for social content\n- "gemini-social-image": prompt architecture for image generation',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: {
+          type: 'string',
+          enum: ['social-media-taste', 'gemini-social-image'],
+          description: 'Skill name to read',
+        },
+      },
+      required: ['name'],
+    },
+  },
 ];
 
 // ─── SSE Helper ───
@@ -395,6 +464,7 @@ async function executeTool(
   input: Record<string, any>,
   uiContext: Record<string, any> | null,
   signal: AbortSignal,
+  chatId: string,
 ): Promise<Anthropic.ToolResultBlockParam['content']> {
   if (!input || typeof input !== 'object') {
     throw new Error(`Tool '${name}' called with invalid input`);
@@ -513,6 +583,42 @@ async function executeTool(
           limit: typeof input.limit === 'number' ? input.limit : undefined,
         }),
       );
+
+    // Phase 24 Dispatch 3: Image generation
+    case 'generate_image': {
+      const result = await generateImageTool({
+        prompt: requireString(input, 'prompt'),
+        aspectRatio: input.aspectRatio as
+          | '1:1'
+          | '4:5'
+          | '9:16'
+          | '2:3'
+          | '16:9'
+          | '21:9',
+        referenceImages: Array.isArray(input.referenceImages)
+          ? (input.referenceImages as string[])
+          : undefined,
+        idempotencyKey:
+          typeof input.idempotencyKey === 'string' ? input.idempotencyKey : undefined,
+        reason: input.reason as 'no_dam_match' | 'user_explicit_request' | 'style_override',
+        // sessionId / iterationId injected here from agent loop context
+        sessionId: chatId,
+        iterationId:
+          uiContext?.activeIterationId != null
+            ? String(uiContext.activeIterationId)
+            : null,
+        searchedQueries: Array.isArray(input.searchedQueries)
+          ? (input.searchedQueries as string[])
+          : undefined,
+      });
+      return JSON.stringify(result);
+    }
+
+    case 'promote_generated_image':
+      return JSON.stringify(promoteGeneratedImageTool(requireString(input, 'assetId')));
+
+    case 'read_skill':
+      return JSON.stringify(readSkillTool(requireString(input, 'name')));
 
     default:
       // Throw so the outer catch classifies this as `tool_error` in the event
@@ -792,7 +898,12 @@ async function runAgentImpl(
   // across requests, so we mark it ephemeral and skip caching the volatile UI
   // context block. Caching the whole thing (as round 3 did) silently busted the
   // cache every time the user clicked into a different campaign or creation.
-  const { staticPart, dynamicPart } = buildSystemPrompt(buildBrandBrief(), uiContext);
+  // activeCreationType: read from uiContext.creationType (set by the frontend
+  // when the user is working on a specific creation type). This drives
+  // conditional skill injection in buildSystemPrompt (e.g. social-media-taste).
+  const activeCreationType =
+    typeof uiContext?.creationType === 'string' ? uiContext.creationType : undefined;
+  const { staticPart, dynamicPart } = buildSystemPrompt(buildBrandBrief(), uiContext, activeCreationType);
   const systemPrompt: Anthropic.TextBlockParam[] = [
     { type: 'text', text: staticPart, cache_control: { type: 'ephemeral' } },
   ];
@@ -963,12 +1074,20 @@ async function runAgentImpl(
           }
 
           const toolStart = Date.now();
+          // Per-tool cost + duration hints for image-api tools.
+          // These feed the budget_warning SSE and the permission prompt cost display.
+          const TOOL_COST_HINTS: Record<string, { estCostUsd: number; estDurationSec: number }> = {
+            generate_image: { estCostUsd: 0.039, estDurationSec: 8 },
+          };
+          const costHints = TOOL_COST_HINTS[call.name];
+
           // Route through the dispatch wrapper: permission tiers, cost cap, audit log.
           const dispatched = await dispatchTool(
             call.name,
             call.input as Record<string, unknown>,
             dispatchCtx,
-            () => executeTool(call.name, call.input, uiContext, signal),
+            () => executeTool(call.name, call.input, uiContext, signal, chatId),
+            costHints,
           );
 
           if (dispatched.outcome === 'ok') {

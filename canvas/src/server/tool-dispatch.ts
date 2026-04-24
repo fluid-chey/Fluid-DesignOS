@@ -29,6 +29,10 @@ import type { ToolTier } from './capabilities';
 import { sendSSE } from './agent';
 import { writeToolAuditLog, dailySpendUsd } from './db-api';
 import { logChatEvent } from './observability';
+// ImageGenerationBlockedError import is intentionally lazy (via instanceof check below)
+// to avoid a circular dep chain: tool-dispatch → agent-tools → gemini-image.
+// We check the error's constructor name instead.
+type BlockedSafetyError = { name: string; reason: string };
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -320,7 +324,16 @@ export async function dispatchTool<T>(
     outcome = 'ok';
   } catch (err: unknown) {
     error = err instanceof Error ? err : new Error(String(err));
-    outcome = 'error';
+    // Classify ImageGenerationBlockedError as 'blocked_safety' so the agent loop
+    // can send a structured signal to the model rather than a generic error.
+    // We check by constructor name to avoid a circular import
+    // (tool-dispatch → agent-tools → gemini-image → db-api → ...).
+    const maybeBlocked = err as BlockedSafetyError;
+    if (maybeBlocked?.name === 'ImageGenerationBlockedError') {
+      outcome = 'blocked_safety';
+    } else {
+      outcome = 'error';
+    }
   }
 
   // 7. Audit log + tool_end SSE (all paths)
@@ -328,6 +341,9 @@ export async function dispatchTool<T>(
 
   if (outcome === 'ok') {
     return { outcome: 'ok', result };
+  }
+  if (outcome === 'blocked_safety') {
+    return { outcome: 'blocked_safety', error };
   }
   return { outcome: 'error', error };
 }
