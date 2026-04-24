@@ -45,6 +45,7 @@ import {
   saveAsTemplate,
   getCreation,
   getCampaign,
+  searchBrandImages,
 } from './agent-tools';
 
 import type { ServerResponse } from 'node:http';
@@ -293,6 +294,32 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       required: ['campaignId'],
     },
   },
+
+  // Phase 24: DAM-first image search
+  {
+    name: 'search_brand_images',
+    description:
+      'Search the brand\'s image library before requesting image generation. Returns existing brand images ranked by query match. Always call this first — use existing assets rather than generating new ones when a suitable match exists.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query — keywords describing the image you need',
+        },
+        category: {
+          type: 'string',
+          enum: ['images', 'decorations', 'logos'],
+          description: 'Optional category filter: images, decorations, or logos',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return (default 10, max 25)',
+        },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 // ─── SSE Helper ───
@@ -466,6 +493,16 @@ async function executeTool(
       return JSON.stringify(getCreation(input.iterationId));
     case 'get_campaign':
       return JSON.stringify(getCampaign(input.campaignId));
+
+    // Phase 24: DAM-first image search
+    case 'search_brand_images':
+      return JSON.stringify(
+        searchBrandImages({
+          query: requireString(input, 'query'),
+          category: input.category as 'images' | 'decorations' | 'logos' | undefined,
+          limit: typeof input.limit === 'number' ? input.limit : undefined,
+        }),
+      );
 
     default:
       // Throw so the outer catch classifies this as `tool_error` in the event

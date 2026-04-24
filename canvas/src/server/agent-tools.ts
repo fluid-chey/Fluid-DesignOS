@@ -4,6 +4,7 @@ import { slugify } from '../lib/slugify';
 import { renderPreview } from './render-engine';
 import { runValidation, mergeCssLayersForHtml, formatValidationMessage } from './validation-hooks';
 import { auditBrandWrite, logChatEvent } from './observability';
+import { searchBrandAssets } from './db-api';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -758,4 +759,50 @@ export function getCampaign(campaignId: string): {
       iterationCount: c.iteration_count,
     })),
   };
+}
+
+// ─── Phase 24: DAM-first image search ────────────────────────────────────────
+
+export interface BrandImageSearchResult {
+  id: string;
+  name: string;
+  url: string;
+  mimeType: string;
+  description: string | null;
+  score: number;
+}
+
+/**
+ * Search the brand's image library (DAM) before requesting image generation.
+ * Returns existing brand images ranked by query match. This is the first step
+ * of the DAM-first workflow: always call this before generate_image to check
+ * whether a suitable asset already exists.
+ *
+ * Read-only — no side effects except logging the search event.
+ */
+export function searchBrandImages(opts: {
+  query: string;
+  category?: 'images' | 'decorations' | 'logos';
+  limit?: number;
+}): BrandImageSearchResult[] {
+  if (!opts.query || typeof opts.query !== 'string') return [];
+  const results = searchBrandAssets(
+    opts.query,
+    opts.category,
+    Math.min(opts.limit ?? 10, 25),
+  );
+  logChatEvent('dam_search', {
+    query: opts.query,
+    category: opts.category ?? null,
+    results_count: results.length,
+    top_score: results[0]?.score ?? 0,
+  });
+  return results.map((r) => ({
+    id: r.id,
+    name: r.name,
+    url: r.url,
+    mimeType: r.mimeType,
+    description: r.description,
+    score: r.score,
+  }));
 }

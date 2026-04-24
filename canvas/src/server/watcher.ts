@@ -32,6 +32,7 @@ import {
   getBrandAssetByName,
   getBrandAssetByFilePath,
   insertUploadedAsset,
+  searchBrandAssets,
   getVoiceGuideDocs,
   getVoiceGuideDoc,
   updateVoiceGuideDoc,
@@ -978,6 +979,7 @@ export function fluidWatcherPlugin(): Plugin {
           }
 
           // GET /api/brand-assets or GET /api/brand-assets?category=brushstrokes
+          // Phase 24: also supports ?q=<query>&limit=<n> for scored search
           if (
             (url === '/api/brand-assets' || url.startsWith('/api/brand-assets?')) &&
             method === 'GET'
@@ -985,9 +987,19 @@ export function fluidWatcherPlugin(): Plugin {
             const searchParams = new URL(req.url!, 'http://localhost').searchParams;
             const category = searchParams.get('category') ?? undefined;
             const includeDeleted = searchParams.get('include_deleted') === 'true';
-            const assets = includeDeleted ? getAllBrandAssets(category) : getBrandAssets(category);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(assets));
+            const q = searchParams.get('q');
+            if (q) {
+              // Scored search — returns BrandAssetSearchResult[]
+              const limitParam = parseInt(searchParams.get('limit') ?? '10', 10);
+              const limit = Number.isFinite(limitParam) ? Math.min(limitParam, 25) : 10;
+              const results = searchBrandAssets(q, category, limit);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(results));
+            } else {
+              const assets = includeDeleted ? getAllBrandAssets(category) : getBrandAssets(category);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(assets));
+            }
             return;
           }
 
