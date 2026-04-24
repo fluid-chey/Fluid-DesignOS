@@ -232,6 +232,143 @@ describe('SSE translation — message types produce correct SSE shapes', () => {
     expect(written[0]).toContain('"chatId":"c1"');
   });
 
+  it('tool_result SSE shape matches pre-migration agent.ts contract', async () => {
+    // The client reducer at canvas/src/store/chat.ts:316 expects tool_result
+    // events to carry { toolUseId, name, hasImage, result|summary|error }.
+    const { sendSSE } = await import('../../server/agent');
+    const written: string[] = [];
+    const res = { write: (s: string) => { written.push(s); return true; } } as any;
+
+    // JSON result shape (list_archetypes style)
+    sendSSE(res, 'tool_result', {
+      toolUseId: 'tu-x1',
+      name: 'list_archetypes',
+      hasImage: false,
+      result: { slugs: ['foo'] },
+    });
+    expect(written[0]).toContain('"toolUseId":"tu-x1"');
+    expect(written[0]).toContain('"result":{"slugs":["foo"]}');
+
+    // Image-summary shape (render_preview style)
+    written.length = 0;
+    sendSSE(res, 'tool_result', {
+      toolUseId: 'tu-x2',
+      name: 'render_preview',
+      hasImage: true,
+      summary: 'Preview rendered successfully.',
+    });
+    expect(written[0]).toContain('"hasImage":true');
+    expect(written[0]).toContain('"summary":"Preview rendered successfully."');
+
+    // Error shape
+    written.length = 0;
+    sendSSE(res, 'tool_result', {
+      toolUseId: 'tu-x3',
+      name: 'save_creation',
+      hasImage: false,
+      error: 'Validation failed',
+    });
+    expect(written[0]).toContain('"error":"Validation failed"');
+  });
+
+  it('creation_ready SSE shape matches pre-migration agent.ts contract', async () => {
+    const { sendSSE } = await import('../../server/agent');
+    const written: string[] = [];
+    const res = { write: (s: string) => { written.push(s); return true; } } as any;
+
+    sendSSE(res, 'creation_ready', {
+      campaignId: 'c1',
+      creationId: 'cr1',
+      iterationId: 'it1',
+      htmlPath: '/path/to.html',
+    });
+    expect(written[0]).toContain('event: creation_ready');
+    expect(written[0]).toContain('"campaignId":"c1"');
+    expect(written[0]).toContain('"creationId":"cr1"');
+    expect(written[0]).toContain('"iterationId":"it1"');
+    expect(written[0]).toContain('"htmlPath":"/path/to.html"');
+  });
+
+  it('validation_result SSE shape matches pre-migration agent.ts contract', async () => {
+    const { sendSSE } = await import('../../server/agent');
+    const written: string[] = [];
+    const res = { write: (s: string) => { written.push(s); return true; } } as any;
+
+    sendSSE(res, 'validation_result', {
+      iterationId: 'it1',
+      result: 'Passed all checks',
+    });
+    expect(written[0]).toContain('event: validation_result');
+    expect(written[0]).toContain('"iterationId":"it1"');
+    expect(written[0]).toContain('"result":"Passed all checks"');
+  });
+
+  it('save_creation MCP handler emits creation_ready + validation_result on success', async () => {
+    // End-to-end through the MCP tool: mock saveCreation to return a canned
+    // result and assert the handler emits creation_ready + validation_result
+    // SSE with the pre-migration payload shape.
+    const agentTools = await import('../../server/agent-tools');
+    const saveSpy = vi.spyOn(agentTools, 'saveCreation').mockReturnValue({
+      campaignId: 'camp-1',
+      creationId: 'cre-1',
+      slideId: 'sl-1',
+      iterationId: 'it-1',
+      htmlPath: '/tmp/it-1.html',
+      validation: 'All checks passed',
+    });
+
+    const { createVisualMcpServer } = await import('../../server/agent-mcp-servers/visual');
+    const { ctx, writtenSSE } = makeDispatchCtx();
+    const server = createVisualMcpServer(ctx, null);
+    const registeredTools: Record<string, { handler: (a: unknown) => Promise<unknown> }> =
+      (server.instance as unknown as { _registeredTools: Record<string, { handler: (a: unknown) => Promise<unknown> }> })._registeredTools;
+
+    await registeredTools['save_creation'].handler({
+      html: '<div>x</div>',
+      platform: 'instagram',
+    });
+
+    const creationReady = writtenSSE.find((e) => e.event === 'creation_ready');
+    expect(creationReady).toBeDefined();
+    expect((creationReady!.data as Record<string, unknown>).campaignId).toBe('camp-1');
+    expect((creationReady!.data as Record<string, unknown>).creationId).toBe('cre-1');
+    expect((creationReady!.data as Record<string, unknown>).iterationId).toBe('it-1');
+    expect((creationReady!.data as Record<string, unknown>).htmlPath).toBe('/tmp/it-1.html');
+
+    const validationResult = writtenSSE.find((e) => e.event === 'validation_result');
+    expect(validationResult).toBeDefined();
+    expect((validationResult!.data as Record<string, unknown>).iterationId).toBe('it-1');
+    expect((validationResult!.data as Record<string, unknown>).result).toBe('All checks passed');
+
+    saveSpy.mockRestore();
+  });
+
+  it('edit_creation MCP handler emits validation_result on success', async () => {
+    const agentTools = await import('../../server/agent-tools');
+    const editSpy = vi.spyOn(agentTools, 'editCreation').mockReturnValue({
+      success: true,
+      validation: 'Edit validated ok',
+    });
+
+    const { createVisualMcpServer } = await import('../../server/agent-mcp-servers/visual');
+    const { ctx, writtenSSE } = makeDispatchCtx();
+    const server = createVisualMcpServer(ctx, null);
+    const registeredTools: Record<string, { handler: (a: unknown) => Promise<unknown> }> =
+      (server.instance as unknown as { _registeredTools: Record<string, { handler: (a: unknown) => Promise<unknown> }> })._registeredTools;
+
+    await registeredTools['edit_creation'].handler({
+      iterationId: 'it-42',
+      html: '<div>y</div>',
+    });
+
+    const validationResult = writtenSSE.find((e) => e.event === 'validation_result');
+    expect(validationResult).toBeDefined();
+    expect((validationResult!.data as Record<string, unknown>).iterationId).toBe('it-42');
+    expect((validationResult!.data as Record<string, unknown>).result).toBe('Edit validated ok');
+
+    editSpy.mockRestore();
+  });
+
   it('agent-style tool_start payload is disambiguated from dispatcher-style by toolUseId field', () => {
     // The client reducer distinguishes the two tool_start shapes by checking
     // for the presence of `toolUseId` (agent-style) vs `tool` + `tier` (dispatcher-style).

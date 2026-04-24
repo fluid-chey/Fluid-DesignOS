@@ -14,6 +14,7 @@ import {
 } from '../agent-tools';
 import { dispatchTool } from '../tool-dispatch';
 import type { DispatchContext } from '../tool-dispatch';
+import { sendSSE } from '../agent';
 
 export function createVisualMcpServer(
   dispatchCtx: DispatchContext,
@@ -100,6 +101,30 @@ export function createVisualMcpServer(
               ),
           );
           if (result.outcome === 'ok') {
+            // Emit creation_ready so the frontend refreshes the campaign view
+            // without waiting on the file-watcher. Shape matches the
+            // pre-migration emission in agent.ts exactly.
+            const parsed = result.result as {
+              campaignId?: string;
+              creationId?: string;
+              iterationId?: string;
+              htmlPath?: string;
+              validation?: string;
+            };
+            if (parsed?.iterationId || parsed?.creationId) {
+              sendSSE(dispatchCtx.res, 'creation_ready', {
+                campaignId: parsed.campaignId,
+                creationId: parsed.creationId,
+                iterationId: parsed.iterationId,
+                htmlPath: parsed.htmlPath,
+              });
+            }
+            if (parsed?.validation) {
+              sendSSE(dispatchCtx.res, 'validation_result', {
+                iterationId: parsed.iterationId,
+                result: parsed.validation,
+              });
+            }
             return { content: [{ type: 'text' as const, text: JSON.stringify(result.result) }] };
           }
           return {
@@ -131,6 +156,17 @@ export function createVisualMcpServer(
               ),
           );
           if (result.outcome === 'ok') {
+            // Emit validation_result on edits (matches pre-migration shape).
+            // Note: editCreation returns { success, validation? } — no campaign/
+            // creation ids, so creation_ready cannot be emitted with the same
+            // shape. Pre-migration had the same limitation.
+            const parsed = result.result as { success?: boolean; validation?: string };
+            if (parsed?.validation) {
+              sendSSE(dispatchCtx.res, 'validation_result', {
+                iterationId: args.iterationId,
+                result: parsed.validation,
+              });
+            }
             return { content: [{ type: 'text' as const, text: JSON.stringify(result.result) }] };
           }
           return {

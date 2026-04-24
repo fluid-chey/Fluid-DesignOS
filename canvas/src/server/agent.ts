@@ -17,6 +17,7 @@ import type {
   SDKAssistantMessage,
   SDKPartialAssistantMessage,
   SDKResultMessage,
+  SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import * as path from 'path';
@@ -992,6 +993,12 @@ async function runAgentImpl(
     let totalCacheReadTokens = 0;
     let totalCacheCreationTokens = 0;
 
+    // Map toolUseId → tool name. Populated when we see a tool_use block in an
+    // assistant message, consumed when the matching tool_result block shows up
+    // in the next SDKUserMessage. The client's tool_result SSE handler keys
+    // off toolUseId and uses `name` for the inline tool-call label.
+    const toolUseNames = new Map<string, string>();
+
     for await (const msg of query({
       prompt: userContent,
       options: {
@@ -1030,6 +1037,7 @@ async function runAgentImpl(
             if (block.type === 'text') {
               assistantText += block.text;
             } else if (block.type === 'tool_use') {
+              toolUseNames.set(block.id, block.name);
               sendSSE(res, 'tool_start', {
                 toolUseId: block.id,
                 name: block.name,
@@ -1047,6 +1055,85 @@ async function runAgentImpl(
             null,
             null,
           );
+          break;
+        }
+
+        case 'user': {
+          // SDKUserMessage carries tool_result blocks returning from our MCP
+          // servers (and from any SDK built-in tools). Emit tool_result SSE so
+          // the client's chat store can attach the result to the matching
+          // toolCall entry on the prior assistant message.
+          const userMsg = sdkMsg as SDKUserMessage;
+          const content = userMsg.message.content;
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              // ContentBlockParam is a union; narrow to tool_result.
+              if ((block as { type?: string }).type !== 'tool_result') continue;
+              const trBlock = block as {
+                type: 'tool_result';
+                tool_use_id: string;
+                content?:
+                  | string
+                  | Array<{ type: string; text?: string } & Record<string, unknown>>;
+                is_error?: boolean;
+              };
+              const toolUseId = trBlock.tool_use_id;
+              const name = toolUseNames.get(toolUseId) ?? 'tool';
+
+              // Decompose the result body. The MCP handler returns either a
+              // text block (JSON-serialized tool output) or text+image blocks
+              // (render_preview). We mirror the pre-migration shape: base64
+              // image data is kept in hasImage flag, not shipped over SSE.
+              let hasImage = false;
+              let summary: string | undefined;
+              let resultParsed: unknown = undefined;
+              let errorMsg: string | undefined;
+
+              if (typeof trBlock.content === 'string') {
+                // Plain string — may be JSON-serialized from our handler.
+                try {
+                  resultParsed = JSON.parse(trBlock.content);
+                } catch {
+                  summary = trBlock.content;
+                }
+              } else if (Array.isArray(trBlock.content)) {
+                const textParts: string[] = [];
+                for (const b of trBlock.content) {
+                  if (b.type === 'image') {
+                    hasImage = true;
+                  } else if (b.type === 'text' && typeof b.text === 'string') {
+                    textParts.push(b.text);
+                  }
+                }
+                const joined = textParts.join(' ');
+                if (hasImage) {
+                  summary = joined || 'Preview rendered.';
+                } else {
+                  try {
+                    resultParsed = JSON.parse(joined);
+                  } catch {
+                    summary = joined;
+                  }
+                }
+              }
+
+              if (trBlock.is_error) {
+                errorMsg =
+                  typeof resultParsed === 'object' && resultParsed !== null && 'message' in resultParsed
+                    ? String((resultParsed as Record<string, unknown>).message ?? '')
+                    : summary ?? 'Tool call failed';
+              }
+
+              sendSSE(res, 'tool_result', {
+                toolUseId,
+                name,
+                hasImage,
+                ...(errorMsg !== undefined ? { error: errorMsg } : {}),
+                ...(summary !== undefined && !errorMsg ? { summary } : {}),
+                ...(resultParsed !== undefined && !errorMsg ? { result: resultParsed } : {}),
+              });
+            }
+          }
           break;
         }
 
