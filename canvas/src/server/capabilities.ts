@@ -196,6 +196,17 @@ export const TOOL_POLICY: Record<string, ToolPolicy> = {
       'Search the brand image library (DAM) by query before requesting image generation.',
     sideEffect: 'read',
   },
+
+  // generate_image is registered here (dispatch 3 builds the executor).
+  // The policy is registered early so the cost-cap + permission wrapper can
+  // enforce spend limits before the tool is callable in production.
+  generate_image: {
+    name: 'generate_image',
+    tier: 'ask-first',
+    costProfile: 'image-api',
+    responsibility: 'Generate a new image via the Gemini image API.',
+    sideEffect: 'spend-api',
+  },
 };
 
 export function getToolPolicy(name: string): ToolPolicy | undefined {
