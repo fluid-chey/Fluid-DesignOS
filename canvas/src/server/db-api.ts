@@ -1527,8 +1527,8 @@ export function insertGeneratedAsset(params: {
 }): BrandAsset {
   const db = getDb();
   db.prepare(
-    `INSERT INTO brand_assets (id, name, category, file_path, mime_type, size_bytes, tags, description, source, dam_deleted, metadata)
-     VALUES (?, ?, 'images', ?, ?, ?, '[]', NULL, 'generated', 0, ?)`,
+    `INSERT INTO brand_assets (id, name, category, file_path, mime_type, size_bytes, tags, description, source, dam_deleted, metadata, created_at)
+     VALUES (?, ?, 'images', ?, ?, ?, '[]', NULL, 'generated', 0, ?, ?)`,
   ).run(
     params.id,
     params.name,
@@ -1536,6 +1536,7 @@ export function insertGeneratedAsset(params: {
     params.mimeType,
     params.sizeBytes,
     JSON.stringify(params.metadata),
+    Date.now(),
   );
 
   return {
