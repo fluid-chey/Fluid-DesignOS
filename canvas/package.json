@@ -23,6 +23,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.79.0",
     "@fluid-commerce/dam-picker": "^0.1.0",
+    "@google/genai": "^1.50.1",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@radix-ui/react-dialog": "^1.1.15",
