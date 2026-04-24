@@ -589,6 +589,15 @@ export function editCreation(
   fs.mkdirSync(path.dirname(htmlAbsPath), { recursive: true });
   fs.writeFileSync(htmlAbsPath, mergedHtml, 'utf-8');
 
+  // A zero-byte overwrite would leave the DB row pointing at an empty file.
+  const written = fs.statSync(htmlAbsPath);
+  if (written.size === 0) {
+    try {
+      fs.unlinkSync(htmlAbsPath);
+    } catch {}
+    throw new Error(`HTML file write produced 0 bytes: ${htmlAbsPath}`);
+  }
+
   if (slotSchema !== undefined) {
     db.prepare(`UPDATE iterations SET slot_schema = ? WHERE id = ?`).run(
       JSON.stringify(slotSchema),
