@@ -8,7 +8,11 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
-const ARCHETYPES_DIR = path.join(PROJECT_ROOT, 'archetypes');
+// FLUID_ARCHETYPES_DIR lets tests point at a temp fixtures directory.
+// Matches the pattern in tools/validate-archetypes.cjs.
+const ARCHETYPES_DIR = process.env.FLUID_ARCHETYPES_DIR
+  ? path.resolve(process.env.FLUID_ARCHETYPES_DIR)
+  : path.join(PROJECT_ROOT, 'archetypes');
 
 // Known creation types — must match the platform names referenced in the system
 // prompt, validation-hooks.runValidation, and dimension-check.cjs targets.
@@ -136,6 +140,39 @@ export function readTemplate(id: number): any | null {
   return { ...tmpl, designRules: rules };
 }
 
+// ─── Archetype types ──────────────────────────────────────────────────────────
+// Co-located with listArchetypes/readArchetype; no shared location exists for
+// filesystem-derived archetype shapes yet.
+
+export type ImageRole = 'none' | 'accent' | 'background' | 'hero' | 'grid';
+export type ContentDensity = 'sparse' | 'moderate' | 'dense';
+
+export interface ArchetypeMeta {
+  category: string;
+  imageRole: ImageRole;
+  useCases: string[];
+  slotCount: number;
+  mood?: string[];
+  contentDensity?: ContentDensity;
+  imageHints?: {
+    suggestedAspect?: string;
+    suggestedSubject?: string;
+    treatment?: string;
+    damPreference?: string[];
+  };
+  avoidCases?: string[];
+}
+
+/** Minimal shape of a parsed schema.json — only the fields listArchetypes reads. */
+export interface ArchetypeSchemaShape {
+  archetypeId?: string;
+  platform?: string;
+  width?: number;
+  height?: number;
+  fields?: unknown[];
+  meta?: ArchetypeMeta;
+}
+
 export interface ArchetypeListItem {
   slug: string;
   name: string;
@@ -149,6 +186,14 @@ export interface ArchetypeListItem {
 
 /**
  * List archetypes with optional filters and rich meta projection.
+ *
+ * Results are ordered alphabetically by slug (deterministic across platforms —
+ * readdirSync order is filesystem-dependent, so we sort before filtering so
+ * pageSize truncation produces the same results on macOS, Linux, and Windows).
+ *
+ * A malformed schema.json is skipped (logged as archetype_schema_parse_failed)
+ * rather than silently appearing with falsy platform/category/meta that would
+ * bypass every filter.
  *
  * @param opts.category  Filter by meta.category (e.g. "hero-photo", "stat-data")
  * @param opts.platform  Filter by platform (e.g. "instagram-portrait", "instagram-square")
@@ -173,6 +218,11 @@ export function listArchetypes(opts: {
     throw err;
   }
 
+  // Sort for deterministic ordering — readdirSync order is FS-dependent.
+  // Without this, pageSize truncation could drop different archetypes on
+  // different platforms when count > pageSize.
+  dirs.sort((a, b) => a.name.localeCompare(b.name));
+
   const results: ArchetypeListItem[] = [];
 
   for (const d of dirs) {
@@ -180,9 +230,19 @@ export function listArchetypes(opts: {
 
     const schemaPath = path.join(ARCHETYPES_DIR, d.name, 'schema.json');
     const raw = tryReadFile(schemaPath);
-    let schema: any = null;
+    let schema: ArchetypeSchemaShape | null = null;
     if (raw != null) {
-      try { schema = JSON.parse(raw); } catch {}
+      try {
+        schema = JSON.parse(raw) as ArchetypeSchemaShape;
+      } catch (err) {
+        // A corrupted schema.json must not leak into results with falsy
+        // fields that bypass every filter. Log and skip.
+        logChatEvent('archetype_schema_parse_failed', {
+          slug: d.name,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
     }
 
     // Derive platform from schema.platform or slug suffix convention
@@ -192,12 +252,12 @@ export function listArchetypes(opts: {
          : d.name.endsWith('-op') ? 'one-pager'
          : 'instagram-square');
 
-    const meta = schema?.meta ?? null;
+    const meta: ArchetypeMeta | null = schema?.meta ?? null;
     const category: string | null = meta?.category ?? null;
     const imageRole: string | null = meta?.imageRole ?? null;
-    const mood: string[] = Array.isArray(meta?.mood) ? meta.mood : [];
+    const mood: string[] = Array.isArray(meta?.mood) ? meta!.mood! : [];
     const slotCount: number | null = meta?.slotCount ?? null;
-    const useCases: string[] = Array.isArray(meta?.useCases) ? meta.useCases : [];
+    const useCases: string[] = Array.isArray(meta?.useCases) ? meta!.useCases : [];
 
     // Apply filters
     if (opts.category && category !== opts.category) continue;

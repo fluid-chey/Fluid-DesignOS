@@ -248,3 +248,19 @@ describe('normalizePlatform accepts instagram-portrait', () => {
   });
 });
 
+// ─── Determinism: sorted results ──────────────────────────────────────────────
+describe('listArchetypes returns deterministic order', () => {
+  it('results are sorted alphabetically by slug', () => {
+    const results = listArchetypes({ pageSize: 50 });
+    const slugs = results.map(r => r.slug);
+    const sorted = [...slugs].sort();
+    expect(slugs).toEqual(sorted);
+  });
+
+  it('filtered results are also sorted', () => {
+    const results = listArchetypes({ platform: 'instagram-portrait', pageSize: 50 });
+    const slugs = results.map(r => r.slug);
+    const sorted = [...slugs].sort();
+    expect(slugs).toEqual(sorted);
+  });
+});
