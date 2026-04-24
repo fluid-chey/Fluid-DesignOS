@@ -3,6 +3,9 @@
  * The Brand Brief section is injected dynamically from the DB.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 // Tier 1: Static system rules (brand-agnostic, universal)
 const TIER1_PROMPT = `You are a creative partner for a brand design system. You generate marketing assets, discuss brand strategy, and iterate based on user feedback.
 
@@ -11,11 +14,12 @@ const TIER1_PROMPT = `You are a creative partner for a brand design system. You 
 When creating an asset:
 1. Review the Brand Brief below for context
 2. Choose an appropriate archetype (use list_archetypes / read_archetype)
-3. Generate complete, self-contained HTML
-4. Render a preview to visually check your work
-5. Fix obvious issues (spacing, hierarchy, missing elements)
-6. Save with save_creation — the system will validate automatically and tell you if there are issues
-7. Present to the user: "Here you go, what next?"
+3. If the chosen archetype has imageRole: 'background' | 'hero' | 'grid' | 'accent', call \`search_brand_images\` with a query matching the archetype's damPreference and the post's subject. If top result score ≥ 5 use it. If top result score < 3 AND the content genuinely benefits from imagery, call \`generate_image\` with a prompt built using the gemini-social-image skill (call \`read_skill\` with name "gemini-social-image" first).
+4. Generate complete, self-contained HTML
+5. Render a preview to visually check your work
+6. Fix obvious issues (spacing, hierarchy, missing elements)
+7. Save with save_creation — the system will validate automatically and tell you if there are issues
+8. Present to the user: "Here you go, what next?"
 
 ## Structural Rules (non-negotiable)
 
@@ -25,6 +29,7 @@ When creating an asset:
 - Only use fonts that appear in the Asset Manifest section of the Brand Brief.
 - Every creation must include a complete SlotSchema based on an archetype.
 - Use the background-layer / content / foreground-layer structure from archetypes.
+- Prefer image-led backgrounds for social posts. When an archetype supports imageRole: 'background' or 'hero', use an actual photo from the DAM (or generate one). Decorative-only backgrounds are the fallback, not the default.
 
 ## Intent Gating
 
@@ -57,6 +62,20 @@ export interface SystemPromptParts {
   dynamicPart: string;
 }
 
+// Cache taste skill file content to avoid repeated disk reads.
+let cachedTasteSkill: string | null = null;
+
+const SKILLS_DIR = path.resolve(import.meta.dirname, 'skills');
+
+const SOCIAL_CREATION_TYPES = new Set([
+  'instagram',
+  'instagram-portrait',
+  'instagram-square',
+  'linkedin',
+  'twitter',
+  'facebook',
+]);
+
 /**
  * Build the system prompt as two parts: a static block (Tier 1 rules + Brand
  * Brief) that can be prompt-cached, and a dynamic block (UI context) that must
@@ -64,6 +83,12 @@ export interface SystemPromptParts {
  *
  * Callers are expected to assemble these into `Anthropic.TextBlockParam[]` and
  * apply `cache_control: { type: 'ephemeral' }` to the static part only.
+ *
+ * @param brandBrief  - Brand Brief from the DB (may be empty string).
+ * @param uiContext   - Optional UI context for the dynamic section.
+ * @param activeCreationType - Optional creation type (e.g. 'instagram', 'linkedin').
+ *   When it's a social platform, the social-media-taste skill is appended to
+ *   staticParts to guide content quality. File read is cached after first load.
  */
 export function buildSystemPrompt(
   brandBrief: string,
@@ -72,10 +97,34 @@ export function buildSystemPrompt(
     activeCampaignId?: string;
     activeCreationId?: string;
     activeIterationId?: string;
+    creationType?: string;
   } | null,
+  activeCreationType?: string,
 ): SystemPromptParts {
+  // Resolve effective creation type: explicit param takes precedence over uiContext
+  const effectiveCreationType = activeCreationType ?? uiContext?.creationType;
+
   const staticParts = [TIER1_PROMPT];
   if (brandBrief) staticParts.push(brandBrief);
+
+  // Conditionally inject social-media-taste skill for social creation types
+  if (effectiveCreationType && SOCIAL_CREATION_TYPES.has(effectiveCreationType)) {
+    if (cachedTasteSkill === null) {
+      try {
+        cachedTasteSkill = fs.readFileSync(
+          path.join(SKILLS_DIR, 'social-media-taste-skill.md'),
+          'utf-8',
+        );
+      } catch {
+        // If the file can't be read, don't fail the whole prompt — just skip
+        cachedTasteSkill = '';
+      }
+    }
+    if (cachedTasteSkill) {
+      staticParts.push(cachedTasteSkill);
+    }
+  }
+
   const staticPart = staticParts.join('\n\n');
 
   const dynamicPart = uiContext
