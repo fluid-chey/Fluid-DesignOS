@@ -112,8 +112,29 @@ const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
   {
     name: 'list_archetypes',
-    description: 'List layout archetypes with slug, name, and slot labels.',
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    description: 'List layout archetypes with slug, name, platform, category, mood, imageRole, slotCount, and useCases. Use filters to narrow the list before selecting. Default page size 25, max 50.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        category: {
+          type: 'string',
+          description: 'Filter by category (e.g. "hero-photo", "stat-data", "quote-testimonial", "announcement", "photo-collage", "tips-howto", "personal-about", "product", "motivational", "carousel-cover")',
+        },
+        platform: {
+          type: 'string',
+          description: 'Filter by platform: "instagram-portrait" (4:5, 1080×1350), "instagram-square" (1:1, 1080×1080), "linkedin-landscape", "one-pager"',
+        },
+        imageRole: {
+          type: 'string',
+          description: 'Filter by how images are used: "none" (text-only), "background" (full-bleed), "hero" (dominant), "accent" (supporting), "grid" (multi-photo)',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Max results to return (default 25, hard max 50)',
+        },
+      },
+      required: [],
+    },
   },
   {
     name: 'read_archetype',
@@ -359,7 +380,12 @@ async function executeTool(
     case 'read_template':
       return JSON.stringify(readTemplate(input.id));
     case 'list_archetypes':
-      return JSON.stringify(listArchetypes());
+      return JSON.stringify(listArchetypes({
+        category: input.category as string | undefined,
+        platform: input.platform as string | undefined,
+        imageRole: input.imageRole as string | undefined,
+        pageSize: input.pageSize as number | undefined,
+      }));
     case 'read_archetype':
       return JSON.stringify(readArchetype(input.slug));
 

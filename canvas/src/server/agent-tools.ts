@@ -130,7 +130,33 @@ export function readTemplate(id: number): any | null {
   return { ...tmpl, designRules: rules };
 }
 
-export function listArchetypes(): { slug: string; name: string; slots: string[] }[] {
+export interface ArchetypeListItem {
+  slug: string;
+  name: string;
+  platform: string;
+  category: string | null;
+  mood: string[];
+  imageRole: string | null;
+  slotCount: number | null;
+  useCases: string[];
+}
+
+/**
+ * List archetypes with optional filters and rich meta projection.
+ *
+ * @param opts.category  Filter by meta.category (e.g. "hero-photo", "stat-data")
+ * @param opts.platform  Filter by platform (e.g. "instagram-portrait", "instagram-square")
+ * @param opts.imageRole Filter by meta.imageRole (e.g. "background", "hero", "none")
+ * @param opts.pageSize  Max results (default 25, hard max 50)
+ */
+export function listArchetypes(opts: {
+  category?: string;
+  platform?: string;
+  imageRole?: string;
+  pageSize?: number;
+} = {}): ArchetypeListItem[] {
+  const pageSize = Math.min(opts.pageSize ?? 25, 50);
+
   let dirs: fs.Dirent[];
   try {
     dirs = fs
@@ -141,22 +167,50 @@ export function listArchetypes(): { slug: string; name: string; slots: string[] 
     throw err;
   }
 
-  return dirs.map((d) => {
+  const results: ArchetypeListItem[] = [];
+
+  for (const d of dirs) {
+    if (results.length >= pageSize) break;
+
     const schemaPath = path.join(ARCHETYPES_DIR, d.name, 'schema.json');
     const raw = tryReadFile(schemaPath);
-    let slots: string[] = [];
+    let schema: any = null;
     if (raw != null) {
-      try {
-        const schema = JSON.parse(raw);
-        slots = (schema.slots ?? []).map((s: any) => s.label ?? s.selector);
-      } catch {}
+      try { schema = JSON.parse(raw); } catch {}
     }
-    return {
+
+    // Derive platform from schema.platform or slug suffix convention
+    const derivedPlatform: string = schema?.platform
+      ? schema.platform
+      : (d.name.endsWith('-li') ? 'linkedin-landscape'
+         : d.name.endsWith('-op') ? 'one-pager'
+         : 'instagram-square');
+
+    const meta = schema?.meta ?? null;
+    const category: string | null = meta?.category ?? null;
+    const imageRole: string | null = meta?.imageRole ?? null;
+    const mood: string[] = Array.isArray(meta?.mood) ? meta.mood : [];
+    const slotCount: number | null = meta?.slotCount ?? null;
+    const useCases: string[] = Array.isArray(meta?.useCases) ? meta.useCases : [];
+
+    // Apply filters
+    if (opts.category && category !== opts.category) continue;
+    if (opts.platform && derivedPlatform !== opts.platform) continue;
+    if (opts.imageRole && imageRole !== opts.imageRole) continue;
+
+    results.push({
       slug: d.name,
       name: d.name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      slots,
-    };
-  });
+      platform: derivedPlatform,
+      category,
+      mood,
+      imageRole,
+      slotCount,
+      useCases,
+    });
+  }
+
+  return results;
 }
 
 // Archetype slugs are directory names under archetypes/. Agent input is
