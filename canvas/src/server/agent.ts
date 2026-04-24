@@ -49,6 +49,8 @@ import {
 } from './agent-tools';
 
 import type { ServerResponse } from 'node:http';
+import { dispatchTool } from './tool-dispatch';
+import type { DispatchContext } from './tool-dispatch';
 
 // ─── Tool Definitions ───
 
@@ -338,6 +340,13 @@ export function sendSSE(res: ServerResponse, event: string, data: unknown): void
 
 const activeSessions = new Map<string, Set<AbortController>>();
 
+/**
+ * Session-scoped approval sets. Persists across reconnects within the same
+ * server process so users don't have to re-approve tools after connection
+ * hiccups. Keyed by chatId (same as activeSessions).
+ */
+const sessionAutoApproved = new Map<string, Set<string>>();
+
 export function cancelChat(chatId: string): void {
   const controllers = activeSessions.get(chatId);
   if (!controllers) return;
@@ -360,6 +369,7 @@ export function __getActiveSessionCount(chatId: string): number {
 }
 export function __clearActiveSessionsForTests(): void {
   activeSessions.clear();
+  sessionAutoApproved.clear();
 }
 
 // ─── Tool Executor ───
@@ -740,6 +750,25 @@ async function runAgentImpl(
   }
   sessionSet.add(controller);
 
+  // Session-scoped approval set: persists across reconnects in the same process.
+  // We create it lazily so first-time chats start with an empty set.
+  let autoApproved = sessionAutoApproved.get(chatId);
+  if (!autoApproved) {
+    autoApproved = new Set<string>();
+    sessionAutoApproved.set(chatId, autoApproved);
+  }
+
+  // trusted=true bypasses ask-first prompts. Set via env var for solo-dev use.
+  const trusted = process.env.FLUID_DISPATCH_TRUSTED === 'true';
+
+  const dispatchCtx: DispatchContext = {
+    chatId,
+    res,
+    signal,
+    autoApproved,
+    trusted,
+  };
+
   // Validate API key before attempting anything — the SDK lazily validates on the
   // first request and the error message ("Could not resolve authentication method")
   // is not user-friendly.
@@ -934,9 +963,16 @@ async function runAgentImpl(
           }
 
           const toolStart = Date.now();
-          try {
-            const result = await executeTool(call.name, call.input, uiContext, signal);
+          // Route through the dispatch wrapper: permission tiers, cost cap, audit log.
+          const dispatched = await dispatchTool(
+            call.name,
+            call.input as Record<string, unknown>,
+            dispatchCtx,
+            () => executeTool(call.name, call.input, uiContext, signal),
+          );
 
+          if (dispatched.outcome === 'ok') {
+            const result = dispatched.result!;
             toolResults.push({ tool_use_id: call.id, content: result });
             logChatEvent('tool_exec_metric', {
               tool: call.name,
@@ -946,10 +982,10 @@ async function runAgentImpl(
 
             // Send SSE summary (skip image data to avoid bloating the stream)
             if (Array.isArray(result)) {
-              const hasImage = result.some((b: any) => b.type === 'image');
-              const textParts = result
+              const hasImage = (result as any[]).some((b: any) => b.type === 'image');
+              const textParts = (result as any[])
                 .filter((b: any) => b.type === 'text')
-                .map((b: any) => b.text);
+                .map((b: any) => b.text as string);
               sendSSE(res, 'tool_result', {
                 toolUseId: call.id,
                 name: call.name,
@@ -958,7 +994,7 @@ async function runAgentImpl(
               });
             } else {
               // result is a JSON string
-              const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+              const parsed = typeof result === 'string' ? JSON.parse(result as string) : result;
               sendSSE(res, 'tool_result', {
                 toolUseId: call.id,
                 name: call.name,
@@ -984,7 +1020,48 @@ async function runAgentImpl(
                 }
               }
             }
-          } catch (err: any) {
+          } else if (dispatched.outcome === 'denied') {
+            // User denied permission — send a message the model can reason about.
+            const denialMsg = `User declined permission for tool '${call.name}'. Proceed without it or ask differently.`;
+            toolResults.push({
+              tool_use_id: call.id,
+              content: JSON.stringify({ error: denialMsg }),
+            });
+            sendSSE(res, 'tool_result', {
+              toolUseId: call.id,
+              name: call.name,
+              hasImage: false,
+              error: denialMsg,
+            });
+          } else if (dispatched.outcome === 'capped') {
+            const capMsg =
+              "Daily image generation cap reached — cannot generate now. Consider searching the DAM or retrying tomorrow.";
+            toolResults.push({
+              tool_use_id: call.id,
+              content: JSON.stringify({ error: capMsg }),
+            });
+            sendSSE(res, 'tool_result', {
+              toolUseId: call.id,
+              name: call.name,
+              hasImage: false,
+              error: capMsg,
+            });
+          } else if (dispatched.outcome === 'blocked_safety') {
+            const safetyMsg =
+              "Image generation was blocked by a safety filter. Revise the prompt and try again.";
+            toolResults.push({
+              tool_use_id: call.id,
+              content: JSON.stringify({ error: safetyMsg }),
+            });
+            sendSSE(res, 'tool_result', {
+              toolUseId: call.id,
+              name: call.name,
+              hasImage: false,
+              error: safetyMsg,
+            });
+          } else {
+            // outcome === 'error'
+            const err = dispatched.error;
             const errorMsg = err?.message ?? 'Tool execution failed';
             // Classify input-shape errors separately so they can be filtered
             // from real tool crashes during post-mortem analysis.
