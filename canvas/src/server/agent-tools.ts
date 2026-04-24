@@ -14,8 +14,13 @@ const ARCHETYPES_DIR = path.join(PROJECT_ROOT, 'archetypes');
 // prompt, validation-hooks.runValidation, and dimension-check.cjs targets.
 // Used to reject malformed agent inputs early rather than letting them propagate
 // into the brand compliance / dimension-check subprocesses.
+// Keep in sync with:
+//   - canvas/src/server/validation-hooks.ts (runValidation switch on platform)
+//   - tools/dimension-check.cjs KNOWN_DIMENSIONS map
+//   - canvas/src/server/agent-system-prompt.ts Platform Dimensions section
 const KNOWN_PLATFORMS = new Set([
   'instagram',
+  'instagram-portrait',
   'instagram-square',
   'instagram-story',
   'linkedin',
@@ -24,7 +29,8 @@ const KNOWN_PLATFORMS = new Set([
   'one-pager',
 ]);
 
-function normalizePlatform(platform: string): string {
+// Exported for testability. Also invoked internally by saveCreation.
+export function normalizePlatform(platform: string): string {
   const p = platform.toLowerCase().trim();
   if (!KNOWN_PLATFORMS.has(p)) {
     logChatEvent('platform_rejected', { platform, known: [...KNOWN_PLATFORMS] });

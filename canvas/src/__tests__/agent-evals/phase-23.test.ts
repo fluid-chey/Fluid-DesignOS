@@ -19,7 +19,7 @@ import * as path from 'path';
 process.env.FLUID_ARCHETYPES_DIR = path.resolve(__dirname, '../../../../archetypes');
 
 // Import after env var is set
-import { listArchetypes } from '../../server/agent-tools';
+import { listArchetypes, normalizePlatform } from '../../server/agent-tools';
 
 // ─── Golden task 1: Stat/data content for a quarterly review ─────────────────
 describe('golden-task: stat/data quarterly review post (4:5)', () => {
@@ -226,3 +226,25 @@ describe('listArchetypes meta projection', () => {
     expect(slugs).toContain('quote-testimonial');
   });
 });
+
+// ─── normalizePlatform accepts instagram-portrait ─────────────────────────────
+// Regression guard: the system prompt now advertises 'instagram-portrait' as
+// the default Instagram platform. If normalizePlatform doesn't accept it,
+// saveCreation will throw at runtime.
+describe('normalizePlatform accepts instagram-portrait', () => {
+  it('does not throw for instagram-portrait', () => {
+    expect(() => normalizePlatform('instagram-portrait')).not.toThrow();
+    expect(normalizePlatform('instagram-portrait')).toBe('instagram-portrait');
+  });
+
+  it('accepts other known platforms unchanged', () => {
+    for (const p of ['instagram', 'instagram-square', 'instagram-story', 'linkedin', 'facebook', 'twitter', 'one-pager']) {
+      expect(() => normalizePlatform(p)).not.toThrow();
+    }
+  });
+
+  it('still rejects unknown platforms', () => {
+    expect(() => normalizePlatform('tiktok')).toThrow(/Unknown platform/);
+  });
+});
+
